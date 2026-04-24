@@ -1,3 +1,9 @@
+# Local-only folders
+.kiro/
+tests/
+docs/
+scripts/
+
 # Dependencies
 node_modules/
 npm-debug.log*
