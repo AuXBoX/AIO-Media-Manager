@@ -1,0 +1,38 @@
+# Build outputs
+dist
+dist-electron
+build
+
+# Dependencies
+node_modules
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage
+
+# Logs
+*.log
+
+# Generated files
+*.min.js
+*.min.css
+
+# Documentation (preserve formatting)
+CHANGELOG.md
