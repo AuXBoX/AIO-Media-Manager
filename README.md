@@ -235,12 +235,11 @@ Alternatively, visit: https://support.plex.tv/articles/204059436-finding-an-auth
       poster.jpg
       fanart.jpg
       clearlogo.png
-      /Trailers
-         Movie Name-trailer.mp4
-         Movie Name-trailer2.mp4
+      Movie Name-trailer.mp4
+      Movie Name-trailer2.mp4
 ```
 
-Note: Trailers are named `MovieName-trailer.ext` for the first trailer, and `MovieName-trailer2.ext`, `MovieName-trailer3.ext` for additional trailers.
+Note: Trailers are placed directly in the movie folder and named `MovieName-trailer.ext` for the first trailer, and `MovieName-trailer2.ext`, `MovieName-trailer3.ext` for additional trailers.
 
 **TV Shows:**
 ```
@@ -249,15 +248,14 @@ Note: Trailers are named `MovieName-trailer.ext` for the first trailer, and `Mov
       tvshow.nfo
       show.jpg
       fanart.jpg
-      /Trailers
-         Show Name-trailer.mp4
+      Show Name-trailer.mp4
       /Season 01
          Show Name - s01e01 - Episode.mkv
          Show Name - s01e01 - Episode.nfo
          Show Name - s01e01 - Episode.jpg
 ```
 
-Note: Trailers are named `ShowName-trailer.ext` for the first trailer, and `ShowName-trailer2.ext`, `ShowName-trailer3.ext` for additional trailers.
+Note: Trailers are placed directly in the show folder and named `ShowName-trailer.ext` for the first trailer, and `ShowName-trailer2.ext`, `ShowName-trailer3.ext` for additional trailers.
 
 **Music:**
 ```
