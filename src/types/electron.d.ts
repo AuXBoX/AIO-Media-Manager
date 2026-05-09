@@ -31,6 +31,33 @@ export interface ElectronAPI {
   scanForTrailers: (directory: string, baseFilename: string) => Promise<string[]>;
   scanForSubtitles: (directory: string, baseFilename: string) => Promise<string[]>;
   openFile: (filePath: string) => Promise<boolean>;
+  
+  // FFmpeg operations
+  ffprobe: (mediaFilePath: string) => Promise<any[]>;
+  ffmpegExtractSubtitle: (
+    mediaFilePath: string,
+    subtitleIndex: number,
+    outputPath: string,
+    outputFormat: string
+  ) => Promise<{ success: boolean; outputPath: string }>;
+  ffmpegRemoveSubtitles: (
+    mediaFilePath: string,
+    outputPath: string,
+    removeAll: boolean,
+    streamIndices: number[]
+  ) => Promise<{ success: boolean; outputPath: string }>;
+  ffmpegEmbedSubtitle: (
+    mediaFilePath: string,
+    subtitleFilePath: string,
+    outputPath: string,
+    options: {
+      language: string;
+      title?: string;
+      forced: boolean;
+      default: boolean;
+      codec: string;
+    }
+  ) => Promise<{ success: boolean; outputPath: string }>;
 
   // Embedded metadata operations
   readEmbeddedMetadata: (filePath: string) => Promise<any>;

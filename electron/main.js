@@ -700,3 +700,211 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
+// FFmpeg operations for subtitle management
+let ffmpeg;
+
+function loadFFmpeg() {
+  if (!ffmpeg) {
+    try {
+      ffmpeg = require('fluent-ffmpeg');
+      console.log('FFmpeg module loaded successfully');
+    } catch (error) {
+      console.error('Failed to load FFmpeg module:', error);
+      throw error;
+    }
+  }
+}
+
+// Get embedded subtitles using FFprobe
+ipcMain.handle('ffprobe', async (event, mediaFilePath) => {
+  try {
+    loadFFmpeg();
+    
+    return new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(mediaFilePath, (err, metadata) => {
+        if (err) {
+          console.error('[FFprobe] Error:', err);
+          reject(new Error(`FFprobe failed: ${err.message}`));
+          return;
+        }
+        
+        // Return streams array
+        resolve(metadata.streams || []);
+      });
+    });
+  } catch (error) {
+    console.error('[FFprobe] Failed:', error);
+    throw new Error(`FFprobe failed: ${error.message}`);
+  }
+});
+
+// Extract subtitle from video file
+ipcMain.handle('ffmpegExtractSubtitle', async (event, mediaFilePath, subtitleIndex, outputPath, outputFormat) => {
+  try {
+    loadFFmpeg();
+    
+    console.log('[FFmpeg] Extracting subtitle:', { mediaFilePath, subtitleIndex, outputPath, outputFormat });
+    
+    return new Promise((resolve, reject) => {
+      const command = ffmpeg(mediaFilePath);
+      
+      // Map the subtitle stream
+      command
+        .outputOptions([
+          `-map 0:s:${subtitleIndex}`, // Select subtitle stream by index
+        ])
+        .output(outputPath);
+      
+      // Set output format if specified
+      if (outputFormat) {
+        command.outputFormat(outputFormat);
+      }
+      
+      command
+        .on('start', (commandLine) => {
+          console.log('[FFmpeg] Command:', commandLine);
+        })
+        .on('progress', (progress) => {
+          console.log('[FFmpeg] Progress:', progress.percent ? `${progress.percent.toFixed(1)}%` : 'processing...');
+        })
+        .on('end', () => {
+          console.log('[FFmpeg] Extraction complete:', outputPath);
+          resolve({ success: true, outputPath });
+        })
+        .on('error', (err) => {
+          console.error('[FFmpeg] Extraction error:', err);
+          reject(new Error(`FFmpeg extraction failed: ${err.message}`));
+        })
+        .run();
+    });
+  } catch (error) {
+    console.error('[FFmpeg] Extract failed:', error);
+    throw new Error(`FFmpeg extract failed: ${error.message}`);
+  }
+});
+
+// Remove subtitles from video file
+ipcMain.handle('ffmpegRemoveSubtitles', async (event, mediaFilePath, outputPath, removeAll, streamIndices) => {
+  try {
+    loadFFmpeg();
+    
+    console.log('[FFmpeg] Removing subtitles:', { mediaFilePath, outputPath, removeAll, streamIndices });
+    
+    return new Promise((resolve, reject) => {
+      const command = ffmpeg(mediaFilePath);
+      
+      if (removeAll) {
+        // Remove all subtitle streams
+        command.outputOptions([
+          '-map 0', // Map all streams
+          '-map -0:s', // Remove all subtitle streams
+          '-c copy', // Copy without re-encoding
+        ]);
+      } else if (streamIndices && streamIndices.length > 0) {
+        // Remove specific subtitle streams
+        const mapOptions = ['-map 0', '-c copy'];
+        
+        // Add negative map for each stream to remove
+        streamIndices.forEach(index => {
+          mapOptions.push(`-map -0:s:${index}`);
+        });
+        
+        command.outputOptions(mapOptions);
+      } else {
+        reject(new Error('Must specify either removeAll or streamIndices'));
+        return;
+      }
+      
+      command
+        .output(outputPath)
+        .on('start', (commandLine) => {
+          console.log('[FFmpeg] Command:', commandLine);
+        })
+        .on('progress', (progress) => {
+          console.log('[FFmpeg] Progress:', progress.percent ? `${progress.percent.toFixed(1)}%` : 'processing...');
+        })
+        .on('end', () => {
+          console.log('[FFmpeg] Removal complete:', outputPath);
+          resolve({ success: true, outputPath });
+        })
+        .on('error', (err) => {
+          console.error('[FFmpeg] Removal error:', err);
+          reject(new Error(`FFmpeg removal failed: ${err.message}`));
+        })
+        .run();
+    });
+  } catch (error) {
+    console.error('[FFmpeg] Remove failed:', error);
+    throw new Error(`FFmpeg remove failed: ${error.message}`);
+  }
+});
+
+// Embed subtitle into video file
+ipcMain.handle('ffmpegEmbedSubtitle', async (event, mediaFilePath, subtitleFilePath, outputPath, options) => {
+  try {
+    loadFFmpeg();
+    
+    console.log('[FFmpeg] Embedding subtitle:', { mediaFilePath, subtitleFilePath, outputPath, options });
+    
+    return new Promise((resolve, reject) => {
+      const command = ffmpeg(mediaFilePath);
+      
+      // Add subtitle file as input
+      command.input(subtitleFilePath);
+      
+      // Build output options
+      const outputOptions = [
+        '-map 0', // Map all streams from video
+        '-map 1', // Map subtitle file
+        '-c copy', // Copy video/audio without re-encoding
+      ];
+      
+      // Set subtitle codec
+      if (options.codec && options.codec !== 'copy') {
+        outputOptions.push(`-c:s ${options.codec}`);
+      } else {
+        outputOptions.push('-c:s copy');
+      }
+      
+      // Set subtitle metadata
+      const metadataOptions = [];
+      if (options.language) {
+        metadataOptions.push(`-metadata:s:s:0 language=${options.language}`);
+      }
+      if (options.title) {
+        metadataOptions.push(`-metadata:s:s:0 title="${options.title}"`);
+      }
+      
+      // Set disposition flags
+      if (options.default) {
+        metadataOptions.push('-disposition:s:0 default');
+      }
+      if (options.forced) {
+        metadataOptions.push('-disposition:s:0 forced');
+      }
+      
+      command
+        .outputOptions([...outputOptions, ...metadataOptions])
+        .output(outputPath)
+        .on('start', (commandLine) => {
+          console.log('[FFmpeg] Command:', commandLine);
+        })
+        .on('progress', (progress) => {
+          console.log('[FFmpeg] Progress:', progress.percent ? `${progress.percent.toFixed(1)}%` : 'processing...');
+        })
+        .on('end', () => {
+          console.log('[FFmpeg] Embedding complete:', outputPath);
+          resolve({ success: true, outputPath });
+        })
+        .on('error', (err) => {
+          console.error('[FFmpeg] Embedding error:', err);
+          reject(new Error(`FFmpeg embedding failed: ${err.message}`));
+        })
+        .run();
+    });
+  } catch (error) {
+    console.error('[FFmpeg] Embed failed:', error);
+    throw new Error(`FFmpeg embed failed: ${error.message}`);
+  }
+});

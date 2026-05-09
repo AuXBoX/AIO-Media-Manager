@@ -17,6 +17,15 @@ contextBridge.exposeInMainWorld('electron', {
   scanForSubtitles: (directory, baseFilename) => ipcRenderer.invoke('fs:scanForSubtitles', directory, baseFilename),
   openFile: (filePath) => ipcRenderer.invoke('fs:openFile', filePath),
   
+  // FFmpeg operations
+  ffprobe: (mediaFilePath) => ipcRenderer.invoke('ffprobe', mediaFilePath),
+  ffmpegExtractSubtitle: (mediaFilePath, subtitleIndex, outputPath, outputFormat) => 
+    ipcRenderer.invoke('ffmpegExtractSubtitle', mediaFilePath, subtitleIndex, outputPath, outputFormat),
+  ffmpegRemoveSubtitles: (mediaFilePath, outputPath, removeAll, streamIndices) => 
+    ipcRenderer.invoke('ffmpegRemoveSubtitles', mediaFilePath, outputPath, removeAll, streamIndices),
+  ffmpegEmbedSubtitle: (mediaFilePath, subtitleFilePath, outputPath, options) => 
+    ipcRenderer.invoke('ffmpegEmbedSubtitle', mediaFilePath, subtitleFilePath, outputPath, options),
+  
   // Embedded metadata operations
   readEmbeddedMetadata: (filePath) => ipcRenderer.invoke('metadata:readEmbedded', filePath),
   writeEmbeddedMetadata: (filePath, metadata) => ipcRenderer.invoke('metadata:writeEmbedded', filePath, metadata),

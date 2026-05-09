@@ -5,6 +5,7 @@ import { createPlexClient } from '@/api/plexClient';
 import { createMetadataManager, type MetadataUpdate } from '@/managers/MetadataManager';
 import { createLocalMetadataManager, type MetadataSaveMode } from '@/managers/LocalMetadataManager';
 import { createSubtitleManager } from '@/managers/SubtitleManager';
+import { createFFmpegManager } from '@/managers/FFmpegManager';
 import { MetadataRefreshModal } from '@/components/library/MetadataRefreshModal';
 import { SubtitleSearchModal } from '@/components/library/SubtitleSearchModal';
 import { queryKeys } from '@/api/queryKeys';
@@ -1110,9 +1111,35 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                         <div className="flex flex-col gap-2">
                           {!subtitle.external && (
                             <button
-                              onClick={() => {
-                                // TODO: Extract subtitle (Phase 4 - FFmpeg integration)
-                                alert('Extract subtitle feature coming soon');
+                              onClick={async () => {
+                                if (confirm(`Extract subtitle: ${subtitle.language}?`)) {
+                                  try {
+                                    const ffmpegManager = createFFmpegManager();
+                                    const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
+                                    
+                                    if (!mediaFilePath) {
+                                      alert('Media file path not found');
+                                      return;
+                                    }
+                                    
+                                    // Extract subtitle
+                                    const outputPath = await ffmpegManager.extractSubtitle(
+                                      mediaFilePath,
+                                      subtitle.id ? parseInt(subtitle.id) : 0,
+                                      { outputFormat: 'srt' }
+                                    );
+                                    
+                                    alert(`Subtitle extracted successfully to: ${outputPath}`);
+                                    
+                                    // Refresh subtitle list
+                                    const subtitleManager = createSubtitleManager();
+                                    const updatedSubtitles = await subtitleManager.scanSubtitles(mediaFilePath);
+                                    setLocalSubtitles(updatedSubtitles);
+                                  } catch (error) {
+                                    console.error('Error extracting subtitle:', error);
+                                    alert(`Failed to extract subtitle: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                  }
+                                }
                               }}
                               className="p-2 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors"
                               title="Extract subtitle"
@@ -1123,9 +1150,35 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             </button>
                           )}
                           <button
-                            onClick={() => {
-                              // TODO: Remove subtitle (Phase 4 - FFmpeg integration)
-                              alert('Remove subtitle feature coming soon');
+                            onClick={async () => {
+                              if (confirm(`Remove subtitle: ${subtitle.language}? This will modify the video file.`)) {
+                                try {
+                                  const ffmpegManager = createFFmpegManager();
+                                  const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
+                                  
+                                  if (!mediaFilePath) {
+                                    alert('Media file path not found');
+                                    return;
+                                  }
+                                  
+                                  // Remove subtitle
+                                  await ffmpegManager.removeSubtitles(
+                                    mediaFilePath,
+                                    {
+                                      createBackup: true,
+                                      streamIndices: [subtitle.id ? parseInt(subtitle.id) : 0],
+                                    }
+                                  );
+                                  
+                                  alert('Subtitle removed successfully. A backup was created.');
+                                  
+                                  // Refresh metadata
+                                  await refetch();
+                                } catch (error) {
+                                  console.error('Error removing subtitle:', error);
+                                  alert(`Failed to remove subtitle: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                }
+                              }
                             }}
                             className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
                             title="Remove subtitle"
@@ -1189,9 +1242,40 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                         </div>
                         <div className="flex flex-col gap-2">
                           <button
-                            onClick={() => {
-                              // TODO: Embed subtitle into video (Phase 4 - FFmpeg integration)
-                              alert('Embed subtitle feature coming soon');
+                            onClick={async () => {
+                              if (confirm(`Embed subtitle: ${subtitle.fileName}? This will modify the video file.`)) {
+                                try {
+                                  const ffmpegManager = createFFmpegManager();
+                                  const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
+                                  
+                                  if (!mediaFilePath) {
+                                    alert('Media file path not found');
+                                    return;
+                                  }
+                                  
+                                  // Embed subtitle
+                                  await ffmpegManager.embedSubtitle(
+                                    mediaFilePath,
+                                    subtitle.path,
+                                    {
+                                      language: subtitle.language,
+                                      languageCode: subtitle.languageCode,
+                                      title: subtitle.fileName,
+                                      forced: subtitle.forced,
+                                      default: false,
+                                      codec: 'copy',
+                                    }
+                                  );
+                                  
+                                  alert('Subtitle embedded successfully.');
+                                  
+                                  // Refresh metadata
+                                  await refetch();
+                                } catch (error) {
+                                  console.error('Error embedding subtitle:', error);
+                                  alert(`Failed to embed subtitle: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                }
+                              }
                             }}
                             className="p-2 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors"
                             title="Embed into video"

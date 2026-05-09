@@ -5,6 +5,7 @@
  */
 
 import type { LocalSubtitle, EmbeddedSubtitle } from '@/types/subtitle';
+import { createFFmpegManager } from '@/managers/FFmpegManager';
 
 export class SubtitleManager {
   /**
@@ -151,12 +152,10 @@ export class SubtitleManager {
 
   /**
    * Get embedded subtitles from video file using FFprobe
-   * This will be implemented in Phase 4 with FFmpeg integration
    */
   async getEmbeddedSubtitles(mediaFilePath: string): Promise<EmbeddedSubtitle[]> {
-    // TODO: Implement FFprobe integration
-    // For now, return empty array
-    return [];
+    const ffmpegManager = createFFmpegManager();
+    return ffmpegManager.getEmbeddedSubtitles(mediaFilePath);
   }
 
   /**
