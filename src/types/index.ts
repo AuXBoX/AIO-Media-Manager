@@ -37,3 +37,56 @@ export interface UserInfo {
   isAdmin: boolean;
   isRestricted: boolean;
 }
+
+/**
+ * External Metadata Provider Types
+ */
+
+export type ExternalProvider = 'tmdb' | 'imdb' | 'tvdb' | 'musicbrainz' | 'discogs' | 'fanart';
+
+export interface SearchResult {
+  externalId: string;
+  title: string;
+  originalTitle?: string;
+  year?: number;
+  thumb?: string;
+  summary?: string;
+  provider: ExternalProvider;
+}
+
+export interface ExternalMetadata {
+  externalId: string;
+  title: string;
+  originalTitle?: string;
+  summary?: string;
+  tagline?: string;
+  rating?: number;
+  year?: number;
+  releaseDate?: string;
+  runtime?: number;
+  genres?: string[];
+  cast?: ExternalCast[];
+  crew?: ExternalCrew[];
+  posters?: string[];
+  backdrops?: string[];
+  provider: ExternalProvider;
+}
+
+export interface ExternalCast {
+  name: string;
+  character: string;
+  profilePath?: string;
+  order: number;
+}
+
+export interface ExternalCrew {
+  name: string;
+  job: string;
+  department: string;
+  profilePath?: string;
+}
+
+/**
+ * Enhanced Metadata Refresh Types
+ */
+export * from './metadata-refresh';

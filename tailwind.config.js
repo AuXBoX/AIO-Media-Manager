@@ -7,6 +7,14 @@ export default {
   ],
   darkMode: 'class', // Enable dark mode with class strategy
   theme: {
+    // Responsive breakpoints (mobile-first)
+    screens: {
+      'sm': '640px',   // Small devices (landscape phones)
+      'md': '768px',   // Medium devices (tablets)
+      'lg': '1024px',  // Large devices (desktops)
+      'xl': '1280px',  // Extra large devices (large desktops)
+      '2xl': '1536px', // 2X large devices (larger desktops)
+    },
     extend: {
       colors: {
         // Primary brand colors (Plex-inspired orange/amber)

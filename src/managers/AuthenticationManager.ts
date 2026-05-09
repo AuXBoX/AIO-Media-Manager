@@ -139,8 +139,20 @@ export class AuthenticationManager implements IAuthenticationManager {
    * Store authentication token securely
    */
   async storeToken(userId: string, token: string): Promise<void> {
-    // Store in localStorage for web, will be enhanced for Electron with secure storage
-    const tokens = this.getStoredTokens();
+    // Use Electron settings storage if available, otherwise localStorage
+    if (typeof window !== 'undefined' && window.electron) {
+      try {
+        const tokens = await this.getStoredTokens();
+        tokens[userId] = token;
+        await window.electron.settings.set('plex_tokens', tokens);
+        return;
+      } catch (error) {
+        console.error('Failed to store token in Electron storage:', error);
+      }
+    }
+    
+    // Fallback to localStorage
+    const tokens = await this.getStoredTokens();
     tokens[userId] = token;
     localStorage.setItem('plex_tokens', JSON.stringify(tokens));
   }
@@ -149,7 +161,7 @@ export class AuthenticationManager implements IAuthenticationManager {
    * Retrieve authentication token
    */
   async getToken(userId: string): Promise<string | null> {
-    const tokens = this.getStoredTokens();
+    const tokens = await this.getStoredTokens();
     return tokens[userId] || null;
   }
 
@@ -157,6 +169,17 @@ export class AuthenticationManager implements IAuthenticationManager {
    * Clear all stored tokens
    */
   async clearTokens(): Promise<void> {
+    // Use Electron settings storage if available
+    if (typeof window !== 'undefined' && window.electron) {
+      try {
+        await window.electron.settings.delete('plex_tokens');
+        return;
+      } catch (error) {
+        console.error('Failed to clear tokens from Electron storage:', error);
+      }
+    }
+    
+    // Fallback to localStorage
     localStorage.removeItem('plex_tokens');
   }
 
@@ -230,9 +253,21 @@ export class AuthenticationManager implements IAuthenticationManager {
   }
 
   /**
-   * Helper: Get stored tokens from localStorage
+   * Helper: Get stored tokens from storage
    */
-  private getStoredTokens(): Record<string, string> {
+  private async getStoredTokens(): Promise<Record<string, string>> {
+    // Use Electron settings storage if available
+    if (typeof window !== 'undefined' && window.electron) {
+      try {
+        const tokens = await window.electron.settings.get('plex_tokens');
+        return tokens || {};
+      } catch (error) {
+        console.error('Failed to get tokens from Electron storage:', error);
+        return {};
+      }
+    }
+    
+    // Fallback to localStorage
     const stored = localStorage.getItem('plex_tokens');
     return stored ? JSON.parse(stored) : {};
   }

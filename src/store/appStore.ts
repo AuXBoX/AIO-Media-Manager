@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import type { UserInfo, PlexServer, ServerConnection } from '@/types';
+import { electronStorage } from '@/utils/electronStorage';
 
 /**
  * Operation status for tracking background operations
@@ -60,99 +61,141 @@ export interface AppState {
 export const useAppStore = create<AppState>()(
   devtools(
     persist(
-      (set) => ({
-        // Initial state
-        isAuthenticated: false,
-        currentUser: null,
-        currentToken: null,
-        selectedServer: null,
-        serverConnection: null,
-        isOnline: true,
-        sidebarOpen: true,
-        selectedLibrary: null,
-        selectedItems: new Set(),
-        activeOperations: new Map(),
+      (set) => {
+        console.log('[AppStore] Creating store...');
+        
+        return {
+          // Initial state
+          isAuthenticated: false,
+          currentUser: null,
+          currentToken: null,
+          selectedServer: null,
+          serverConnection: null,
+          isOnline: true,
+          sidebarOpen: true,
+          selectedLibrary: null,
+          selectedItems: new Set(),
+          activeOperations: new Map(),
 
-        // Actions
-        setAuthentication: (user, token) =>
-          set({
-            isAuthenticated: true,
-            currentUser: user,
-            currentToken: token,
-          }),
+          // Actions
+          setAuthentication: (user, token) => {
+            console.log('[AppStore] setAuthentication called');
+            set({
+              isAuthenticated: true,
+              currentUser: user,
+              currentToken: token,
+            });
+          },
 
-        clearAuthentication: () =>
-          set({
-            isAuthenticated: false,
-            currentUser: null,
-            currentToken: null,
-            selectedServer: null,
-            serverConnection: null,
-          }),
+          clearAuthentication: () => {
+            console.log('[AppStore] clearAuthentication called');
+            set({
+              isAuthenticated: false,
+              currentUser: null,
+              currentToken: null,
+              selectedServer: null,
+              serverConnection: null,
+            });
+          },
 
-        setServer: (server, connection) =>
-          set({
-            selectedServer: server,
-            serverConnection: connection,
-          }),
+          setServer: (server, connection) =>
+            set({
+              selectedServer: server,
+              serverConnection: connection,
+            }),
 
-        setOnlineStatus: (online) =>
-          set({ isOnline: online }),
+          setOnlineStatus: (online) =>
+            set({ isOnline: online }),
 
-        toggleSidebar: () =>
-          set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+          toggleSidebar: () =>
+            set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
-        setSidebarOpen: (open) =>
-          set({ sidebarOpen: open }),
+          setSidebarOpen: (open) =>
+            set({ sidebarOpen: open }),
 
-        selectLibrary: (library) =>
-          set({ selectedLibrary: library }),
+          selectLibrary: (library) =>
+            set({ selectedLibrary: library }),
 
-        toggleItemSelection: (ratingKey) =>
-          set((state) => {
-            const newSelection = new Set(state.selectedItems);
-            if (newSelection.has(ratingKey)) {
-              newSelection.delete(ratingKey);
-            } else {
-              newSelection.add(ratingKey);
-            }
-            return { selectedItems: newSelection };
-          }),
+          toggleItemSelection: (ratingKey) =>
+            set((state) => {
+              const newSelection = new Set(state.selectedItems);
+              if (newSelection.has(ratingKey)) {
+                newSelection.delete(ratingKey);
+              } else {
+                newSelection.add(ratingKey);
+              }
+              return { selectedItems: newSelection };
+            }),
 
-        clearSelection: () =>
-          set({ selectedItems: new Set() }),
+          clearSelection: () =>
+            set({ selectedItems: new Set() }),
 
-        addOperation: (operation) =>
-          set((state) => {
-            const newOperations = new Map(state.activeOperations);
-            newOperations.set(operation.id, operation);
-            return { activeOperations: newOperations };
-          }),
+          addOperation: (operation) =>
+            set((state) => {
+              const newOperations = new Map(state.activeOperations);
+              newOperations.set(operation.id, operation);
+              return { activeOperations: newOperations };
+            }),
 
-        updateOperation: (id, updates) =>
-          set((state) => {
-            const newOperations = new Map(state.activeOperations);
-            const existing = newOperations.get(id);
-            if (existing) {
-              newOperations.set(id, { ...existing, ...updates });
-            }
-            return { activeOperations: newOperations };
-          }),
+          updateOperation: (id, updates) =>
+            set((state) => {
+              const newOperations = new Map(state.activeOperations);
+              const existing = newOperations.get(id);
+              if (existing) {
+                newOperations.set(id, { ...existing, ...updates });
+              }
+              return { activeOperations: newOperations };
+            }),
 
-        removeOperation: (id) =>
-          set((state) => {
-            const newOperations = new Map(state.activeOperations);
-            newOperations.delete(id);
-            return { activeOperations: newOperations };
-          }),
-      }),
+          removeOperation: (id) =>
+            set((state) => {
+              const newOperations = new Map(state.activeOperations);
+              newOperations.delete(id);
+              return { activeOperations: newOperations };
+            }),
+        };
+      },
       {
         name: 'aio-media-manager-storage',
-        partialize: (state) => ({
-          // Only persist these fields
-          sidebarOpen: state.sidebarOpen,
-          selectedLibrary: state.selectedLibrary,
-        }),
+        storage: createJSONStorage(() => electronStorage),
+        skipHydration: false, // Allow hydration
+        partialize: (state) => {
+          console.log('[AppStore] Partializing state for persistence');
+          const partialState = {
+            // Persist authentication and server state
+            isAuthenticated: state.isAuthenticated,
+            currentUser: state.currentUser,
+            currentToken: state.currentToken,
+            selectedServer: state.selectedServer,
+            serverConnection: state.serverConnection,
+            // UI preferences
+            sidebarOpen: state.sidebarOpen,
+            selectedLibrary: state.selectedLibrary,
+          };
+          console.log('[AppStore] Partial state:', {
+            isAuthenticated: partialState.isAuthenticated,
+            hasUser: !!partialState.currentUser,
+            hasToken: !!partialState.currentToken,
+            hasServer: !!partialState.selectedServer,
+          });
+          return partialState;
+        },
+        onRehydrateStorage: () => {
+          console.log('[AppStore] Starting rehydration...');
+          return (state, error) => {
+            if (error) {
+              console.error('[AppStore] ✗ Rehydration failed:', error);
+            } else {
+              console.log('[AppStore] ✓ Rehydration complete');
+              console.log('[AppStore] Rehydrated state:', {
+                isAuthenticated: state?.isAuthenticated,
+                hasUser: !!state?.currentUser,
+                hasToken: !!state?.currentToken,
+                hasServer: !!state?.selectedServer,
+              });
+            }
+          };
+        },
       }
     ),
     { name: 'AppStore' }

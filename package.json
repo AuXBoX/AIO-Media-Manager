@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "description": "A desktop and web application for viewing and editing metadata for movies, TV shows, and music in Plex Media Server libraries",
   "main": "electron/main.js",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:electron": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "build": "tsc && vite build",
-    "build:electron": "tsc && vite build && electron-builder",
+    "build": "tsc --project tsconfig.build.json && vite build",
+    "build:electron": "tsc --project tsconfig.build.json && vite build && electron-builder && node scripts/cleanup-build.js",
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -30,62 +29,82 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
     "@tanstack/react-query": "^5.56.2",
-    "zustand": "^4.5.5",
+    "@tanstack/react-virtual": "^3.13.24",
     "axios": "^1.7.7",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
     "dexie": "^4.0.8",
     "dexie-react-hooks": "^1.1.7",
     "fast-xml-parser": "^4.5.0",
-    "clsx": "^2.1.1",
-    "date-fns": "^3.6.0"
+    "ffmetadata": "^1.7.0",
+    "music-metadata": "^11.12.3",
+    "node-id3": "^0.2.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "ytdl-core": "^4.11.5",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.47.2",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^22.5.5",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "@types/node": "^22.5.5",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.5.0",
     "@typescript-eslint/parser": "^8.5.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "typescript": "^5.6.2",
-    "vite": "^5.4.5",
-    "vite-plugin-electron": "^0.28.7",
-    "vite-plugin-electron-renderer": "^0.14.5",
+    "@vitest/coverage-v8": "^2.1.1",
+    "@vitest/ui": "^2.1.1",
+    "autoprefixer": "^10.4.20",
+    "axios-mock-adapter": "^2.1.0",
+    "concurrently": "^9.0.1",
     "electron": "^32.1.0",
     "electron-builder": "^25.0.5",
     "electron-store": "^10.0.0",
     "electron-updater": "^6.3.4",
-    "tailwindcss": "^3.4.11",
-    "postcss": "^8.4.47",
-    "autoprefixer": "^10.4.20",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.35.0",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.12",
-    "prettier": "^3.3.3",
-    "vitest": "^2.1.1",
-    "@vitest/ui": "^2.1.1",
-    "@vitest/coverage-v8": "^2.1.1",
     "jsdom": "^25.0.0",
-    "@testing-library/react": "^16.0.1",
-    "@testing-library/jest-dom": "^6.5.0",
-    "@testing-library/user-event": "^14.5.2",
-    "@playwright/test": "^1.47.2",
-    "concurrently": "^9.0.1",
-    "wait-on": "^8.0.1"
+    "postcss": "^8.4.47",
+    "prettier": "^3.3.3",
+    "tailwindcss": "^3.4.11",
+    "terser": "^5.46.2",
+    "typescript": "^5.6.2",
+    "uuid": "^14.0.0",
+    "vite": "^5.4.5",
+    "vite-plugin-electron": "^0.28.7",
+    "vite-plugin-electron-renderer": "^0.14.5",
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^2.1.1",
+    "wait-on": "^8.0.1",
+    "workbox-window": "^7.4.0"
   },
   "build": {
     "appId": "com.aiomediamanager.app",
     "productName": "AIO Media Manager",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/music-metadata/**/*",
+      "node_modules/node-id3/**/*",
+      "node_modules/ffmetadata/**/*",
+      "node_modules/**/*.node",
+      "node_modules/**/build/**/*"
+    ],
     "directories": {
       "output": "dist-electron"
     },
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "node_modules/**/*"
     ],
     "mac": {
       "category": "public.app-category.utilities",
@@ -96,8 +115,18 @@
     },
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "linux": {

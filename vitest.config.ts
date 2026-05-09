@@ -61,6 +61,13 @@ export default defineConfig({
     
     // Test timeout
     testTimeout: 10000,
+    
+    // Server configuration for resolving virtual modules
+    server: {
+      deps: {
+        inline: ['virtual:pwa-register'],
+      },
+    },
   },
   
   // Path aliases matching tsconfig.json
@@ -76,6 +83,8 @@ export default defineConfig({
       '@/store': path.resolve(__dirname, './src/store'),
       '@/api': path.resolve(__dirname, './src/api'),
       '@/db': path.resolve(__dirname, './src/db'),
+      // Mock virtual PWA module for tests
+      'virtual:pwa-register/react': path.resolve(__dirname, './tests/mocks/pwa-register.ts'),
     },
   },
 });
