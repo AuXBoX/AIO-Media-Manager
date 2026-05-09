@@ -1,0 +1,84 @@
+/**
+ * TypeScript declarations for Electron APIs exposed via preload script
+ */
+
+export interface WindowControls {
+  minimize: () => void;
+  maximize: () => void;
+  unmaximize: () => void;
+  close: () => void;
+}
+
+export interface ElectronAPI {
+  // Window controls
+  windowControls?: WindowControls;
+
+  // File system operations
+  readFile: (filePath: string) => Promise<string>;
+  writeFile: (filePath: string, content: string) => Promise<boolean>;
+  deleteFile: (filePath: string) => Promise<boolean>;
+  copyFile: (sourcePath: string, destPath: string) => Promise<boolean>;
+  getFileStats: (filePath: string) => Promise<{
+    mtimeMs: number;
+    size: number;
+    isFile: boolean;
+    isDirectory: boolean;
+  }>;
+  checkAccess: (dirPath: string) => Promise<{
+    canRead: boolean;
+    canWrite: boolean;
+  }>;
+  scanForTrailers: (directory: string, baseFilename: string) => Promise<string[]>;
+  scanForSubtitles: (directory: string, baseFilename: string) => Promise<string[]>;
+  openFile: (filePath: string) => Promise<boolean>;
+
+  // Embedded metadata operations
+  readEmbeddedMetadata: (filePath: string) => Promise<any>;
+  writeEmbeddedMetadata: (filePath: string, metadata: any) => Promise<boolean>;
+
+  // YouTube download
+  downloadYouTubeVideo: (videoUrl: string, outputPath: string, quality: string) => Promise<{
+    success: boolean;
+    path: string;
+    size: number;
+  }>;
+  on: (channel: string, callback: (event: any, data: any) => void) => void;
+
+  // Settings operations (stored in %APPDATA%\aio-media-manager)
+  settings: {
+    get: (key?: string) => Promise<any>;
+    set: (key: string | object, value?: any) => Promise<boolean>;
+    delete: (key?: string) => Promise<boolean>;
+    getPath: () => Promise<{
+      userData: string;
+      settings: string;
+      settingsFile: string;
+    }>;
+    debug: () => Promise<{
+      paths: {
+        userData: string;
+        settingsDir: string;
+        settingsFile: string;
+      };
+      file: {
+        exists: boolean;
+        size: number;
+        content: string | null;
+      };
+      environment: {
+        isPackaged: boolean;
+        appPath: string;
+        resourcesPath: string;
+      };
+      error?: string;
+    }>;
+  };
+}
+
+declare global {
+  interface Window {
+    electron?: ElectronAPI;
+  }
+}
+
+export {};
