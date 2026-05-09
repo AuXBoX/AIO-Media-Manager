@@ -31,6 +31,7 @@ export interface AppSettings {
   tmdbApiKey?: string;
   fanartApiKey?: string;
   tvdbApiKey?: string;
+  openSubtitlesApiKey?: string;
 
   // Cache settings
   cacheEnabled: boolean;

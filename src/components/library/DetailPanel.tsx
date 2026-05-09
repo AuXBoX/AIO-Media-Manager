@@ -6,6 +6,7 @@ import { createMetadataManager, type MetadataUpdate } from '@/managers/MetadataM
 import { createLocalMetadataManager, type MetadataSaveMode } from '@/managers/LocalMetadataManager';
 import { createSubtitleManager } from '@/managers/SubtitleManager';
 import { MetadataRefreshModal } from '@/components/library/MetadataRefreshModal';
+import { SubtitleSearchModal } from '@/components/library/SubtitleSearchModal';
 import { queryKeys } from '@/api/queryKeys';
 import { db } from '@/db/database';
 import { useAppStore } from '@/store/appStore';
@@ -36,6 +37,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
   const [localSubtitles, setLocalSubtitles] = useState<LocalSubtitle[]>([]);
   const [plexSubtitles, setPlexSubtitles] = useState<PlexSubtitle[]>([]);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
+  const [showSubtitleSearchModal, setShowSubtitleSearchModal] = useState(false);
   const queryClient = useQueryClient();
 
   // Editable fields state
@@ -1245,8 +1247,13 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
             {/* Search subtitles button */}
             <button 
               onClick={() => {
-                // TODO: Open subtitle search modal (Phase 3)
-                alert('Subtitle search feature coming soon');
+                // Check if we have media file path
+                const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
+                if (!mediaFilePath) {
+                  alert('Media file path not found');
+                  return;
+                }
+                setShowSubtitleSearchModal(true);
               }}
               className="w-full px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2"
             >
@@ -1419,6 +1426,22 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
           onComplete={() => {
             refetch();
             setShowRefreshModal(false);
+          }}
+        />
+      )}
+
+      {/* Subtitle Search Modal */}
+      {showSubtitleSearchModal && item && fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file && (
+        <SubtitleSearchModal
+          item={item}
+          mediaFilePath={fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file}
+          onClose={() => setShowSubtitleSearchModal(false)}
+          onSubtitleAdded={async () => {
+            // Refresh subtitle list
+            const mediaFilePath = fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file;
+            const subtitleManager = createSubtitleManager();
+            const updatedSubtitles = await subtitleManager.scanSubtitles(mediaFilePath);
+            setLocalSubtitles(updatedSubtitles);
           }}
         />
       )}
