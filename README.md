@@ -236,8 +236,11 @@ Alternatively, visit: https://support.plex.tv/articles/204059436-finding-an-auth
       fanart.jpg
       clearlogo.png
       /Trailers
-         Theatrical Trailer.mp4
+         Movie Name-trailer.mp4
+         Movie Name-trailer2.mp4
 ```
+
+Note: Trailers are named `MovieName-trailer.ext` for the first trailer, and `MovieName-trailer2.ext`, `MovieName-trailer3.ext` for additional trailers.
 
 **TV Shows:**
 ```
@@ -246,11 +249,15 @@ Alternatively, visit: https://support.plex.tv/articles/204059436-finding-an-auth
       tvshow.nfo
       show.jpg
       fanart.jpg
+      /Trailers
+         Show Name-trailer.mp4
       /Season 01
          Show Name - s01e01 - Episode.mkv
          Show Name - s01e01 - Episode.nfo
          Show Name - s01e01 - Episode.jpg
 ```
+
+Note: Trailers are named `ShowName-trailer.ext` for the first trailer, and `ShowName-trailer2.ext`, `ShowName-trailer3.ext` for additional trailers.
 
 **Music:**
 ```
@@ -301,35 +308,6 @@ aio-media-manager/
 - **CacheManager** - Caching layer
 - **SettingsManager** - Settings persistence
 - **AuthenticationManager** - Plex authentication
-
-### Running Tests
-
-```bash
-# Run all tests
-npm test
-
-# Run tests with UI
-npm run test:ui
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run E2E tests
-npm run test:e2e
-```
-
-### Code Quality
-
-```bash
-# Lint code
-npm run lint
-
-# Format code
-npm run format
-
-# Type check
-npm run type-check
-```
 
 ## API Keys
 
@@ -440,49 +418,5 @@ For issues, questions, or feature requests:
 - Open an issue on GitHub
 - Check existing issues for solutions
 - Review documentation and troubleshooting guide
-
-## Roadmap
-
-### Planned Features
-
-- Batch metadata editing
-- Advanced search with filters
-- Collection management
-- Custom metadata templates
-- Multi-server support
-- Metadata comparison and merge
-- Automated metadata refresh scheduling
-- Plugin system for custom providers
-- Mobile app support
-
-### In Progress
-
-- Enhanced metadata refresh workflow
-- Local metadata download and management
-- API keys configuration
-- Tabbed image selector
-
-### Completed
-
-- Library browsing (grid/list views)
-- Infinite scroll
-- Playlist management
-- Settings persistence
-- Theme support
-- PWA support
-- Electron desktop app
-
-## Version History
-
-### 0.1.0 (Current)
-- Initial release
-- Library browsing and search
-- Metadata refresh workflow
-- Local metadata support
-- Playlist management
-- Settings and configuration
-- Desktop and web versions
-
----
 
 **Note:** This application is not affiliated with or endorsed by Plex Inc. It is an independent tool that uses the Plex Media Server API.
