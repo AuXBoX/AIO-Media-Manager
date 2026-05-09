@@ -98,7 +98,8 @@
       "node_modules/**/build/**/*"
     ],
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "build-resources"
     },
     "files": [
       "dist/**/*",
@@ -108,12 +109,14 @@
     ],
     "mac": {
       "category": "public.app-category.utilities",
+      "icon": "build-resources/icon.png",
       "target": [
         "dmg",
         "zip"
       ]
     },
     "win": {
+      "icon": "build-resources/icon.png",
       "target": [
         {
           "target": "nsis",
@@ -130,6 +133,7 @@
       ]
     },
     "linux": {
+      "icon": "build-resources/icon.png",
       "target": [
         "AppImage",
         "deb"
