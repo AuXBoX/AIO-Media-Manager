@@ -55,6 +55,7 @@ function createWindow() {
     minHeight: 600,
     frame: false, // Remove the default window frame and menu
     fullscreen: true, // Start in fullscreen mode
+    icon: path.join(__dirname, '../build-resources/icon.png'), // Set window icon
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
