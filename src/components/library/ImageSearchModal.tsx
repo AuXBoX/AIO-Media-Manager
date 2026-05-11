@@ -49,7 +49,9 @@ export function ImageSearchModal({
   const [step, setStep] = useState<Step>('search');
   const [selectedMatch, setSelectedMatch] = useState<SearchResult | null>(null);
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set(['poster', 'background']));
-  const [selectedImage, setSelectedImage] = useState<ImageResult | null>(null);
+  const [selectedPoster, setSelectedPoster] = useState<ImageResult | null>(null);
+  const [selectedBackground, setSelectedBackground] = useState<ImageResult | null>(null);
+  const [saveTarget, setSaveTarget] = useState<'plex' | 'local' | 'both'>('plex');
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
 
   const client = createPlexClient({ baseURL: serverUrl, token });
@@ -345,17 +347,109 @@ export function ImageSearchModal({
   const posters = images?.filter((img: ImageResult) => img.type === 'poster') || [];
   const backgrounds = images?.filter((img: ImageResult) => img.type === 'background') || [];
 
-  // Apply selected image mutation
+  // Apply selected images mutation
   const applyImageMutation = useMutation({
-    mutationFn: async (image: ImageResult) => {
-      if (image.type === 'poster') {
-        await client.post(`/library/metadata/${item.ratingKey}/posters`, null, {
-          params: { url: image.url },
-        });
-      } else {
-        await client.post(`/library/metadata/${item.ratingKey}/arts`, null, {
-          params: { url: image.url },
-        });
+    mutationFn: async () => {
+      const imagesToApply: ImageResult[] = [];
+      if (selectedPoster) imagesToApply.push(selectedPoster);
+      if (selectedBackground) imagesToApply.push(selectedBackground);
+
+      if (imagesToApply.length === 0) {
+        throw new Error('No images selected');
+      }
+
+      // Save to Plex
+      if (saveTarget === 'plex' || saveTarget === 'both') {
+        for (const image of imagesToApply) {
+          if (image.type === 'poster') {
+            await client.post(`/library/metadata/${item.ratingKey}/posters`, null, {
+              params: { url: image.url },
+            });
+          } else {
+            await client.post(`/library/metadata/${item.ratingKey}/arts`, null, {
+              params: { url: image.url },
+            });
+          }
+        }
+      }
+
+      // Save locally
+      if (saveTarget === 'local' || saveTarget === 'both') {
+        if (!window.electron) {
+          throw new Error('Local save is only available in desktop app');
+        }
+
+        // Get media file path
+        const fullMetadata = await client.get(`/library/metadata/${item.ratingKey}`);
+        const metadata = fullMetadata.MediaContainer?.Metadata?.[0];
+        
+        let mediaPath: string | null = null;
+        
+        // For movies and episodes, get file path
+        if (metadata?.Media?.[0]?.Part?.[0]?.file) {
+          mediaPath = metadata.Media[0].Part[0].file;
+        }
+        // For TV shows, get directory path
+        else if (metadata?.Location?.[0]?.path) {
+          mediaPath = metadata.Location[0].path;
+        }
+
+        if (!mediaPath) {
+          throw new Error('Could not determine media file path');
+        }
+
+        // Download and save each image
+        for (const image of imagesToApply) {
+          try {
+            // Download image
+            const response = await fetch(image.url);
+            const blob = await response.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const buffer = new Uint8Array(arrayBuffer);
+
+            // Determine file extension from URL or content type
+            let ext = 'jpg';
+            const urlExt = image.url.match(/\.(jpg|jpeg|png|webp)(\?|$)/i);
+            if (urlExt) {
+              ext = urlExt[1].toLowerCase();
+              if (ext === 'jpeg') ext = 'jpg';
+            }
+
+            // Determine target filename based on image type and media path
+            let targetPath: string;
+            const isFile = /\.[^.\\\/]+$/.test(mediaPath);
+            
+            if (isFile) {
+              // Extract directory and base filename
+              const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
+              const directory = mediaPath.substring(0, lastSlash);
+              const filename = mediaPath.substring(lastSlash + 1);
+              const lastDot = filename.lastIndexOf('.');
+              const nameWithoutExt = lastDot > 0 ? filename.substring(0, lastDot) : filename;
+              
+              if (image.type === 'poster') {
+                targetPath = `${directory}/${nameWithoutExt}-poster.${ext}`;
+              } else {
+                targetPath = `${directory}/${nameWithoutExt}-fanart.${ext}`;
+              }
+            } else {
+              // Directory path (for TV shows)
+              const showName = mediaPath.split(/[\\\/]/).pop() || 'show';
+              if (image.type === 'poster') {
+                targetPath = `${mediaPath}/${showName}-poster.${ext}`;
+              } else {
+                targetPath = `${mediaPath}/${showName}-fanart.${ext}`;
+              }
+            }
+
+            // Write file using Electron
+            await window.electron.fs.writeFile(targetPath, Array.from(buffer));
+            console.log(`[ImageSearch] Saved ${image.type} locally:`, targetPath);
+          } catch (error) {
+            console.error(`[ImageSearch] Failed to save ${image.type} locally:`, error);
+            throw new Error(`Failed to save ${image.type} locally: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -489,7 +583,8 @@ export function ImageSearchModal({
                 <button
                   onClick={() => {
                     setStep('search');
-                    setSelectedImage(null);
+                    setSelectedPoster(null);
+                    setSelectedBackground(null);
                   }}
                   className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
                 >
@@ -531,11 +626,11 @@ export function ImageSearchModal({
                           <div
                             key={`poster-${index}`}
                             className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                              selectedImage?.url === image.url
+                              selectedPoster?.url === image.url
                                 ? 'border-primary-600 shadow-lg ring-2 ring-primary-600'
                                 : 'border-gray-200 dark:border-gray-700 hover:border-primary-400'
                             }`}
-                            onClick={() => setSelectedImage(image)}
+                            onClick={() => setSelectedPoster(image)}
                           >
                             <img
                               src={image.url}
@@ -555,7 +650,7 @@ export function ImageSearchModal({
                               })()}
                               {image.provider && <div className="font-medium">{image.provider}</div>}
                             </div>
-                            {selectedImage?.url === image.url && (
+                            {selectedPoster?.url === image.url && (
                               <div className="absolute top-2 right-2 bg-primary-600 text-white rounded-full p-1">
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -579,11 +674,11 @@ export function ImageSearchModal({
                           <div
                             key={`background-${index}`}
                             className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                              selectedImage?.url === image.url
+                              selectedBackground?.url === image.url
                                 ? 'border-primary-600 shadow-lg ring-2 ring-primary-600'
                                 : 'border-gray-200 dark:border-gray-700 hover:border-primary-400'
                             }`}
-                            onClick={() => setSelectedImage(image)}
+                            onClick={() => setSelectedBackground(image)}
                           >
                             <img
                               src={image.url}
@@ -603,7 +698,7 @@ export function ImageSearchModal({
                               })()}
                               {image.provider && <div className="font-medium">{image.provider}</div>}
                             </div>
-                            {selectedImage?.url === image.url && (
+                            {selectedBackground?.url === image.url && (
                               <div className="absolute top-2 right-2 bg-primary-600 text-white rounded-full p-1">
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -629,61 +724,91 @@ export function ImageSearchModal({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+          {/* Selected images info */}
           <div className="text-sm text-gray-600 dark:text-gray-400">
             {step === 'search' && selectedMatch && (
               <span>Selected: {selectedMatch.title} ({selectedMatch.year})</span>
             )}
-            {step === 'images' && selectedImage && (
-              <span>
-                Selected: {selectedImage.type === 'poster' ? 'Poster' : 'Background'}
-                {(() => {
-                  const dims = getDimensions(selectedImage.url);
-                  return dims.width > 0 ? ` • ${dims.width} × ${dims.height}` : '';
-                })()}
-                {selectedImage.provider && ` • ${selectedImage.provider}`}
-              </span>
+            {step === 'images' && (selectedPoster || selectedBackground) && (
+              <div className="flex flex-col gap-1">
+                {selectedPoster && (
+                  <div>
+                    Poster: {(() => {
+                      const dims = getDimensions(selectedPoster.url);
+                      return dims.width > 0 ? `${dims.width} × ${dims.height}` : 'Loading...';
+                    })()}
+                    {selectedPoster.provider && ` • ${selectedPoster.provider}`}
+                  </div>
+                )}
+                {selectedBackground && (
+                  <div>
+                    Background: {(() => {
+                      const dims = getDimensions(selectedBackground.url);
+                      return dims.width > 0 ? `${dims.width} × ${dims.height}` : 'Loading...';
+                    })()}
+                    {selectedBackground.provider && ` • ${selectedBackground.provider}`}
+                  </div>
+                )}
+              </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-            >
-              Cancel
-            </button>
-            {step === 'search' ? (
-              <button
-                onClick={() => {
-                  if (selectedMatch) {
-                    setStep('images');
-                  }
-                }}
-                disabled={!selectedMatch}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          
+          {/* Action buttons */}
+          <div className="flex items-center justify-between">
+            {/* Save target selector (only show in images step) */}
+            {step === 'images' && (
+              <select
+                value={saveTarget}
+                onChange={(e) => setSaveTarget(e.target.value as 'plex' | 'local' | 'both')}
+                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
-                Continue to Images →
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  if (selectedImage) {
-                    applyImageMutation.mutate(selectedImage);
-                  }
-                }}
-                disabled={!selectedImage || applyImageMutation.isPending}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {applyImageMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Applying...
-                  </>
-                ) : (
-                  'Apply Selected Image'
-                )}
-              </button>
+                <option value="plex">Save to Plex</option>
+                <option value="local">Save Locally</option>
+                <option value="both">Save to Both</option>
+              </select>
             )}
+            
+            <div className="flex items-center gap-3 ml-auto">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              {step === 'search' ? (
+                <button
+                  onClick={() => {
+                    if (selectedMatch) {
+                      setStep('images');
+                    }
+                  }}
+                  disabled={!selectedMatch}
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Continue to Images →
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (selectedPoster || selectedBackground) {
+                      applyImageMutation.mutate();
+                    }
+                  }}
+                  disabled={(!selectedPoster && !selectedBackground) || applyImageMutation.isPending}
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {applyImageMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Applying...
+                    </>
+                  ) : (
+                    `Apply Selected ${selectedPoster && selectedBackground ? 'Images' : 'Image'}`
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
