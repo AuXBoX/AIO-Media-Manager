@@ -1,36 +1,8 @@
-import axios, { AxiosInstance } from 'axios';
 import { PlexClient } from '@/api/plexClient';
+import type { YouTubeTrailer, TrailerSearchOptions } from '@/types/youtube';
 
-/**
- * YouTube Trailer Search Result
- */
-export interface YouTubeTrailer {
-  id: string;
-  title: string;
-  channelName: string;
-  channelId: string;
-  thumbnail: string;
-  duration: string;
-  publishedAt: string;
-  viewCount: number;
-  url: string;
-  isOfficial: boolean;
-  isStudioChannel: boolean;
-  score: number; // Relevance score based on filters
-  availableQualities: string[]; // e.g., ['1080p', '720p', '480p', '360p']
-}
-
-/**
- * YouTube Trailer Search Options
- */
-export interface TrailerSearchOptions {
-  query: string;
-  year?: number;
-  maxResults?: number;
-  preferredResolution?: '2160p' | '1080p' | '720p' | '480p' | '360p';
-  prioritizeOfficial?: boolean;
-  prioritizeStudioChannels?: boolean;
-}
+// Re-export types for convenience
+export type { YouTubeTrailer, TrailerSearchOptions };
 
 /**
  * Known movie studio channels
@@ -69,20 +41,41 @@ const STUDIO_CHANNELS = [
  * Uses YouTube's internal InnerTube API for searching.
  */
 export class YouTubeTrailerProvider {
-  private client: AxiosInstance;
-  private plexClient: PlexClient;
+  private baseURL = 'https://www.youtube.com';
+  private headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9',
+  };
 
-  constructor(plexClient: PlexClient) {
-    this.plexClient = plexClient;
-    
-    // Create axios client for YouTube scraping
-    this.client = axios.create({
-      baseURL: 'https://www.youtube.com',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
+  constructor(_plexClient: PlexClient) {
+    // PlexClient not currently used but kept for API consistency
+  }
+
+  /**
+   * Make HTTP request using Electron's IPC handler (bypasses CORS)
+   */
+  private async fetch(path: string, params?: Record<string, string>): Promise<string> {
+    if (!window.electron?.fetch) {
+      throw new Error('Electron fetch API not available');
+    }
+
+    // Build URL with query parameters
+    let url = `${this.baseURL}${path}`;
+    if (params) {
+      const queryString = new URLSearchParams(params).toString();
+      url += `?${queryString}`;
+    }
+
+    const response = await window.electron.fetch(url, {
+      method: 'GET',
+      headers: this.headers,
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.text;
   }
 
   /**
@@ -164,17 +157,13 @@ export class YouTubeTrailerProvider {
   private async scrapeYouTubeSearch(query: string, maxResults: number): Promise<YouTubeTrailer[]> {
     try {
       // Get the YouTube search page
-      const response = await this.client.get('/results', {
-        params: {
-          search_query: query,
-        },
+      const html = await this.fetch('/results', {
+        search_query: query,
       });
-
-      const html = response.data;
 
       // Extract the initial data from the page
       const ytInitialDataMatch = html.match(/var ytInitialData = ({.+?});/);
-      if (!ytInitialDataMatch) {
+      if (!ytInitialDataMatch || !ytInitialDataMatch[1]) {
         throw new Error('Could not find YouTube initial data');
       }
 
@@ -200,6 +189,8 @@ export class YouTubeTrailerProvider {
           if (!videoRenderer) continue;
 
           const videoId = videoRenderer.videoId;
+          if (!videoId) continue;
+          
           const title = videoRenderer.title?.runs?.[0]?.text || '';
           const channelName = videoRenderer.ownerText?.runs?.[0]?.text || '';
           const channelId = videoRenderer.ownerText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId || '';
@@ -250,12 +241,11 @@ export class YouTubeTrailerProvider {
   private async getAvailableQualities(videoId: string): Promise<string[]> {
     try {
       // Fetch the video page to get available formats
-      const response = await this.client.get(`/watch?v=${videoId}`);
-      const html = response.data;
+      const html = await this.fetch(`/watch`, { v: videoId });
 
       // Extract player response
       const playerResponseMatch = html.match(/var ytInitialPlayerResponse = ({.+?});/);
-      if (!playerResponseMatch) {
+      if (!playerResponseMatch || !playerResponseMatch[1]) {
         return ['360p']; // Default fallback
       }
 
@@ -299,12 +289,11 @@ export class YouTubeTrailerProvider {
   ): Promise<{ url: string; quality: string }> {
     try {
       // Fetch the video page
-      const response = await this.client.get(`/watch?v=${videoId}`);
-      const html = response.data;
+      const html = await this.fetch(`/watch`, { v: videoId });
 
       // Extract player response
       const playerResponseMatch = html.match(/var ytInitialPlayerResponse = ({.+?});/);
-      if (!playerResponseMatch) {
+      if (!playerResponseMatch || !playerResponseMatch[1]) {
         throw new Error('Could not find player response');
       }
 

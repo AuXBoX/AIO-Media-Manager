@@ -1,14 +1,14 @@
 /**
  * SubtitleSearchModal
  * 
- * Modal for searching and downloading subtitles from OpenSubtitles
+ * Modal for searching and downloading subtitles from SubDL
  */
 
 import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import type { LibraryItem } from '@/managers/LibraryManager';
 import type { SubtitleResult, SubtitleSearchParams } from '@/types/subtitle';
-import { createOpenSubtitlesProvider } from '@/providers/OpenSubtitlesProvider';
+import { createSubDLProvider } from '@/providers/SubDLProvider';
 import { createSubtitleManager } from '@/managers/SubtitleManager';
 import { createSettingsManager } from '@/managers/SettingsManager';
 
@@ -27,16 +27,34 @@ export function SubtitleSearchModal({
 }: SubtitleSearchModalProps) {
   const [searchResults, setSearchResults] = useState<SubtitleResult[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['en']);
+  const [forcedOnly, setForcedOnly] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [openSubtitlesApiKey, setOpenSubtitlesApiKey] = useState<string | null>(null);
+  const [subdlApiKey, setSubdlApiKey] = useState<string | null>(null);
 
   // Load API key from settings
   useEffect(() => {
     const loadApiKey = async () => {
-      const settingsManager = createSettingsManager();
-      const settings = await settingsManager.getSettings();
-      setOpenSubtitlesApiKey(settings.openSubtitlesApiKey || null);
+      try {
+        // Detect if running in Electron
+        const isElectron = typeof window !== 'undefined' && (window as any).electron !== undefined;
+        console.log('[SubtitleSearchModal] Is Electron:', isElectron);
+        
+        // Use the singleton to ensure we're using the same instance
+        const { getSettingsManager } = await import('@/managers/SettingsManager');
+        const settingsManager = getSettingsManager();
+        console.log('[SubtitleSearchModal] Settings manager created');
+        
+        const settings = await settingsManager.getSettings();
+        console.log('[SubtitleSearchModal] Loaded settings:', JSON.stringify(settings, null, 2));
+        console.log('[SubtitleSearchModal] SubDL API key exists:', !!settings.subdlApiKey);
+        console.log('[SubtitleSearchModal] SubDL API key value:', settings.subdlApiKey);
+        
+        setSubdlApiKey(settings.subdlApiKey || null);
+        console.log('[SubtitleSearchModal] State updated with API key:', settings.subdlApiKey || 'null');
+      } catch (error) {
+        console.error('[SubtitleSearchModal] Error loading settings:', error);
+      }
     };
     loadApiKey();
   }, []);
@@ -60,14 +78,9 @@ export function SubtitleSearchModal({
     { code: 'tr', name: 'Turkish' },
   ];
 
-  // Auto-search on mount
-  useEffect(() => {
-    handleSearch();
-  }, []);
-
   const handleSearch = async () => {
-    if (!openSubtitlesApiKey) {
-      setSearchError('OpenSubtitles API key not configured. Please add it in Settings.');
+    if (!subdlApiKey) {
+      setSearchError('SubDL API key not configured. Please add your API key in Settings > API Keys.');
       return;
     }
 
@@ -75,13 +88,14 @@ export function SubtitleSearchModal({
     setSearchError(null);
 
     try {
-      const provider = createOpenSubtitlesProvider(openSubtitlesApiKey);
+      const provider = createSubDLProvider(subdlApiKey);
 
       // Build search params
       const searchParams: SubtitleSearchParams = {
         title: item.title,
         year: item.year,
         languages: selectedLanguages,
+        type: item.type === 'episode' ? 'episode' : 'movie',
       };
 
       // Add IMDB ID if available
@@ -92,6 +106,14 @@ export function SubtitleSearchModal({
         }
       }
 
+      // Add TMDB ID if available
+      if (item.guid) {
+        const tmdbMatch = item.guid.match(/tmdb:\/\/(\d+)/);
+        if (tmdbMatch) {
+          searchParams.tmdbId = parseInt(tmdbMatch[1], 10);
+        }
+      }
+
       // Add season/episode for TV shows
       if (item.type === 'episode') {
         searchParams.season = item.parentIndex;
@@ -99,10 +121,26 @@ export function SubtitleSearchModal({
       }
 
       const results = await provider.search(searchParams);
-      setSearchResults(results);
+      
+      // Filter for forced subtitles if requested
+      const filteredResults = forcedOnly 
+        ? results.filter(sub => {
+            const name = sub.releaseName.toLowerCase();
+            return name.includes('forced') || 
+                   name.includes('force') ||
+                   name.includes('non-english') || 
+                   name.includes('non english') ||
+                   name.includes('foreign') ||
+                   name.includes('foreign parts');
+          })
+        : results;
+      
+      setSearchResults(filteredResults);
 
-      if (results.length === 0) {
-        setSearchError('No subtitles found. Try different languages or search terms.');
+      if (filteredResults.length === 0) {
+        setSearchError(forcedOnly 
+          ? 'No forced subtitles found. Try searching without the forced filter.'
+          : 'No subtitles found. Try different languages or search terms.');
       }
     } catch (error) {
       console.error('Subtitle search error:', error);
@@ -114,35 +152,35 @@ export function SubtitleSearchModal({
 
   const downloadMutation = useMutation({
     mutationFn: async (subtitle: SubtitleResult) => {
-      if (!openSubtitlesApiKey) {
-        throw new Error('OpenSubtitles API key not configured');
+      if (!subdlApiKey) {
+        throw new Error('SubDL API key not configured');
       }
 
-      const provider = createOpenSubtitlesProvider(openSubtitlesApiKey);
-      const subtitleManager = createSubtitleManager();
-
-      // Extract file ID from subtitle ID
-      const fileId = parseInt(subtitle.id);
-
-      // Download subtitle
-      const { content, fileName } = await provider.download(fileId);
-
-      // Validate subtitle content
-      if (!subtitleManager.validateSubtitle(content)) {
-        throw new Error('Downloaded subtitle file is invalid');
+      // Check if running in Electron
+      if (typeof window === 'undefined' || !window.electron?.downloadAndExtractSubtitle) {
+        throw new Error('This feature is only available in the desktop app');
       }
 
-      // Save subtitle file
-      const savedPath = await subtitleManager.saveSubtitle(
-        content,
+      // Determine if this is a forced subtitle
+      const name = subtitle.releaseName.toLowerCase();
+      const isForced = name.includes('forced') || 
+                      name.includes('force') ||
+                      name.includes('non-english') || 
+                      name.includes('non english') ||
+                      name.includes('foreign');
+
+      // Download and extract subtitle
+      const result = await window.electron.downloadAndExtractSubtitle({
+        url: subtitle.url,
         mediaFilePath,
-        subtitle.languageCode,
-        false
-      );
+        languageCode: subtitle.languageCode,
+        isForced,
+      });
 
-      return savedPath;
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log('[SubtitleSearchModal] Subtitle saved:', result.path);
       onSubtitleAdded();
       onClose();
     },
@@ -184,6 +222,33 @@ export function SubtitleSearchModal({
 
         {/* Language selector */}
         <div className="p-6 border-b border-secondary-200 dark:border-secondary-700">
+          {!subdlApiKey && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
+                    API Key Required
+                  </p>
+                  <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                    To search for subtitles, you need a free SubDL API key. Get yours at{' '}
+                    <a
+                      href="https://subdl.com/panel/register"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:no-underline font-semibold"
+                    >
+                      subdl.com/panel/register
+                    </a>
+                    {' '}and add it in Settings &gt; API Keys.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <h3 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-3">
             Languages
           </h3>
@@ -202,9 +267,33 @@ export function SubtitleSearchModal({
               </button>
             ))}
           </div>
+          
+          {/* Forced subtitles filter */}
+          <div className="mt-4 flex items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={forcedOnly}
+                onChange={(e) => setForcedOnly(e.target.checked)}
+                className="w-4 h-4 text-primary-600 bg-secondary-100 dark:bg-secondary-800 border-secondary-300 dark:border-secondary-600 rounded focus:ring-primary-500 focus:ring-2"
+              />
+              <span className="text-sm text-secondary-900 dark:text-secondary-50">
+                Forced subtitles only
+              </span>
+            </label>
+            <div className="group relative">
+              <svg className="w-4 h-4 text-secondary-400 dark:text-secondary-500 cursor-help" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-2 bg-secondary-900 dark:bg-secondary-700 text-white text-xs rounded shadow-lg z-10">
+                Forced subtitles show only foreign language parts (e.g., alien speech, signs) in movies primarily in your language
+              </div>
+            </div>
+          </div>
+          
           <button
             onClick={handleSearch}
-            disabled={isSearching || selectedLanguages.length === 0}
+            disabled={isSearching || selectedLanguages.length === 0 || !subdlApiKey}
             className="mt-4 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSearching ? (
@@ -260,9 +349,9 @@ export function SubtitleSearchModal({
 
           {!isSearching && searchResults.length > 0 && (
             <div className="space-y-3">
-              {searchResults.map((subtitle) => (
+              {searchResults.map((subtitle, index) => (
                 <div
-                  key={subtitle.id}
+                  key={`${subtitle.id}-${index}`}
                   className="border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 hover:bg-secondary-50 dark:hover:bg-secondary-800/50 transition-colors"
                 >
                   <div className="flex items-start gap-4">
@@ -280,6 +369,15 @@ export function SubtitleSearchModal({
                         {subtitle.hearing_impaired && (
                           <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">
                             SDH/HI
+                          </span>
+                        )}
+                        {(subtitle.releaseName.toLowerCase().includes('forced') || 
+                          subtitle.releaseName.toLowerCase().includes('force') ||
+                          subtitle.releaseName.toLowerCase().includes('non-english') ||
+                          subtitle.releaseName.toLowerCase().includes('non english') ||
+                          subtitle.releaseName.toLowerCase().includes('foreign')) && (
+                          <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded font-semibold">
+                            FORCED
                           </span>
                         )}
                         {subtitle.fps && (
@@ -320,9 +418,9 @@ export function SubtitleSearchModal({
                       ) : (
                         <>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
-                          Download
+                          Select
                         </>
                       )}
                     </button>
@@ -336,12 +434,14 @@ export function SubtitleSearchModal({
         {/* Footer */}
         <div className="p-6 border-t border-secondary-200 dark:border-secondary-700">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-secondary-500 dark:text-secondary-400">
-              Powered by OpenSubtitles.com
-            </p>
+            <div className="flex-1">
+              <p className="text-xs text-secondary-500 dark:text-secondary-400">
+                Powered by SubDL.com
+              </p>
+            </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-secondary-200 dark:bg-secondary-700 hover:bg-secondary-300 dark:hover:bg-secondary-600 text-secondary-900 dark:text-secondary-100 rounded transition-colors"
+              className="px-4 py-2 bg-secondary-200 dark:bg-secondary-700 hover:bg-secondary-300 dark:hover:bg-secondary-600 text-secondary-900 dark:text-secondary-100 rounded transition-colors ml-4"
             >
               Close
             </button>

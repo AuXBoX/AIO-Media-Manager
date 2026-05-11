@@ -84,32 +84,21 @@ export function AppLayout() {
     <div className="flex flex-col h-full bg-secondary-50 dark:bg-secondary-900">
       {/* App branding */}
       <div className="p-4 border-b border-secondary-200 dark:border-secondary-700">
-        <h2 className="text-lg font-bold text-secondary-900 dark:text-secondary-50">
-          AIO Media Manager
-        </h2>
-        {selectedServer && (
-          <p className="text-xs text-secondary-600 dark:text-secondary-400 mt-1 truncate">
-            {selectedServer.name}
-          </p>
-        )}
+        <div className="flex flex-col items-center">
+          <img 
+            src="./logo.png" 
+            alt="AIO Media Manager" 
+            className="h-16 w-auto"
+            onError={(e) => {
+              // Fallback if logo doesn't load
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
       </div>
 
       {/* Navigation - Libraries */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        <button
-          onClick={() => navigate('/app/library')}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-            location.pathname === '/app/library'
-              ? 'bg-primary-500 text-white'
-              : 'text-secondary-700 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800'
-          }`}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-          </svg>
-          <span>Home</span>
-        </button>
-
         {isLoading ? (
           <div className="space-y-1 mt-2">
             {[...Array(3)].map((_, i) => (

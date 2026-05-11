@@ -6,12 +6,12 @@ import { MetadataDetailView } from '@/pages/MetadataDetailView';
 import { SettingsView } from '@/pages/SettingsView';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from './ProtectedRoute';
-import { WelcomePage } from '@/pages/WelcomePage';
+import { RootRedirect } from './RootRedirect';
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <WelcomePage />,
+    element: <RootRedirect />,
   },
   {
     path: '/auth',

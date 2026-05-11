@@ -52,9 +52,9 @@ export function TitleBar() {
 
   return (
     <div className="flex items-center justify-between h-8 bg-secondary-100 dark:bg-secondary-900 border-b border-secondary-200 dark:border-secondary-800 select-none" style={{ WebkitAppRegion: 'drag' } as any}>
-      {/* App title */}
-      <div className="flex items-center px-3 text-sm font-medium text-secondary-700 dark:text-secondary-300">
-        AIO Media Manager
+      {/* App title with logo */}
+      <div className="flex items-center gap-2 px-3 text-sm font-medium text-secondary-700 dark:text-secondary-300">
+        <img src="./logo.png" alt="AIO Media Manager" className="w-5 h-5" onError={(e) => e.currentTarget.style.display = 'none'} />
       </div>
 
       {/* Window controls */}

@@ -15,15 +15,70 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
   const [tmdbKey, setTmdbKey] = useState(settings.tmdbApiKey || '');
   const [fanartKey, setFanartKey] = useState(settings.fanartApiKey || '');
   const [tvdbKey, setTvdbKey] = useState(settings.tvdbApiKey || '');
-  const [openSubtitlesKey, setOpenSubtitlesKey] = useState(settings.openSubtitlesApiKey || '');
+  const [subdlKey, setSubdlKey] = useState(settings.subdlApiKey || '');
+  const [testingSubdl, setTestingSubdl] = useState(false);
+  const [subdlTestResult, setSubdlTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   const handleSave = async () => {
     await onSave({
       tmdbApiKey: tmdbKey || undefined,
       fanartApiKey: fanartKey || undefined,
       tvdbApiKey: tvdbKey || undefined,
-      openSubtitlesApiKey: openSubtitlesKey || undefined,
+      subdlApiKey: subdlKey || undefined,
     });
+  };
+
+  const testSubdlKey = async () => {
+    if (!subdlKey.trim()) {
+      setSubdlTestResult({
+        success: false,
+        message: 'Please enter a SubDL API key first.',
+      });
+      return;
+    }
+
+    setTestingSubdl(true);
+    setSubdlTestResult(null);
+
+    try {
+      const { createSubDLProvider } = await import('@/providers/SubDLProvider');
+      const provider = createSubDLProvider(subdlKey.trim());
+      
+      console.log('[APIKeysSettings] Testing SubDL API key...');
+      
+      // Test with a simple search (The Matrix)
+      const results = await provider.search({
+        title: 'The Matrix',
+        year: 1999,
+        imdbId: 'tt0133093',
+        languages: ['en'],
+      });
+
+      console.log('[APIKeysSettings] Test results:', results);
+
+      if (results && results.length > 0) {
+        setSubdlTestResult({
+          success: true,
+          message: `API key is valid! Found ${results.length} subtitle(s) in test search.`,
+        });
+      } else {
+        setSubdlTestResult({
+          success: true,
+          message: 'API key is valid, but no results found in test search.',
+        });
+      }
+    } catch (error) {
+      console.error('[APIKeysSettings] SubDL API test error:', error);
+      setSubdlTestResult({
+        success: false,
+        message: `Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } finally {
+      setTestingSubdl(false);
+    }
   };
 
   return (
@@ -175,15 +230,15 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
         </div>
       </div>
 
-      {/* OpenSubtitles API Key */}
+      {/* SubDL API Key */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-              OpenSubtitles API Key
+              SubDL API Key
             </label>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              OpenSubtitles.com - Search and download subtitles
+              SubDL.com - Subtitle search and download
             </p>
           </div>
           <span className="px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 rounded">
@@ -192,11 +247,48 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
         </div>
         <input
           type="password"
-          value={openSubtitlesKey}
-          onChange={(e) => setOpenSubtitlesKey(e.target.value)}
-          placeholder="Enter your OpenSubtitles API key"
+          value={subdlKey}
+          onChange={(e) => setSubdlKey(e.target.value)}
+          placeholder="Enter your SubDL API key"
           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={testSubdlKey}
+            disabled={testingSubdl || !subdlKey.trim()}
+            className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {testingSubdl ? (
+              <>
+                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Testing...
+              </>
+            ) : (
+              'Test API Key'
+            )}
+          </button>
+          {subdlTestResult && (
+            <div className={`flex items-center gap-1.5 text-xs ${
+              subdlTestResult.success 
+                ? 'text-green-700 dark:text-green-400' 
+                : 'text-red-700 dark:text-red-400'
+            }`}>
+              {subdlTestResult.success ? (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              )}
+              <span>{subdlTestResult.message}</span>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -204,12 +296,12 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
           <span>
             Get your free API key at{' '}
             <a
-              href="https://www.opensubtitles.com/en/consumers"
+              href="https://subdl.com/panel/register"
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 dark:text-blue-400 hover:underline"
             >
-              opensubtitles.com/consumers
+              subdl.com/panel/register
             </a>
           </span>
         </div>

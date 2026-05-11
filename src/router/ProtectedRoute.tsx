@@ -7,7 +7,23 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireServer = true }: ProtectedRouteProps) {
-  const { currentToken, serverConnection } = useAppStore();
+  const { isHydrated, currentToken, serverConnection } = useAppStore();
+
+  // Wait for hydration to complete before checking auth
+  if (!isHydrated) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        backgroundColor: '#1a1a1a',
+        color: '#ffffff',
+      }}>
+        Loading...
+      </div>
+    );
+  }
 
   // If no token, redirect to authentication
   if (!currentToken) {

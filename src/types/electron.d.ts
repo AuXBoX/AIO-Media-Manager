@@ -13,6 +13,20 @@ export interface ElectronAPI {
   // Window controls
   windowControls?: WindowControls;
 
+  // HTTP requests (bypasses CORS)
+  fetch: (url: string, options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+    timeout?: number;
+  }) => Promise<{
+    ok: boolean;
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    text: string;
+  }>;
+
   // File system operations
   readFile: (filePath: string) => Promise<string>;
   writeFile: (filePath: string, content: string) => Promise<boolean>;
@@ -58,6 +72,19 @@ export interface ElectronAPI {
       codec: string;
     }
   ) => Promise<{ success: boolean; outputPath: string }>;
+  
+  // Subtitle download and extraction
+  downloadAndExtractSubtitle: (params: {
+    url: string;
+    mediaFilePath: string;
+    languageCode: string;
+    isForced: boolean;
+    apiKey?: string;
+  }) => Promise<{
+    success: boolean;
+    path: string;
+    fileName: string;
+  }>;
 
   // Embedded metadata operations
   readEmbeddedMetadata: (filePath: string) => Promise<any>;
@@ -70,6 +97,35 @@ export interface ElectronAPI {
     size: number;
   }>;
   on: (channel: string, callback: (event: any, data: any) => void) => void;
+
+  // Binary management
+  binaries: {
+    getVersion: () => Promise<{
+      success: boolean;
+      version?: string;
+      error?: string;
+    }>;
+    checkUpdate: () => Promise<{
+      success: boolean;
+      updateAvailable?: boolean;
+      currentVersion?: string;
+      latestVersion?: string;
+      error?: string;
+    }>;
+    update: () => Promise<{
+      success: boolean;
+      version?: string;
+      error?: string;
+    }>;
+    getPaths: () => Promise<{
+      success: boolean;
+      paths?: {
+        ytdlp: string;
+        ffmpeg: string;
+      };
+      error?: string;
+    }>;
+  };
 
   // Settings operations (stored in %APPDATA%\aio-media-manager)
   settings: {

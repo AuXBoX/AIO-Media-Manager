@@ -17,7 +17,10 @@ export default defineConfig({
         // Main process entry point
         entry: 'electron/main.js',
         onstart(options) {
-          options.startup();
+          // Only auto-start in production build, not in dev mode
+          if (process.env.NODE_ENV === 'production') {
+            options.startup();
+          }
         },
         vite: {
           build: {

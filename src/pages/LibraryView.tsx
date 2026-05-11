@@ -8,6 +8,7 @@ import { getSettingsManager } from '@/managers/SettingsManager';
 import { queryKeys } from '@/api/queryKeys';
 import { VirtualGrid } from '@/components/library/VirtualGrid';
 import { TableListView } from '@/components/library/TableListView';
+import { TVShowTreeView } from '@/components/library/TVShowTreeView';
 import { DetailPanel } from '@/components/library/DetailPanel';
 import { ColumnSelector } from '@/components/library/ColumnSelector';
 import { MetadataRefreshModal } from '@/components/library/MetadataRefreshModal';
@@ -111,6 +112,9 @@ export function LibraryView() {
   // Use libraryKey from URL if available, otherwise use selectedLibrary
   const activeLibraryKey = libraryKey || selectedLibrary?.key;
   const libraryType = selectedLibrary?.type || 'movie';
+  
+  // Check if this is a TV show library
+  const isTVShowLibrary = libraryType === 'show';
 
   // Get default columns for this library type
   const defaultColumns = getColumnDefinitions(libraryType);
@@ -135,9 +139,11 @@ export function LibraryView() {
     queryKey: queryKeys.libraryItems(activeLibraryKey || '', {
       offset: 0,
       limit: pageSize,
+      // For TV show libraries, only fetch shows (type 2), not seasons/episodes
+      ...(isTVShowLibrary ? { type: 2 } : {}),
     }),
     queryFn: async ({ pageParam = 0 }) => {
-      console.log('[LibraryView] Fetching page:', { pageParam, pageSize });
+      console.log('[LibraryView] Fetching page:', { pageParam, pageSize, isTVShowLibrary });
       
       if (!serverConnection || !currentToken || !activeLibraryKey) {
         throw new Error('No server connection, token, or library selected');
@@ -152,12 +158,16 @@ export function LibraryView() {
       const result = await manager.getLibraryItems(activeLibraryKey, {
         offset: pageParam,
         limit: pageSize,
+        // For TV show libraries, only fetch shows (type 2)
+        ...(isTVShowLibrary ? { type: 2 } : {}),
       });
       
       console.log('[LibraryView] Page fetched:', {
         offset: pageParam,
         itemsReceived: result.items.length,
         totalSize: result.totalSize,
+        isTVShowLibrary,
+        firstItem: result.items[0],
       });
       
       return result;
@@ -165,16 +175,7 @@ export function LibraryView() {
     getNextPageParam: (lastPage, allPages) => {
       const loadedItems = allPages.reduce((sum, page) => sum + page.items.length, 0);
       const hasMore = loadedItems < lastPage.totalSize;
-      const nextOffset = hasMore ? loadedItems : undefined;
-      
-      console.log('[LibraryView] getNextPageParam:', {
-        loadedItems,
-        totalSize: lastPage.totalSize,
-        hasMore,
-        nextOffset,
-      });
-      
-      return nextOffset;
+      return hasMore ? loadedItems : undefined;
     },
     enabled: !!serverConnection && !!currentToken && !!activeLibraryKey,
     initialPageParam: 0,
@@ -325,20 +326,9 @@ export function LibraryView() {
     const target = e.currentTarget;
     const scrollPercentage = (target.scrollTop + target.clientHeight) / target.scrollHeight;
     
-    console.log('[LibraryView] Scroll:', {
-      scrollTop: target.scrollTop,
-      clientHeight: target.clientHeight,
-      scrollHeight: target.scrollHeight,
-      scrollPercentage: scrollPercentage.toFixed(2),
-      hasNextPage,
-      isFetchingNextPage,
-      loadedItems: allItems.length,
-      totalSize,
-    });
-    
     // Load more when scrolled 80% down
     if (scrollPercentage > 0.8 && hasNextPage && !isFetchingNextPage) {
-      console.log('[LibraryView] Triggering fetchNextPage');
+      console.log('[LibraryView] Loading next page at', allItems.length, 'items');
       fetchNextPage();
     }
   };
@@ -488,7 +478,20 @@ export function LibraryView() {
         {selectedItem ? (
           <ResizablePanes
             leftPane={
-              viewMode === 'grid' ? (
+              isTVShowLibrary ? (
+                // TV Show Tree View
+                <TVShowTreeView
+                  items={allItems}
+                  serverUrl={serverConnection?.uri || ''}
+                  token={currentToken || ''}
+                  onItemClick={(item) => setSelectedItem(item)}
+                  selectedItem={selectedItem}
+                  selectedItems={selectedItems}
+                  onSelectionChange={setSelectedItems}
+                  getCacheStatus={getCacheStatus}
+                  onScroll={handleScroll}
+                />
+              ) : viewMode === 'grid' ? (
                 <div className="h-full overflow-hidden relative">
                   <VirtualGrid
                     ref={gridRef}
@@ -547,7 +550,28 @@ export function LibraryView() {
           />
         ) : (
           <div className="w-full h-full min-h-0 overflow-hidden relative">
-            {viewMode === 'grid' ? (
+            {isTVShowLibrary ? (
+              // TV Show Tree View (no detail panel)
+              <>
+                <TVShowTreeView
+                  items={allItems}
+                  serverUrl={serverConnection?.uri || ''}
+                  token={currentToken || ''}
+                  onItemClick={(item) => setSelectedItem(item)}
+                  selectedItem={selectedItem}
+                  selectedItems={selectedItems}
+                  onSelectionChange={setSelectedItems}
+                  getCacheStatus={getCacheStatus}
+                  onScroll={handleScroll}
+                />
+                {/* Loading indicator */}
+                {isFetchingNextPage && (
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg z-10">
+                    Loading more...
+                  </div>
+                )}
+              </>
+            ) : viewMode === 'grid' ? (
               <>
                 <VirtualGrid
                   ref={gridRef}

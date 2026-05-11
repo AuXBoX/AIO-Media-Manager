@@ -379,56 +379,113 @@ export class LocalMetadataManager implements ILocalMetadataManager {
   }
 
   /**
-   * Get poster file path for a media file
+   * Get poster file path for a media file or directory
    */
   getPosterPath(mediaPath: string): string {
-    const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
-    const dir = mediaPath.substring(0, lastSlash);
+    // Check if mediaPath is a directory (no file extension) or a file
+    const hasExtension = /\.[^.\\\/]+$/.test(mediaPath);
     const separator = mediaPath.includes('\\') ? '\\' : '/';
-    return `${dir}${separator}poster.jpg`;
+    
+    if (hasExtension) {
+      // It's a file path, extract directory and filename
+      const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
+      const dir = mediaPath.substring(0, lastSlash);
+      const filename = mediaPath.substring(lastSlash + 1);
+      const lastDot = filename.lastIndexOf('.');
+      const nameWithoutExt = lastDot > 0 ? filename.substring(0, lastDot) : filename;
+      return `${dir}${separator}${nameWithoutExt}-poster.jpg`;
+    } else {
+      // It's a directory path, use "poster.jpg" or "folder.jpg"
+      return `${mediaPath}${separator}poster.jpg`;
+    }
   }
 
   /**
-   * Get fanart (background) file path for a media file
+   * Get fanart (background) file path for a media file or directory
    */
   getFanartPath(mediaPath: string): string {
-    const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
-    const dir = mediaPath.substring(0, lastSlash);
+    // Check if mediaPath is a directory (no file extension) or a file
+    const hasExtension = /\.[^.\\\/]+$/.test(mediaPath);
     const separator = mediaPath.includes('\\') ? '\\' : '/';
-    return `${dir}${separator}fanart.jpg`;
+    
+    if (hasExtension) {
+      // It's a file path, extract directory and filename
+      const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
+      const dir = mediaPath.substring(0, lastSlash);
+      const filename = mediaPath.substring(lastSlash + 1);
+      const lastDot = filename.lastIndexOf('.');
+      const nameWithoutExt = lastDot > 0 ? filename.substring(0, lastDot) : filename;
+      return `${dir}${separator}${nameWithoutExt}-fanart.jpg`;
+    } else {
+      // It's a directory path, use "fanart.jpg"
+      return `${mediaPath}${separator}fanart.jpg`;
+    }
   }
 
   /**
-   * Get logo file path for a media file
+   * Get logo file path for a media file or directory
    */
   getLogoPath(mediaPath: string): string {
-    const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
-    const dir = mediaPath.substring(0, lastSlash);
+    // Check if mediaPath is a directory (no file extension) or a file
+    const hasExtension = /\.[^.\\\/]+$/.test(mediaPath);
     const separator = mediaPath.includes('\\') ? '\\' : '/';
-    return `${dir}${separator}logo.png`;
+    
+    if (hasExtension) {
+      // It's a file path, extract directory and filename
+      const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
+      const dir = mediaPath.substring(0, lastSlash);
+      const filename = mediaPath.substring(lastSlash + 1);
+      const lastDot = filename.lastIndexOf('.');
+      const nameWithoutExt = lastDot > 0 ? filename.substring(0, lastDot) : filename;
+      return `${dir}${separator}${nameWithoutExt}-clearlogo.png`;
+    } else {
+      // It's a directory path, use "clearlogo.png"
+      return `${mediaPath}${separator}clearlogo.png`;
+    }
   }
 
   /**
-   * Get banner file path for a media file
+   * Get banner file path for a media file or directory
    */
   getBannerPath(mediaPath: string): string {
-    const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
-    const dir = mediaPath.substring(0, lastSlash);
     const separator = mediaPath.includes('\\') ? '\\' : '/';
-    return `${dir}${separator}banner.jpg`;
+    // Check if mediaPath is a directory (no file extension) or a file
+    const hasExtension = /\.[^.\\\/]+$/.test(mediaPath);
+    
+    if (hasExtension) {
+      // It's a file path, extract directory
+      const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
+      const dir = mediaPath.substring(0, lastSlash);
+      return `${dir}${separator}banner.jpg`;
+    } else {
+      // It's already a directory path
+      return `${mediaPath}${separator}banner.jpg`;
+    }
   }
 
   /**
-   * Get trailer file path for a media file
-   * @param mediaPath - Path to the media file
+   * Get trailer file path for a media file or directory
+   * @param mediaPath - Path to the media file or directory
    * @param movieTitle - Title of the movie/show for naming
    * @param quality - Quality/resolution (e.g., "1080p", "720p") - not used in filename
    * @param index - Trailer index (0 for first trailer, 1 for second, etc.)
    */
   getTrailerPath(mediaPath: string, movieTitle: string, quality: string, index: number = 0): string {
-    const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
-    const dir = mediaPath.substring(0, lastSlash);
+    // Check if mediaPath is a directory (no file extension) or a file
+    const hasExtension = /\.[^.\\\/]+$/.test(mediaPath);
+    
+    let dir: string;
     const separator = mediaPath.includes('\\') ? '\\' : '/';
+    
+    if (hasExtension) {
+      // It's a file path, extract the directory
+      const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
+      dir = mediaPath.substring(0, lastSlash);
+    } else {
+      // It's already a directory path
+      dir = mediaPath;
+    }
+    
     // Clean the movie title for filename (remove special characters)
     const cleanTitle = movieTitle.replace(/[<>:"/\\|?*]/g, '').trim();
     
@@ -704,7 +761,26 @@ export class LocalMetadataManager implements ILocalMetadataManager {
       // Fetch metadata from Plex
       const item = await this.metadataManager.getMetadata(ratingKey);
 
-      // Extract file path from media info
+      // For TV shows and seasons, we need to get the directory path, not a file path
+      if (item.type === 'show') {
+        // For TV shows, get the show directory from the first season's first episode
+        // This is a workaround since shows don't have direct file paths
+        if (item.Location && item.Location.length > 0) {
+          // Use the Location path if available
+          return item.Location[0].path;
+        }
+        // Otherwise, we need to fetch a child episode to get the path
+        console.warn('[LocalMetadataManager] TV show has no Location, cannot determine path');
+        return null;
+      }
+
+      if (item.type === 'season') {
+        // For seasons, get the directory from the first episode
+        console.warn('[LocalMetadataManager] Season metadata saving not yet implemented');
+        return null;
+      }
+
+      // For episodes and movies, extract file path from media info
       if (item.Media && item.Media.length > 0) {
         const media = item.Media[0];
         if (media.Part && media.Part.length > 0) {

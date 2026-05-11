@@ -674,10 +674,24 @@ export function MetadataRefreshModal({
               const mediaPath = await localManager.getMediaFilePath(reviewItem.item.ratingKey);
               
               if (!mediaPath) {
-                throw new Error('Could not determine media file path');
-              }
-
-              console.log('[MetadataRefresh] Saving locally to:', mediaPath);
+                // For TV shows and seasons, we can't save locally yet
+                if (reviewItem.item.type === 'show' || reviewItem.item.type === 'season') {
+                  console.warn('[MetadataRefresh] Local saving not yet supported for TV shows/seasons');
+                  setProgress((prev) => ({
+                    ...prev,
+                    warnings: [
+                      ...prev.warnings,
+                      { 
+                        item: reviewItem.item.title, 
+                        warning: 'Local metadata saving is not yet supported for TV shows and seasons. Only episodes can be saved locally.' 
+                      },
+                    ],
+                  }));
+                } else {
+                  throw new Error('Could not determine media file path');
+                }
+              } else {
+                console.log('[MetadataRefresh] Saving locally to:', mediaPath);
 
               // Download images if requested
               if (options.downloadImages) {
@@ -776,6 +790,7 @@ export function MetadataRefreshModal({
                 overwriteExisting: true,
               });
               console.log('[MetadataRefresh] ✓ NFO file saved');
+            }
             } catch (error) {
               console.error('[MetadataRefresh] Failed to save locally:', error);
               setProgress((prev) => ({

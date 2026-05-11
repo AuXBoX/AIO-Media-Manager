@@ -26,6 +26,7 @@ export function ServerSelectionPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [autoConnecting, setAutoConnecting] = useState(false);
 
   /**
    * Discover available servers on mount
@@ -45,6 +46,14 @@ export function ServerSelectionPage() {
           setError('No Plex servers found. Make sure your server is running and accessible.');
         } else {
           setServers(discoveredServers);
+          
+          // Auto-select and connect immediately if only one server found
+          if (discoveredServers.length === 1) {
+            console.log('[ServerSelection] Only one server found, auto-connecting:', discoveredServers[0].name);
+            setAutoConnecting(true);
+            // Connect immediately without showing the selection page
+            handleServerSelect(discoveredServers[0]);
+          }
         }
       } catch (err) {
         console.error('Failed to discover servers:', err);
@@ -99,10 +108,8 @@ export function ServerSelectionPage() {
       // Store in app state
       setServer(server, optimalConnection);
 
-      // Navigate to main app
-      setTimeout(() => {
-        navigate('/app/library');
-      }, 500);
+      // Navigate to main app immediately
+      navigate('/app/library');
     } catch (err) {
       console.error('Failed to connect to server:', err);
       
@@ -153,12 +160,14 @@ export function ServerSelectionPage() {
     }
   };
 
-  if (loading) {
+  if (loading || autoConnecting) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Discovering servers...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">
+            {autoConnecting ? 'Connecting to server...' : 'Discovering servers...'}
+          </p>
         </div>
       </div>
     );

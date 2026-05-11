@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('electron', {
   ffmpegEmbedSubtitle: (mediaFilePath, subtitleFilePath, outputPath, options) => 
     ipcRenderer.invoke('ffmpegEmbedSubtitle', mediaFilePath, subtitleFilePath, outputPath, options),
   
+  // Subtitle download and extraction
+  downloadAndExtractSubtitle: (params) => ipcRenderer.invoke('subtitle:downloadAndExtract', params),
+  
   // Embedded metadata operations
   readEmbeddedMetadata: (filePath) => ipcRenderer.invoke('metadata:readEmbedded', filePath),
   writeEmbeddedMetadata: (filePath, metadata) => ipcRenderer.invoke('metadata:writeEmbedded', filePath, metadata),
@@ -38,6 +41,14 @@ contextBridge.exposeInMainWorld('electron', {
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, callback);
     }
+  },
+  
+  // Binary management
+  binaries: {
+    getVersion: () => ipcRenderer.invoke('binaries:getVersion'),
+    checkUpdate: () => ipcRenderer.invoke('binaries:checkUpdate'),
+    update: () => ipcRenderer.invoke('binaries:update'),
+    getPaths: () => ipcRenderer.invoke('binaries:getPaths'),
   },
   
   // Settings operations (stored in %APPDATA%\aio-media-manager)
@@ -57,6 +68,9 @@ contextBridge.exposeInMainWorld('electron', {
     close: () => ipcRenderer.invoke('window:close'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   },
+
+  // HTTP requests (bypasses CORS restrictions)
+  fetch: (url, options) => ipcRenderer.invoke('http:fetch', url, options),
 });
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -1,122 +1,96 @@
 /**
- * OpenSubtitles Provider
+ * OpenSubtitles Provider (OpenSubtitles.org XML-RPC API)
  * 
- * Integrates with OpenSubtitles.com API for subtitle search and download
- * API Documentation: https://opensubtitles.stoplight.io/docs/opensubtitles-api
+ * Legacy OpenSubtitles.org XML-RPC API
+ * Documentation: https://trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC
+ * 
+ * This is the legacy API but still functional and doesn't require User-Agent registration.
+ * 
+ * Free tier limits:
+ * - Anonymous: 200 downloads per 24 hours per IP
+ * - Rate limit: 40 requests per 10 seconds per IP
+ * 
+ * No API key required - uses anonymous login
  */
 
 import type { SubtitleResult, SubtitleSearchParams } from '@/types/subtitle';
 
 interface OpenSubtitlesConfig {
-  apiKey: string;
-  userAgent: string;
+  apiKey?: string; // Not used for XML-RPC API
+  userAgent?: string; // Optional custom User-Agent
 }
 
-interface OpenSubtitlesSearchResponse {
-  total_pages: number;
-  total_count: number;
-  page: number;
-  data: OpenSubtitlesSubtitle[];
-}
-
-interface OpenSubtitlesSubtitle {
-  id: string;
-  type: string;
-  attributes: {
-    subtitle_id: string;
-    language: string;
-    download_count: number;
-    new_download_count: number;
-    hearing_impaired: boolean;
-    hd: boolean;
-    fps: number;
-    votes: number;
-    points: number;
-    ratings: number;
-    from_trusted: boolean;
-    foreign_parts_only: boolean;
-    upload_date: string;
-    ai_translated: boolean;
-    machine_translated: boolean;
-    release: string;
-    comments: string;
-    legacy_subtitle_id: number;
-    uploader: {
-      uploader_id: number;
-      name: string;
-      rank: string;
-    };
-    feature_details: {
-      feature_id: number;
-      feature_type: string;
-      year: number;
-      title: string;
-      movie_name: string;
-      imdb_id: number;
-      tmdb_id: number;
-    };
-    url: string;
-    related_links: {
-      label: string;
-      url: string;
-      img_url: string;
-    }[];
-    files: {
-      file_id: number;
-      cd_number: number;
-      file_name: string;
-    }[];
-    moviehash_match: boolean;
-  };
-}
-
-interface OpenSubtitlesDownloadResponse {
-  link: string;
-  file_name: string;
-  requests: number;
-  remaining: number;
-  message: string;
-  reset_time: string;
-  reset_time_utc: string;
+interface XMLRPCResponse {
+  status: string;
+  seconds?: number;
+  token?: string;
+  data?: any[];
+  [key: string]: any;
 }
 
 export class OpenSubtitlesProvider {
   private config: OpenSubtitlesConfig;
-  private baseUrl = 'https://api.opensubtitles.com/api/v1';
+  private baseUrl = 'https://api.opensubtitles.org/xml-rpc';
+  private userAgent: string;
   private token: string | null = null;
+  private tokenExpiry: number = 0;
 
   constructor(config: OpenSubtitlesConfig) {
     this.config = config;
+    this.userAgent = config.userAgent || 'TemporaryUserAgent';
   }
 
   /**
-   * Login to OpenSubtitles API
-   * Required before making any requests
+   * Login to OpenSubtitles (anonymous)
    */
-  async login(username?: string, password?: string): Promise<void> {
-    try {
-      const response = await fetch(`${this.baseUrl}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Api-Key': this.config.apiKey,
-          'User-Agent': this.config.userAgent,
-        },
-        body: JSON.stringify({
-          username: username || '',
-          password: password || '',
-        }),
-      });
+  private async login(): Promise<string> {
+    // Check if we have a valid token
+    if (this.token && Date.now() < this.tokenExpiry) {
+      return this.token;
+    }
 
-      if (!response.ok) {
-        throw new Error(`Login failed: ${response.statusText}`);
+    try {
+      console.log('[OpenSubtitles] Logging in...');
+      
+      const response = await this.xmlrpcCall('LogIn', [
+        '', // username (blank for anonymous)
+        '', // password (blank for anonymous)
+        'en', // language
+        this.userAgent,
+      ]);
+
+      console.log('[OpenSubtitles] Login response:', response);
+
+      if (response.status !== '200 OK') {
+        console.error('[OpenSubtitles] Login failed with status:', response.status);
+        console.error('[OpenSubtitles] Full response:', JSON.stringify(response, null, 2));
+        throw new Error(`Login failed: ${response.status}`);
       }
 
-      const data = await response.json();
-      this.token = data.token;
+      if (!response.token) {
+        console.error('[OpenSubtitles] No token in response:', JSON.stringify(response, null, 2));
+        throw new Error('No token returned from login');
+      }
+
+      this.token = response.token;
+      // Token expires in 15 minutes, refresh after 14 minutes
+      this.tokenExpiry = Date.now() + (14 * 60 * 1000);
+      
+      console.log('[OpenSubtitles] Login successful, token:', this.token.substring(0, 10) + '...');
+      return this.token;
     } catch (error) {
-      console.error('OpenSubtitles login error:', error);
-      throw error;
+      console.error('[OpenSubtitles] Login error:', error);
+      
+      // Provide more helpful error message
+      if (error instanceof Error && error.message.includes('401')) {
+        throw new Error(
+          'OpenSubtitles login failed (401 Unauthorized). ' +
+          'The XML-RPC API may require User-Agent registration or anonymous access may be disabled. ' +
+          'Please download subtitles manually from opensubtitles.org and place them next to your video files.'
+        );
+      }
+      
+      throw new Error('Failed to connect to OpenSubtitles. Please try again later.');
     }
   }
 
@@ -124,63 +98,59 @@ export class OpenSubtitlesProvider {
    * Search for subtitles
    */
   async search(params: SubtitleSearchParams): Promise<SubtitleResult[]> {
-    if (!this.token) {
-      await this.login();
-    }
-
     try {
-      const queryParams = new URLSearchParams();
+      const token = await this.login();
 
-      // Add search parameters
+      // Build search query
+      const searchQuery: any = {};
+
+      // Add IMDB ID if available (most reliable)
       if (params.imdbId) {
-        // Remove 'tt' prefix if present
-        const imdbId = params.imdbId.replace(/^tt/, '');
-        queryParams.append('imdb_id', imdbId);
+        searchQuery.imdbid = params.imdbId.replace(/^tt/, '');
       }
 
+      // Add query (title)
       if (params.title) {
-        queryParams.append('query', params.title);
+        searchQuery.query = params.title;
       }
 
-      if (params.year) {
-        queryParams.append('year', params.year.toString());
+      // Add season/episode for TV shows
+      if (params.season !== undefined) {
+        searchQuery.season = params.season.toString();
+      }
+      if (params.episode !== undefined) {
+        searchQuery.episode = params.episode.toString();
       }
 
-      if (params.season) {
-        queryParams.append('season_number', params.season.toString());
+      // Add language (use first language or default to English)
+      const language = params.languages && params.languages.length > 0 
+        ? this.convertTo3LetterCode(params.languages[0])
+        : 'eng';
+      searchQuery.sublanguageid = language;
+
+      console.log('[OpenSubtitles] Search query:', searchQuery);
+
+      const response = await this.xmlrpcCall('SearchSubtitles', [
+        token,
+        [searchQuery],
+      ]);
+
+      if (response.status !== '200 OK') {
+        throw new Error(`Search failed: ${response.status}`);
       }
 
-      if (params.episode) {
-        queryParams.append('episode_number', params.episode.toString());
+      // Check if we got results
+      if (!response.data || !Array.isArray(response.data)) {
+        console.log('[OpenSubtitles] No results found');
+        return [];
       }
 
-      if (params.languages && params.languages.length > 0) {
-        queryParams.append('languages', params.languages.join(','));
-      }
+      console.log('[OpenSubtitles] Found', response.data.length, 'results');
 
-      if (params.fileHash) {
-        queryParams.append('moviehash', params.fileHash);
-      }
-
-      const response = await fetch(`${this.baseUrl}/subtitles?${queryParams}`, {
-        method: 'GET',
-        headers: {
-          'Api-Key': this.config.apiKey,
-          'Authorization': `Bearer ${this.token}`,
-          'User-Agent': this.config.userAgent,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.statusText}`);
-      }
-
-      const data: OpenSubtitlesSearchResponse = await response.json();
-
-      // Convert to our SubtitleResult format
-      return data.data.map((subtitle) => this.convertToSubtitleResult(subtitle));
+      // Convert to our format
+      return response.data.map((item: any) => this.convertToSubtitleResult(item));
     } catch (error) {
-      console.error('OpenSubtitles search error:', error);
+      console.error('[OpenSubtitles] Search error:', error);
       throw error;
     }
   }
@@ -188,203 +158,319 @@ export class OpenSubtitlesProvider {
   /**
    * Download subtitle file
    */
-  async download(fileId: number): Promise<{ content: string; fileName: string }> {
-    if (!this.token) {
-      await this.login();
-    }
-
+  async download(subtitleFileId: string): Promise<{ content: string; fileName: string }> {
     try {
-      // Request download link
-      const response = await fetch(`${this.baseUrl}/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Api-Key': this.config.apiKey,
-          'Authorization': `Bearer ${this.token}`,
-          'User-Agent': this.config.userAgent,
-        },
-        body: JSON.stringify({
-          file_id: fileId,
-        }),
-      });
+      const token = await this.login();
 
-      if (!response.ok) {
-        throw new Error(`Download request failed: ${response.statusText}`);
+      console.log('[OpenSubtitles] Downloading subtitle:', subtitleFileId);
+
+      const response = await this.xmlrpcCall('DownloadSubtitles', [
+        token,
+        [subtitleFileId],
+      ]);
+
+      if (response.status !== '200 OK') {
+        throw new Error(`Download failed: ${response.status}`);
       }
 
-      const downloadData: OpenSubtitlesDownloadResponse = await response.json();
-
-      // Download the actual file
-      const fileResponse = await fetch(downloadData.link);
-
-      if (!fileResponse.ok) {
-        throw new Error(`File download failed: ${fileResponse.statusText}`);
+      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+        throw new Error('No download data returned');
       }
 
-      const content = await fileResponse.text();
+      const subtitleData = response.data[0];
+      
+      // The data is base64 encoded and gzipped
+      const base64Data = subtitleData.data;
+      
+      if (!base64Data) {
+        throw new Error('No subtitle data in response');
+      }
+
+      // Decode base64
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // Decompress gzip - the data is gzipped
+      // We need to use pako library for this
+      const pako = await import('pako');
+      const decompressed = pako.inflate(bytes);
+      const content = new TextDecoder().decode(decompressed);
 
       return {
         content,
-        fileName: downloadData.file_name,
+        fileName: `subtitle.srt`,
       };
     } catch (error) {
-      console.error('OpenSubtitles download error:', error);
+      console.error('[OpenSubtitles] Download error:', error);
       throw error;
     }
   }
 
   /**
-   * Get download info (check rate limits)
+   * Make XML-RPC call
    */
-  async getDownloadInfo(fileId: number): Promise<OpenSubtitlesDownloadResponse> {
-    if (!this.token) {
-      await this.login();
+  private async xmlrpcCall(method: string, params: any[]): Promise<XMLRPCResponse> {
+    const xmlRequest = this.buildXMLRPCRequest(method, params);
+
+    console.log('[OpenSubtitles] XML-RPC call:', method);
+    console.log('[OpenSubtitles] Request body:', xmlRequest);
+
+    // Use Electron's fetch
+    if (typeof window === 'undefined' || !window.electron?.fetch) {
+      throw new Error('Electron fetch not available. Please restart the application.');
     }
 
-    try {
-      const response = await fetch(`${this.baseUrl}/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Api-Key': this.config.apiKey,
-          'Authorization': `Bearer ${this.token}`,
-          'User-Agent': this.config.userAgent,
-        },
-        body: JSON.stringify({
-          file_id: fileId,
-          sub_format: 'srt', // Request SRT format
-        }),
-      });
+    const response = await window.electron.fetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/xml',
+        'User-Agent': this.userAgent,
+      },
+      body: xmlRequest,
+      timeout: 30000,
+    });
 
-      if (!response.ok) {
-        throw new Error(`Download info request failed: ${response.statusText}`);
-      }
+    console.log('[OpenSubtitles] Response status:', response.status);
+    console.log('[OpenSubtitles] Response text:', response.text.substring(0, 500));
 
-      return await response.json();
-    } catch (error) {
-      console.error('OpenSubtitles download info error:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(`XML-RPC request failed: ${response.statusText}`);
     }
+
+    // Parse XML-RPC response
+    return this.parseXMLRPCResponse(response.text);
   }
 
   /**
-   * Calculate file hash for better matching
-   * OpenSubtitles uses a specific hash algorithm
+   * Build XML-RPC request
    */
-  async calculateFileHash(filePath: string): Promise<string | null> {
-    // Check if running in Electron
-    if (typeof window === 'undefined' || !window.electron) {
-      return null;
-    }
-
-    try {
-      // This would need to be implemented in Electron main process
-      // OpenSubtitles hash algorithm:
-      // 1. Take first and last 64KB of file
-      // 2. Add file size
-      // 3. Calculate hash
-      
-      // For now, return null - will implement in Phase 4
-      return null;
-    } catch (error) {
-      console.error('Error calculating file hash:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Convert OpenSubtitles subtitle to our format
-   */
-  private convertToSubtitleResult(subtitle: OpenSubtitlesSubtitle): SubtitleResult {
-    const attrs = subtitle.attributes;
+  private buildXMLRPCRequest(method: string, params: any[]): string {
+    const paramsXML = params.map(param => this.valueToXML(param)).join('\n    ');
     
+    return `<?xml version="1.0"?>
+<methodCall>
+  <methodName>${method}</methodName>
+  <params>
+    ${paramsXML}
+  </params>
+</methodCall>`;
+  }
+
+  /**
+   * Convert JavaScript value to XML-RPC param
+   */
+  private valueToXML(value: any): string {
+    return `<param><value>${this.valueToXMLInner(value)}</value></param>`;
+  }
+
+  /**
+   * Convert value to XML (inner, without param wrapper)
+   */
+  private valueToXMLInner(value: any): string {
+    if (typeof value === 'string') {
+      return `<string>${this.escapeXML(value)}</string>`;
+    } else if (typeof value === 'number') {
+      return `<int>${value}</int>`;
+    } else if (typeof value === 'boolean') {
+      return `<boolean>${value ? '1' : '0'}</boolean>`;
+    } else if (Array.isArray(value)) {
+      const items = value.map(item => `<value>${this.valueToXMLInner(item)}</value>`).join('\n        ');
+      return `<array><data>\n        ${items}\n      </data></array>`;
+    } else if (typeof value === 'object' && value !== null) {
+      const members = Object.keys(value).map(key => 
+        `<member><name>${key}</name><value>${this.valueToXMLInner(value[key])}</value></member>`
+      ).join('\n        ');
+      return `<struct>\n        ${members}\n      </struct>`;
+    }
+    return '<string></string>';
+  }
+
+  /**
+   * Escape XML special characters
+   */
+  private escapeXML(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  /**
+   * Parse XML-RPC response
+   */
+  private parseXMLRPCResponse(xml: string): XMLRPCResponse {
+    // Check for fault
+    if (xml.includes('<fault>')) {
+      const faultMatch = xml.match(/<string>([^<]+)<\/string>/);
+      throw new Error(faultMatch ? faultMatch[1] : 'XML-RPC fault');
+    }
+
+    const result: XMLRPCResponse = { status: '' };
+    
+    // Extract struct members from the response
+    const memberRegex = /<member>\s*<name>([^<]+)<\/name>\s*<value>([^]*?)<\/value>\s*<\/member>/g;
+    let match;
+    
+    while ((match = memberRegex.exec(xml)) !== null) {
+      const name = match[1];
+      const valueXML = match[2];
+      result[name] = this.parseXMLValue(valueXML);
+    }
+
+    return result;
+  }
+
+  /**
+   * Parse XML value
+   */
+  private parseXMLValue(xml: string): any {
+    // String
+    const stringMatch = xml.match(/<string>([^<]*)<\/string>/);
+    if (stringMatch) {
+      return stringMatch[1];
+    }
+
+    // Int
+    const intMatch = xml.match(/<int>([^<]+)<\/int>/);
+    if (intMatch) {
+      return parseInt(intMatch[1], 10);
+    }
+
+    // Double
+    const doubleMatch = xml.match(/<double>([^<]+)<\/double>/);
+    if (doubleMatch) {
+      return parseFloat(doubleMatch[1]);
+    }
+
+    // Boolean
+    const boolMatch = xml.match(/<boolean>([^<]+)<\/boolean>/);
+    if (boolMatch) {
+      return boolMatch[1] === '1';
+    }
+
+    // Array
+    if (xml.includes('<array>')) {
+      return this.parseXMLArray(xml);
+    }
+
+    // Struct
+    if (xml.includes('<struct>')) {
+      const struct: any = {};
+      const memberRegex = /<member>\s*<name>([^<]+)<\/name>\s*<value>([^]*?)<\/value>\s*<\/member>/g;
+      let match;
+      
+      while ((match = memberRegex.exec(xml)) !== null) {
+        struct[match[1]] = this.parseXMLValue(match[2]);
+      }
+      
+      return struct;
+    }
+
+    return null;
+  }
+
+  /**
+   * Parse XML array
+   */
+  private parseXMLArray(xml: string): any[] {
+    const result: any[] = [];
+    
+    // Extract data section
+    const dataMatch = xml.match(/<data>([^]*?)<\/data>/);
+    if (!dataMatch) return result;
+    
+    const dataXML = dataMatch[1];
+    const valueRegex = /<value>([^]*?)<\/value>/g;
+    let match;
+    
+    while ((match = valueRegex.exec(dataXML)) !== null) {
+      result.push(this.parseXMLValue(match[1]));
+    }
+    
+    return result;
+  }
+
+  /**
+   * Convert API subtitle to our format
+   */
+  private convertToSubtitleResult(item: any): SubtitleResult {
+    // Extract format from filename
+    const fileName = item.SubFileName || 'subtitle.srt';
+    const extension = fileName.split('.').pop()?.toLowerCase() || 'srt';
+    const validFormats = ['srt', 'ass', 'ssa', 'sub', 'vtt'];
+    const format = validFormats.includes(extension) ? extension as 'srt' | 'ass' | 'ssa' | 'sub' | 'vtt' : 'srt';
+
     return {
-      id: attrs.subtitle_id,
-      provider: 'opensubtitles.com',
-      language: this.getLanguageName(attrs.language),
-      languageCode: attrs.language,
-      fileName: attrs.files[0]?.file_name || 'subtitle.srt',
-      releaseName: attrs.release,
-      downloadCount: attrs.download_count,
-      rating: attrs.ratings,
-      format: 'srt', // OpenSubtitles primarily uses SRT
-      uploader: attrs.uploader.name,
-      uploadDate: attrs.upload_date,
-      url: attrs.url,
-      fileSize: undefined,
-      fps: attrs.fps,
-      hearing_impaired: attrs.hearing_impaired,
+      id: item.IDSubtitleFile,
+      provider: 'opensubtitles.org',
+      language: item.LanguageName || 'Unknown',
+      languageCode: item.SubLanguageID || 'en',
+      fileName: fileName,
+      releaseName: item.MovieReleaseName || item.SubFileName || '',
+      downloadCount: parseInt(item.SubDownloadsCnt || '0', 10),
+      rating: parseFloat(item.SubRating || '0'),
+      format: format,
+      uploader: item.UserNickName || 'Unknown',
+      uploadDate: item.SubAddDate || '',
+      url: item.IDSubtitleFile, // Store file ID for download
+      hearing_impaired: item.SubHearingImpaired === '1',
+      fps: item.MovieFPS ? parseFloat(item.MovieFPS) : undefined,
     };
   }
 
   /**
-   * Get full language name from code
+   * Convert 2-letter language code to 3-letter code
    */
-  private getLanguageName(code: string): string {
-    const languageMap: Record<string, string> = {
-      'en': 'English',
-      'es': 'Spanish',
-      'fr': 'French',
-      'de': 'German',
-      'it': 'Italian',
-      'pt': 'Portuguese',
-      'ru': 'Russian',
-      'ja': 'Japanese',
-      'zh': 'Chinese',
-      'ko': 'Korean',
-      'ar': 'Arabic',
-      'nl': 'Dutch',
-      'pl': 'Polish',
-      'sv': 'Swedish',
-      'tr': 'Turkish',
-      'da': 'Danish',
-      'fi': 'Finnish',
-      'no': 'Norwegian',
-      'cs': 'Czech',
-      'el': 'Greek',
-      'he': 'Hebrew',
-      'hi': 'Hindi',
-      'hu': 'Hungarian',
-      'id': 'Indonesian',
-      'ro': 'Romanian',
-      'th': 'Thai',
-      'vi': 'Vietnamese',
+  private convertTo3LetterCode(code: string): string {
+    const codeMap: Record<string, string> = {
+      'en': 'eng',
+      'es': 'spa',
+      'fr': 'fre',
+      'de': 'ger',
+      'it': 'ita',
+      'pt': 'por',
+      'ru': 'rus',
+      'ja': 'jpn',
+      'zh': 'chi',
+      'ko': 'kor',
+      'ar': 'ara',
+      'nl': 'dut',
+      'pl': 'pol',
+      'sv': 'swe',
+      'tr': 'tur',
+      'da': 'dan',
+      'fi': 'fin',
+      'no': 'nor',
+      'cs': 'cze',
+      'el': 'gre',
+      'he': 'heb',
+      'hi': 'hin',
+      'hu': 'hun',
+      'id': 'ind',
+      'ro': 'rum',
+      'th': 'tha',
+      'vi': 'vie',
     };
 
-    return languageMap[code.toLowerCase()] || code.toUpperCase();
-  }
-
-  /**
-   * Logout from OpenSubtitles API
-   */
-  async logout(): Promise<void> {
-    if (!this.token) {
-      return;
+    // If already 3-letter code, return as-is
+    if (code.length === 3) {
+      return code.toLowerCase();
     }
 
-    try {
-      await fetch(`${this.baseUrl}/logout`, {
-        method: 'DELETE',
-        headers: {
-          'Api-Key': this.config.apiKey,
-          'Authorization': `Bearer ${this.token}`,
-          'User-Agent': this.config.userAgent,
-        },
-      });
-
-      this.token = null;
-    } catch (error) {
-      console.error('OpenSubtitles logout error:', error);
-    }
+    return codeMap[code.toLowerCase()] || 'eng';
   }
 }
 
 /**
  * Create OpenSubtitles provider instance
  */
-export function createOpenSubtitlesProvider(apiKey: string): OpenSubtitlesProvider {
+export function createOpenSubtitlesProvider(apiKey?: string): OpenSubtitlesProvider {
   return new OpenSubtitlesProvider({
     apiKey,
-    userAgent: 'AIO Media Manager v0.1.0',
   });
 }

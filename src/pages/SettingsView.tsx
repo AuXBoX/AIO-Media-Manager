@@ -6,8 +6,9 @@ import { LocalMetadataSettings } from '@/components/local-metadata/LocalMetadata
 import { PerformanceSettings } from '@/components/settings/PerformanceSettings';
 import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { APIKeysSettings } from '@/components/settings/APIKeysSettings';
+import { BinarySettings } from '@/components/settings/BinarySettings';
 
-type SettingsTab = 'general' | 'apikeys' | 'cache' | 'metadata' | 'performance' | 'privacy';
+type SettingsTab = 'general' | 'apikeys' | 'binaries' | 'cache' | 'metadata' | 'performance' | 'privacy';
 
 /**
  * SettingsView Component
@@ -86,13 +87,14 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  const tabs: Array<{ id: SettingsTab; label: string; icon: string }> = [
-    { id: 'general', label: 'General', icon: '⚙️' },
-    { id: 'apikeys', label: 'API Keys', icon: '🔑' },
-    { id: 'cache', label: 'Cache & Offline', icon: '💾' },
-    { id: 'metadata', label: 'Local Metadata', icon: '📄' },
-    { id: 'performance', label: 'Performance', icon: '⚡' },
-    { id: 'privacy', label: 'Privacy', icon: '🔒' },
+  const tabs: Array<{ id: SettingsTab; label: string }> = [
+    { id: 'general', label: 'General' },
+    { id: 'apikeys', label: 'API Keys' },
+    { id: 'binaries', label: 'Binaries' },
+    { id: 'cache', label: 'Cache & Offline' },
+    { id: 'metadata', label: 'Local Metadata' },
+    { id: 'performance', label: 'Performance' },
+    { id: 'privacy', label: 'Privacy' },
   ];
 
   if (loading) {
@@ -167,7 +169,6 @@ export const SettingsView: React.FC = () => {
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
-                  <span className="mr-3 text-xl">{tab.icon}</span>
                   {tab.label}
                 </button>
               ))}
@@ -200,6 +201,12 @@ export const SettingsView: React.FC = () => {
                 <APIKeysSettings
                   settings={settings}
                   onSave={handleSave}
+                  saving={saving}
+                />
+              )}
+
+              {activeTab === 'binaries' && (
+                <BinarySettings
                   saving={saving}
                 />
               )}

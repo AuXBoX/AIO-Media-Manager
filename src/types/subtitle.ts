@@ -6,7 +6,7 @@
 
 export interface SubtitleResult {
   id: string;
-  provider: 'opensubtitles.org' | 'opensubtitles.com';
+  provider: 'opensubtitles.org' | 'opensubtitles.com' | 'subdl.com';
   language: string;
   languageCode: string; // ISO 639-1 or 639-2
   fileName: string;
@@ -62,14 +62,17 @@ export interface PlexSubtitle {
   forced: boolean;
   external: boolean;
   format?: string;
+  streamIndex?: number; // Subtitle stream index for FFmpeg (0, 1, 2, etc.)
 }
 
 export interface SubtitleSearchParams {
   imdbId?: string;
+  tmdbId?: number;
   title?: string;
   year?: number;
   season?: number;
   episode?: number;
+  type?: 'movie' | 'episode';
   languages?: string[];
   fileHash?: string;
   fileSize?: number;
@@ -106,6 +109,8 @@ export interface SubtitleEmbedOptions {
 export interface SubtitleExtractOptions {
   outputFormat?: 'srt' | 'ass' | 'vtt'; // Convert to this format
   outputPath?: string; // Custom output path
+  languageCode?: string; // ISO 639-1 or 639-2 language code (e.g., 'en', 'eng')
+  forced?: boolean; // Whether this is a forced subtitle
 }
 
 export interface SubtitleRemoveOptions {

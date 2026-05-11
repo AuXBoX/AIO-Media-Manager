@@ -8,6 +8,8 @@ import { createSubtitleManager } from '@/managers/SubtitleManager';
 import { createFFmpegManager } from '@/managers/FFmpegManager';
 import { MetadataRefreshModal } from '@/components/library/MetadataRefreshModal';
 import { SubtitleSearchModal } from '@/components/library/SubtitleSearchModal';
+import { TrailerSearchModal } from '@/components/library/TrailerSearchModal';
+import { ImageSearchModal } from '@/components/library/ImageSearchModal';
 import { queryKeys } from '@/api/queryKeys';
 import { db } from '@/db/database';
 import { useAppStore } from '@/store/appStore';
@@ -39,6 +41,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
   const [plexSubtitles, setPlexSubtitles] = useState<PlexSubtitle[]>([]);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
   const [showSubtitleSearchModal, setShowSubtitleSearchModal] = useState(false);
+  const [showTrailerSearch, setShowTrailerSearch] = useState(false);
+  const [showImageSearchModal, setShowImageSearchModal] = useState(false);
+  const [selectedSubtitlesForRemoval, setSelectedSubtitlesForRemoval] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   // Editable fields state
@@ -167,6 +172,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
         const plexSubs: PlexSubtitle[] = [];
         if (metadata.Media?.[0]?.Part?.[0]?.Stream) {
           const streams = metadata.Media[0].Part[0].Stream;
+          let subtitleIndex = 0; // Track subtitle stream index (0, 1, 2, etc.)
           for (const stream of streams) {
             if (stream.streamType === 3) { // Subtitle stream
               plexSubs.push({
@@ -179,7 +185,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 forced: stream.forced === 1 || stream.forced === true,
                 external: stream.key ? true : false,
                 format: stream.format || stream.codec,
+                streamIndex: subtitleIndex, // Add the subtitle stream index for FFmpeg
               });
+              subtitleIndex++;
             }
           }
         }
@@ -495,7 +503,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
         {activeTab === 'details' && (
           <div className="space-y-4">
             {/* Title - Editable */}
@@ -808,6 +816,19 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
 
         {activeTab === 'images' && (
           <div className="space-y-6">
+            {/* Search Images Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowImageSearchModal(true)}
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Search Images
+              </button>
+            </div>
+
             {/* Poster */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -835,11 +856,11 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 )}
               </div>
               {posterUrl && (
-                <div className="flex justify-center">
+                <div className="flex justify-start">
                   <img 
                     src={posterUrl} 
                     alt="Poster" 
-                    className="max-w-xs rounded shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+                    className="w-32 h-48 rounded shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all object-cover"
                     onClick={() => window.open(posterUrl, '_blank')}
                     title="Click to view full size"
                   />
@@ -874,11 +895,11 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 )}
               </div>
               {artUrl && (
-                <div className="flex justify-center">
+                <div className="flex justify-start">
                   <img 
                     src={artUrl} 
                     alt="Background" 
-                    className="max-w-full rounded shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+                    className="w-64 h-36 rounded shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all object-cover"
                     onClick={() => window.open(artUrl, '_blank')}
                     title="Click to view full size"
                   />
@@ -1042,12 +1063,30 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
 
             {/* Add trailer button */}
             {isEditing && (
-              <button className="w-full px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add Trailer URL
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    // Validate that we have the media file path before opening modal
+                    if (!fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file) {
+                      alert('Cannot find media file path. Please ensure the item has a valid media file.');
+                      return;
+                    }
+                    setShowTrailerSearch(true);
+                  }}
+                  className="flex-1 px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Search Trailers
+                </button>
+                <button className="flex-1 px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Trailer URL
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -1057,16 +1096,88 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
             {/* Plex/Embedded Subtitles Section */}
             {plexSubtitles.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-3 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                  </svg>
-                  Embedded Subtitles
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                    </svg>
+                    Embedded Subtitles
+                  </h4>
+                  {selectedSubtitlesForRemoval.size > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (confirm(`Remove ${selectedSubtitlesForRemoval.size} selected subtitle(s)? This will modify the video file. A backup will be created.`)) {
+                          try {
+                            const ffmpegManager = createFFmpegManager();
+                            const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
+                            
+                            if (!mediaFilePath) {
+                              alert('Media file path not found');
+                              return;
+                            }
+                            
+                            // Convert selected IDs to streamIndex values
+                            const indicesToRemove: number[] = [];
+                            plexSubtitles.forEach(subtitle => {
+                              if (selectedSubtitlesForRemoval.has(subtitle.id) && subtitle.streamIndex !== undefined) {
+                                indicesToRemove.push(subtitle.streamIndex);
+                              }
+                            });
+                            
+                            if (indicesToRemove.length === 0) {
+                              alert('No valid subtitle streams selected');
+                              return;
+                            }
+                            
+                            // Remove subtitles
+                            await ffmpegManager.removeSubtitles(
+                              mediaFilePath,
+                              {
+                                createBackup: true,
+                                streamIndices: indicesToRemove,
+                              }
+                            );
+                            
+                            alert(`${selectedSubtitlesForRemoval.size} subtitle(s) removed successfully. A backup was created.`);
+                            
+                            // Clear selection
+                            setSelectedSubtitlesForRemoval(new Set());
+                            
+                            // Refresh metadata
+                            await refetch();
+                          } catch (error) {
+                            console.error('Error removing subtitles:', error);
+                            alert(`Failed to remove subtitles: ${error instanceof Error ? error.message : 'Unknown error'}\n\nThe file may be in use by Plex or another application. Try stopping Plex Media Server temporarily.`);
+                          }
+                        }
+                      }}
+                      className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Remove Selected ({selectedSubtitlesForRemoval.size})
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-3">
                   {plexSubtitles.map((subtitle, index) => (
                     <div key={`plex-${index}`} className="border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 bg-blue-50 dark:bg-blue-900/10">
                       <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedSubtitlesForRemoval.has(subtitle.id)}
+                          onChange={(e) => {
+                            const newSelection = new Set(selectedSubtitlesForRemoval);
+                            if (e.target.checked) {
+                              newSelection.add(subtitle.id);
+                            } else {
+                              newSelection.delete(subtitle.id);
+                            }
+                            setSelectedSubtitlesForRemoval(newSelection);
+                          }}
+                          className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+                        />
                         <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded flex items-center justify-center flex-shrink-0">
                           <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
@@ -1122,11 +1233,18 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                                       return;
                                     }
                                     
-                                    // Extract subtitle
+                                    // Use streamIndex instead of id for FFmpeg
+                                    const subtitleStreamIndex = subtitle.streamIndex !== undefined ? subtitle.streamIndex : 0;
+                                    
+                                    // Extract subtitle with Plex naming convention
                                     const outputPath = await ffmpegManager.extractSubtitle(
                                       mediaFilePath,
-                                      subtitle.id ? parseInt(subtitle.id) : 0,
-                                      { outputFormat: 'srt' }
+                                      subtitleStreamIndex,
+                                      { 
+                                        outputFormat: 'srt',
+                                        languageCode: subtitle.languageCode || 'und',
+                                        forced: subtitle.forced || false
+                                      }
                                     );
                                     
                                     alert(`Subtitle extracted successfully to: ${outputPath}`);
@@ -1149,44 +1267,6 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                               </svg>
                             </button>
                           )}
-                          <button
-                            onClick={async () => {
-                              if (confirm(`Remove subtitle: ${subtitle.language}? This will modify the video file.`)) {
-                                try {
-                                  const ffmpegManager = createFFmpegManager();
-                                  const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
-                                  
-                                  if (!mediaFilePath) {
-                                    alert('Media file path not found');
-                                    return;
-                                  }
-                                  
-                                  // Remove subtitle
-                                  await ffmpegManager.removeSubtitles(
-                                    mediaFilePath,
-                                    {
-                                      createBackup: true,
-                                      streamIndices: [subtitle.id ? parseInt(subtitle.id) : 0],
-                                    }
-                                  );
-                                  
-                                  alert('Subtitle removed successfully. A backup was created.');
-                                  
-                                  // Refresh metadata
-                                  await refetch();
-                                } catch (error) {
-                                  console.error('Error removing subtitle:', error);
-                                  alert(`Failed to remove subtitle: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                                }
-                              }
-                            }}
-                            className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
-                            title="Remove subtitle"
-                          >
-                            <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -1526,6 +1606,45 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
             const subtitleManager = createSubtitleManager();
             const updatedSubtitles = await subtitleManager.scanSubtitles(mediaFilePath);
             setLocalSubtitles(updatedSubtitles);
+          }}
+        />
+      )}
+
+      {/* Trailer Search Modal */}
+      {showTrailerSearch && item && fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file && (
+        <TrailerSearchModal
+          isOpen={showTrailerSearch}
+          onClose={() => setShowTrailerSearch(false)}
+          movieTitle={item.title}
+          movieYear={item.year}
+          mediaFilePath={fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file}
+          onTrailerDownloaded={async () => {
+            // Refresh trailer list
+            const mediaFilePath = fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file;
+            if (window.electron?.scanForTrailers) {
+              try {
+                const directory = mediaFilePath.substring(0, Math.max(mediaFilePath.lastIndexOf('/'), mediaFilePath.lastIndexOf('\\')));
+                const baseFilename = mediaFilePath.substring(Math.max(mediaFilePath.lastIndexOf('/'), mediaFilePath.lastIndexOf('\\')) + 1, mediaFilePath.lastIndexOf('.'));
+                const foundTrailers = await window.electron.scanForTrailers(directory, baseFilename);
+                setLocalTrailers(foundTrailers || []);
+              } catch (error) {
+                console.error('Error scanning for trailers:', error);
+              }
+            }
+          }}
+        />
+      )}
+
+      {/* Image Search Modal */}
+      {showImageSearchModal && item && (
+        <ImageSearchModal
+          item={item}
+          serverUrl={serverUrl}
+          token={token}
+          onClose={() => setShowImageSearchModal(false)}
+          onImageSelected={() => {
+            // Refresh metadata to show new image
+            refetch();
           }}
         />
       )}

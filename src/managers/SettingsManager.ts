@@ -31,7 +31,7 @@ export interface AppSettings {
   tmdbApiKey?: string;
   fanartApiKey?: string;
   tvdbApiKey?: string;
-  openSubtitlesApiKey?: string;
+  subdlApiKey?: string;
 
   // Cache settings
   cacheEnabled: boolean;
@@ -156,16 +156,16 @@ class LocalStorageAdapter implements StorageAdapter {
  * Stores settings in %APPDATA%/aio-media-manager/settings/app-settings.json
  */
 class ElectronStoreAdapter implements StorageAdapter {
-  private static readonly SETTINGS_KEY = 'aio-media-manager-settings';
-
   async getItem(key: string): Promise<string | null> {
     try {
       if (typeof window !== 'undefined' && (window as any).electron?.settings) {
+        // Get all settings directly (no nested key)
         const settings = await (window as any).electron.settings.get();
-        if (!settings) {
+        if (!settings || Object.keys(settings).length === 0) {
           return null;
         }
-        return settings[ElectronStoreAdapter.SETTINGS_KEY] || null;
+        // Return the settings as JSON string
+        return JSON.stringify(settings);
       }
       // Fallback to localStorage if electron API not available
       return localStorage.getItem(key);
@@ -178,21 +178,56 @@ class ElectronStoreAdapter implements StorageAdapter {
   async setItem(key: string, value: string): Promise<void> {
     try {
       if (typeof window !== 'undefined' && (window as any).electron?.settings) {
-        await (window as any).electron.settings.set(ElectronStoreAdapter.SETTINGS_KEY, value);
+        // Validate value before parsing
+        if (!value || value === 'null' || value === 'undefined') {
+          console.warn('[ElectronStoreAdapter] Attempted to save invalid value:', value);
+          return;
+        }
+        
+        // Parse the JSON string and save directly (no nested key)
+        let settings;
+        try {
+          settings = JSON.parse(value);
+        } catch (parseError) {
+          console.error('[ElectronStoreAdapter] Failed to parse settings JSON:', parseError);
+          throw new Error('Invalid settings data');
+        }
+        
+        if (!settings || typeof settings !== 'object') {
+          console.error('[ElectronStoreAdapter] Settings is not an object:', settings);
+          throw new Error('Settings must be an object');
+        }
+        
+        // Remove any undefined or null values before sending to Electron
+        const cleanedSettings: Record<string, any> = {};
+        for (const [k, v] of Object.entries(settings)) {
+          if (v !== undefined && v !== null) {
+            cleanedSettings[k] = v;
+          } else {
+            console.warn('[ElectronStoreAdapter] Filtering out undefined/null value for key:', k);
+          }
+        }
+        
+        console.log('[ElectronStoreAdapter] Saving cleaned settings with', Object.keys(cleanedSettings).length, 'keys');
+        
+        // Pass the settings object directly as the first parameter (bulk update)
+        // The Electron handler will detect it's an object and do a bulk update
+        await (window as any).electron.settings.set(cleanedSettings);
         return;
       }
       // Fallback to localStorage if electron API not available
       localStorage.setItem(key, value);
     } catch (error) {
       console.error('Failed to set settings in Electron store:', error);
-      localStorage.setItem(key, value);
+      // Don't fallback to localStorage on error, let it propagate
+      throw error;
     }
   }
 
   async removeItem(key: string): Promise<void> {
     try {
       if (typeof window !== 'undefined' && (window as any).electron?.settings) {
-        await (window as any).electron.settings.delete(ElectronStoreAdapter.SETTINGS_KEY);
+        await (window as any).electron.settings.delete();
         return;
       }
       // Fallback to localStorage if electron API not available
@@ -264,12 +299,45 @@ export class SettingsManager implements ISettingsManager {
     }
 
     const current = await this.getSettings();
-    const updated = { ...current, ...updates };
+    
+    // Remove undefined and null values from updates to prevent JSON serialization issues
+    const cleanUpdates: Partial<AppSettings> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined && value !== null) {
+        cleanUpdates[key as keyof AppSettings] = value as any;
+      } else {
+        console.warn('[SettingsManager] Skipping undefined/null value for key:', key);
+      }
+    }
+    
+    const updated = { ...current, ...cleanUpdates };
+    
+    // Final pass: remove any undefined/null values from the entire settings object
+    const cleanedSettings: Partial<AppSettings> = {};
+    for (const [key, value] of Object.entries(updated)) {
+      if (value !== undefined && value !== null) {
+        cleanedSettings[key as keyof AppSettings] = value as any;
+      }
+    }
 
-    console.log('[SettingsManager] Saving to storage:', updated);
-    await this.storage.setItem(SettingsManager.STORAGE_KEY, JSON.stringify(updated));
-    this.cachedSettings = updated;
-    console.log('[SettingsManager] Settings saved successfully');
+    console.log('[SettingsManager] Saving to storage:', cleanedSettings);
+    
+    try {
+      // Use a custom replacer to filter out undefined values during JSON.stringify
+      const jsonString = JSON.stringify(cleanedSettings, (key, value) => {
+        // Filter out undefined and null values
+        if (value === undefined || value === null) {
+          return undefined; // This will cause JSON.stringify to omit the key
+        }
+        return value;
+      });
+      await this.storage.setItem(SettingsManager.STORAGE_KEY, jsonString);
+      this.cachedSettings = cleanedSettings as AppSettings;
+      console.log('[SettingsManager] Settings saved successfully');
+    } catch (error) {
+      console.error('[SettingsManager] Failed to save settings:', error);
+      throw error;
+    }
 
     // Apply theme change if theme was updated
     if (updates.theme !== undefined) {

@@ -94,9 +94,18 @@ export class FFmpegManager {
       // Determine output format
       const outputFormat = options.outputFormat || 'srt';
       
+      // Build output path following Plex naming convention
+      // Format: MovieName.{language}.srt or MovieName.{language}.forced.srt
+      let languageSuffix = options.languageCode || 'und';
+      
+      // Add forced flag if specified
+      if (options.forced) {
+        languageSuffix += '.forced';
+      }
+      
       // Build output path
       const outputPath = options.outputPath || 
-        `${directory}/${nameWithoutExt}.${subtitleIndex}.${outputFormat}`;
+        `${directory}/${nameWithoutExt}.${languageSuffix}.${outputFormat}`;
 
       // Call Electron IPC to extract subtitle
       const result = await window.electron.ffmpegExtractSubtitle(
@@ -141,7 +150,11 @@ export class FFmpegManager {
       // Create backup if requested
       if (options.createBackup) {
         const backupPath = `${directory}/${nameWithoutExt}.backup${extension}`;
-        await window.electron.copyFile(mediaFilePath, backupPath);
+        try {
+          await window.electron.copyFile(mediaFilePath, backupPath);
+        } catch (error) {
+          throw new Error(`Failed to create backup: ${error instanceof Error ? error.message : 'Unknown error'}. The file may be in use by Plex Media Server or another application. Please stop Plex Media Server and try again.`);
+        }
       }
 
       // Build output path (temporary file)
@@ -156,9 +169,13 @@ export class FFmpegManager {
       );
 
       // Replace original file with new file
-      await window.electron.deleteFile(mediaFilePath);
-      await window.electron.copyFile(outputPath, mediaFilePath);
-      await window.electron.deleteFile(outputPath);
+      try {
+        await window.electron.deleteFile(mediaFilePath);
+        await window.electron.copyFile(outputPath, mediaFilePath);
+        await window.electron.deleteFile(outputPath);
+      } catch (error) {
+        throw new Error(`Failed to replace original file: ${error instanceof Error ? error.message : 'Unknown error'}. The file may be in use. Please close Plex Media Server and any video players, then try again.`);
+      }
 
       return mediaFilePath;
     } catch (error) {
