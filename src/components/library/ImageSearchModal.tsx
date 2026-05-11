@@ -23,6 +23,20 @@ interface ImageResult {
   provider?: string;
 }
 
+// Helper to load image and get dimensions
+const loadImageDimensions = (url: string): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      reject(new Error('Failed to load image'));
+    };
+    img.src = url;
+  });
+};
+
 type Step = 'search' | 'images';
 
 export function ImageSearchModal({
@@ -36,6 +50,7 @@ export function ImageSearchModal({
   const [selectedMatch, setSelectedMatch] = useState<SearchResult | null>(null);
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set(['poster', 'background']));
   const [selectedImage, setSelectedImage] = useState<ImageResult | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
 
   const client = createPlexClient({ baseURL: serverUrl, token });
   const manager = createMetadataManager(client);
@@ -43,6 +58,20 @@ export function ImageSearchModal({
   const isMovie = item.type === 'movie';
   const isTVShow = item.type === 'show' || item.type === 'season' || item.type === 'episode';
   const mediaType = isMovie ? 'movie' : 'show';
+
+  // Load image dimensions when an image loads
+  const handleImageLoad = (url: string, event: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = event.currentTarget;
+    setImageDimensions(prev => new Map(prev).set(url, {
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+    }));
+  };
+
+  // Get dimensions for an image
+  const getDimensions = (url: string) => {
+    return imageDimensions.get(url) || { width: 0, height: 0 };
+  };
 
   // Toggle type selection
   const toggleType = (type: string) => {
@@ -149,6 +178,21 @@ export function ImageSearchModal({
         } else if (selectedMatch.provider === 'tvdb') {
           // TVDB format: "series-123"
           tvdbId = selectedMatch.externalId.replace(/^series-/, '');
+          
+          // For TV shows from TVDB, also search TMDB to get TMDB ID for additional images
+          if (isTVShow && providerRegistry.hasProvider('tmdb')) {
+            try {
+              console.log('[ImageSearch] Searching TMDB for additional images...');
+              const tmdbResults = await providerRegistry.search('tmdb', selectedMatch.title, mediaType, selectedMatch.year);
+              if (tmdbResults.length > 0) {
+                // Extract TMDB ID from first result
+                tmdbId = tmdbResults[0].externalId.replace(/^(movie|tv)-/, '');
+                console.log('[ImageSearch] Found TMDB ID:', tmdbId);
+              }
+            } catch (error) {
+              console.warn('[ImageSearch] Could not find TMDB ID:', error);
+            }
+          }
         }
         
         console.log('[ImageSearch] Using IDs:', { tmdbId, tvdbId, provider: selectedMatch.provider });
@@ -168,8 +212,8 @@ export function ImageSearchModal({
               tvdbMetadata.posters.forEach((url: string) => {
                 allPosters.push({
                   url,
-                  width: 0,
-                  height: 0,
+                  width: 0, // Will be detected on load
+                  height: 0, // Will be detected on load
                   type: 'poster',
                   provider: 'TVDB',
                 });
@@ -180,8 +224,8 @@ export function ImageSearchModal({
               tvdbMetadata.backdrops.forEach((url: string) => {
                 allBackgrounds.push({
                   url,
-                  width: 0,
-                  height: 0,
+                  width: 0, // Will be detected on load
+                  height: 0, // Will be detected on load
                   type: 'background',
                   provider: 'TVDB',
                 });
@@ -498,8 +542,17 @@ export function ImageSearchModal({
                               alt={`Poster ${index + 1}`}
                               className="w-full h-auto aspect-[2/3] object-cover"
                               loading="lazy"
+                              onLoad={(e) => handleImageLoad(image.url, e)}
                             />
                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-2">
+                              {(() => {
+                                const dims = getDimensions(image.url);
+                                return dims.width > 0 ? (
+                                  <div>{dims.width} × {dims.height}</div>
+                                ) : (
+                                  <div>Loading...</div>
+                                );
+                              })()}
                               {image.provider && <div className="font-medium">{image.provider}</div>}
                             </div>
                             {selectedImage?.url === image.url && (
@@ -537,8 +590,17 @@ export function ImageSearchModal({
                               alt={`Background ${index + 1}`}
                               className="w-full h-auto aspect-video object-cover"
                               loading="lazy"
+                              onLoad={(e) => handleImageLoad(image.url, e)}
                             />
                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-2">
+                              {(() => {
+                                const dims = getDimensions(image.url);
+                                return dims.width > 0 ? (
+                                  <div>{dims.width} × {dims.height}</div>
+                                ) : (
+                                  <div>Loading...</div>
+                                );
+                              })()}
                               {image.provider && <div className="font-medium">{image.provider}</div>}
                             </div>
                             {selectedImage?.url === image.url && (
@@ -575,6 +637,10 @@ export function ImageSearchModal({
             {step === 'images' && selectedImage && (
               <span>
                 Selected: {selectedImage.type === 'poster' ? 'Poster' : 'Background'}
+                {(() => {
+                  const dims = getDimensions(selectedImage.url);
+                  return dims.width > 0 ? ` • ${dims.width} × ${dims.height}` : '';
+                })()}
                 {selectedImage.provider && ` • ${selectedImage.provider}`}
               </span>
             )}
@@ -624,4 +690,4 @@ export function ImageSearchModal({
     </div>
   );
 }
-
+
