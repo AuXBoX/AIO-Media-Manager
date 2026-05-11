@@ -407,8 +407,14 @@ export function ImageSearchModal({
             const arrayBuffer = await blob.arrayBuffer();
             const buffer = new Uint8Array(arrayBuffer);
             
-            // Convert to base64 for Electron IPC
-            const base64 = btoa(String.fromCharCode(...buffer));
+            // Convert to base64 for Electron IPC (process in chunks to avoid stack overflow)
+            let base64 = '';
+            const chunkSize = 8192; // Process 8KB at a time
+            for (let i = 0; i < buffer.length; i += chunkSize) {
+              const chunk = buffer.subarray(i, Math.min(i + chunkSize, buffer.length));
+              base64 += String.fromCharCode(...chunk);
+            }
+            base64 = btoa(base64);
 
             // Determine file extension from URL or content type
             let ext = 'jpg';
