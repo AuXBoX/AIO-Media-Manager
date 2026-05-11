@@ -130,20 +130,25 @@ export function MetadataRefreshModal({
           // Search for matches (get top 5 results)
           let results: EnhancedSearchResult[] = [];
           
-          if (providerRegistry.hasProvider('tmdb') && (mediaType === 'movie' || mediaType === 'show')) {
+          // For TV shows, prioritize TVDB; for movies, use TMDB
+          const primaryProvider = mediaType === 'show' ? 'tvdb' : 'tmdb';
+          const fallbackProvider = mediaType === 'show' ? 'tmdb' : null;
+          
+          // Try primary provider first
+          if (providerRegistry.hasProvider(primaryProvider)) {
             try {
-              console.log('[MetadataRefresh] Searching TMDB...');
-              const tmdbResults = await providerRegistry.search(
-                'tmdb',
+              console.log(`[MetadataRefresh] Searching ${primaryProvider.toUpperCase()}...`);
+              const primaryResults = await providerRegistry.search(
+                primaryProvider as any,
                 item.title,
                 mediaType,
                 item.year
               );
               
-              console.log('[MetadataRefresh] TMDB results:', tmdbResults.length);
+              console.log(`[MetadataRefresh] ${primaryProvider.toUpperCase()} results:`, primaryResults.length);
               
               // Convert PlexSearchResult to EnhancedSearchResult format
-              results = tmdbResults.slice(0, 5).map((result) => ({
+              results = primaryResults.slice(0, 5).map((result) => ({
                 externalId: result.externalId,
                 title: result.title,
                 originalTitle: result.originalTitle,
@@ -152,23 +157,65 @@ export function MetadataRefreshModal({
                 summary: result.summary,
                 poster: result.thumb, // PlexSearchResult uses 'thumb'
                 backdrop: undefined, // Not available in PlexSearchResult
-                provider: 'tmdb' as const,
+                provider: primaryProvider as any,
                 genres: [], // Not available in PlexSearchResult
               }));
               
               console.log('[MetadataRefresh] Converted results:', results.length);
             } catch (error) {
-              console.error(`[MetadataRefresh] Failed to search TMDB for ${item.title}:`, error);
+              console.error(`[MetadataRefresh] Failed to search ${primaryProvider.toUpperCase()} for ${item.title}:`, error);
               setProgress((prev) => ({
                 ...prev,
                 warnings: [
                   ...prev.warnings,
-                  { item: item.title, warning: `Failed to search TMDB: ${error instanceof Error ? error.message : 'Unknown error'}` },
+                  { item: item.title, warning: `Failed to search ${primaryProvider.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}` },
                 ],
               }));
             }
-          } else {
-            console.warn('[MetadataRefresh] TMDB not available or unsupported media type:', mediaType);
+          }
+          
+          // Try fallback provider if primary didn't return results
+          if (results.length === 0 && fallbackProvider && providerRegistry.hasProvider(fallbackProvider)) {
+            try {
+              console.log(`[MetadataRefresh] Searching ${fallbackProvider.toUpperCase()} (fallback)...`);
+              const fallbackResults = await providerRegistry.search(
+                fallbackProvider as any,
+                item.title,
+                mediaType,
+                item.year
+              );
+              
+              console.log(`[MetadataRefresh] ${fallbackProvider.toUpperCase()} results:`, fallbackResults.length);
+              
+              // Convert PlexSearchResult to EnhancedSearchResult format
+              results = fallbackResults.slice(0, 5).map((result) => ({
+                externalId: result.externalId,
+                title: result.title,
+                originalTitle: result.originalTitle,
+                year: result.year,
+                rating: undefined,
+                summary: result.summary,
+                poster: result.thumb,
+                backdrop: undefined,
+                provider: fallbackProvider as any,
+                genres: [],
+              }));
+              
+              console.log('[MetadataRefresh] Converted fallback results:', results.length);
+            } catch (error) {
+              console.error(`[MetadataRefresh] Failed to search ${fallbackProvider.toUpperCase()} for ${item.title}:`, error);
+              setProgress((prev) => ({
+                ...prev,
+                warnings: [
+                  ...prev.warnings,
+                  { item: item.title, warning: `Failed to search ${fallbackProvider.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}` },
+                ],
+              }));
+            }
+          }
+          
+          if (results.length === 0) {
+            console.warn('[MetadataRefresh] No results found from any provider for:', item.title);
           }
 
           // Create initial review item with search results
@@ -373,9 +420,9 @@ export function MetadataRefreshModal({
             continue;
           }
 
-          // Get full metadata from TMDB
+          // Get full metadata from the provider that was used for search
           const externalMetadata = await providerRegistry.getDetails(
-            'tmdb',
+            selectedResult.provider,
             selectedResult.externalId
           );
 
@@ -398,16 +445,29 @@ export function MetadataRefreshModal({
           const allLogos: string[] = [];
           const allBanners: string[] = [];
 
-          // Add TMDB images
+          // Add primary provider images (TVDB or TMDB)
           if (externalMetadata.posters) allPosters.push(...externalMetadata.posters);
           if (externalMetadata.backdrops) allBackgrounds.push(...externalMetadata.backdrops);
 
           // Try to fetch from Fanart.tv if available
           if (providerRegistry.hasProvider('fanart')) {
             try {
-              // Fanart.tv uses TMDB ID for movies and TVDB ID for TV shows
-              // For now, we'll use the TMDB ID and let it fail gracefully for TV shows
-              const fanartMetadata = await providerRegistry.getDetails('fanart', selectedResult.externalId);
+              // Extract ID for Fanart.tv
+              let fanartId = selectedResult.externalId;
+              
+              // Fanart.tv uses different ID formats:
+              // - For TV shows: TVDB ID (numeric)
+              // - For movies: TMDB ID (numeric)
+              if (selectedResult.provider === 'tvdb') {
+                // TVDB format: "series-123" -> extract "123"
+                fanartId = selectedResult.externalId.replace('series-', '');
+              } else if (selectedResult.provider === 'tmdb') {
+                // TMDB format: "movie-123" or "tv-456" -> extract "123" or "456"
+                fanartId = selectedResult.externalId.replace(/^(movie|tv)-/, '');
+              }
+              
+              console.log('[MetadataRefresh] Fetching Fanart.tv with ID:', fanartId);
+              const fanartMetadata = await providerRegistry.getDetails('fanart', fanartId);
               
               if (fanartMetadata.posters) allPosters.push(...fanartMetadata.posters);
               if (fanartMetadata.backdrops) allBackgrounds.push(...fanartMetadata.backdrops);
