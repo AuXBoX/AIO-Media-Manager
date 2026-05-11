@@ -406,6 +406,9 @@ export function ImageSearchModal({
             const blob = await response.blob();
             const arrayBuffer = await blob.arrayBuffer();
             const buffer = new Uint8Array(arrayBuffer);
+            
+            // Convert to base64 for Electron IPC
+            const base64 = btoa(String.fromCharCode(...buffer));
 
             // Determine file extension from URL or content type
             let ext = 'jpg';
@@ -428,22 +431,22 @@ export function ImageSearchModal({
               const nameWithoutExt = lastDot > 0 ? filename.substring(0, lastDot) : filename;
               
               if (image.type === 'poster') {
-                targetPath = `${directory}/${nameWithoutExt}-poster.${ext}`;
+                targetPath = `${directory}\\${nameWithoutExt}-poster.${ext}`;
               } else {
-                targetPath = `${directory}/${nameWithoutExt}-fanart.${ext}`;
+                targetPath = `${directory}\\${nameWithoutExt}-fanart.${ext}`;
               }
             } else {
               // Directory path (for TV shows)
               const showName = mediaPath.split(/[\\\/]/).pop() || 'show';
               if (image.type === 'poster') {
-                targetPath = `${mediaPath}/${showName}-poster.${ext}`;
+                targetPath = `${mediaPath}\\${showName}-poster.${ext}`;
               } else {
-                targetPath = `${mediaPath}/${showName}-fanart.${ext}`;
+                targetPath = `${mediaPath}\\${showName}-fanart.${ext}`;
               }
             }
 
-            // Write file using Electron
-            await window.electron.fs.writeFile(targetPath, Array.from(buffer));
+            // Write file using Electron (base64 encoded)
+            await window.electron.writeFile(targetPath, base64);
             console.log(`[ImageSearch] Saved ${image.type} locally:`, targetPath);
           } catch (error) {
             console.error(`[ImageSearch] Failed to save ${image.type} locally:`, error);
