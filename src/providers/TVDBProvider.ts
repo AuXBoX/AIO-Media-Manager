@@ -127,29 +127,50 @@ interface TVDBSeriesDetails {
 export class TVDBProvider extends BaseExternalMetadataProvider {
   readonly provider = 'tvdb' as const;
   private client: AxiosInstance;
+  private apiKey: string;
   private token: string | null = null;
   private tokenExpiry: number = 0;
 
   constructor(plexClient: PlexClient, config: TVDBConfig) {
     super(plexClient);
 
+    this.apiKey = config.apiKey;
     this.client = axios.create({
       baseURL: config.baseURL || 'https://api4.thetvdb.com/v4',
     });
-
-    // Store API key for authentication
-    this.client.defaults.headers.common['Authorization'] = `Bearer ${config.apiKey}`;
   }
 
   /**
    * Authenticate with TVDB API
-   * TVDB v4 uses API key directly in Authorization header
+   * TVDB v4 requires login to get a bearer token
    */
   private async ensureAuthenticated(): Promise<void> {
-    // TVDB v4 uses API key directly, no need for token exchange
-    // Just ensure the API key is set
-    if (!this.client.defaults.headers.common['Authorization']) {
-      throw new Error('TVDB API key not configured');
+    // Check if we have a valid token
+    if (this.token && Date.now() < this.tokenExpiry) {
+      return;
+    }
+
+    try {
+      // Login to get bearer token
+      const response = await this.client.post('/login', {
+        apikey: this.apiKey,
+      });
+
+      if (response.data?.data?.token) {
+        this.token = response.data.data.token;
+        // Token expires in 30 days, but we'll refresh after 29 days to be safe
+        this.tokenExpiry = Date.now() + (29 * 24 * 60 * 60 * 1000);
+        
+        // Set the token in the default headers
+        this.client.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+        
+        console.log('[TVDB] Authentication successful');
+      } else {
+        throw new Error('Failed to get token from TVDB API');
+      }
+    } catch (error) {
+      console.error('[TVDB] Authentication failed:', error);
+      throw new Error(`TVDB authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
