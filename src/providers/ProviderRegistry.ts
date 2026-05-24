@@ -70,9 +70,10 @@ const FALLBACK_API_KEYS = {
   // OMDb - requires user key (free tier: 1,000 requests/day)
   imdb: null,
   
-  // Fanart.tv public key (obfuscated)
+  // Fanart.tv - requires user key (free tier: 2,000 requests/day)
   // Get your own key from: https://fanart.tv/get-an-api-key/
-  fanart: decode('NmZhNWU3ZWYzOWE5ZDdkOGIzYzVmNWU1YzVlNWM1ZTU='),
+  // Note: Fanart.tv is optional and disabled by default due to API key requirements
+  fanart: null,
   
   // Discogs - requires user key
   discogs: null,

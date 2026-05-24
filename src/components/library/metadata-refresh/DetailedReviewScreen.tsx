@@ -130,7 +130,10 @@ export function DetailedReviewScreen({
     });
   };
 
-  const tabs: Array<{ id: TabType; label: string; icon: JSX.Element; count?: number }> = [
+  // Detect if this is a music item
+  const isMusicItem = currentItem.item.type === 'artist' || currentItem.item.type === 'album' || currentItem.item.type === 'track';
+
+  const allTabs: Array<{ id: TabType; label: string; icon: JSX.Element; count?: number }> = [
     {
       id: 'metadata',
       label: 'Metadata',
@@ -171,6 +174,14 @@ export function DetailedReviewScreen({
       count: currentItem.cast.length,
     },
   ];
+
+  // Filter tabs based on item type - hide trailers and cast for music items
+  const tabs = allTabs.filter(tab => {
+    if (isMusicItem && (tab.id === 'trailers' || tab.id === 'cast')) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="flex flex-col h-full">

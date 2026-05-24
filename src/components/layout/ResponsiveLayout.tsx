@@ -34,7 +34,7 @@ export function ResponsiveLayout({
   };
 
   return (
-    <div className="min-h-screen bg-secondary-50 dark:bg-secondary-900 flex flex-col">
+    <div className="h-full bg-secondary-50 dark:bg-secondary-900 flex flex-col min-h-0">
       {/* Header */}
       {header && (
         <header className="sticky top-0 z-30 bg-white dark:bg-secondary-800 border-b border-secondary-200 dark:border-secondary-700 shadow-soft">
@@ -43,7 +43,7 @@ export function ResponsiveLayout({
       )}
 
       {/* Main content area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Mobile navigation */}
         {isMobile && (
           <MobileNav isOpen={mobileNav.isOpen} onToggle={mobileNav.toggle}>
@@ -59,7 +59,7 @@ export function ResponsiveLayout({
         )}
 
         {/* Main content */}
-        <main className="flex-1 min-h-0 overflow-hidden">
+        <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {children}
         </main>
       </div>

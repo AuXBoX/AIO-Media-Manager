@@ -2,30 +2,75 @@
 
 A powerful desktop and web application for viewing and editing metadata for movies, TV shows, and music in Plex Media Server libraries.
 
+## Recent Improvements
+
+### UI/UX Enhancements
+- **Alphabet navigation** - Instant jump to any letter in large libraries
+- **Tree view for music and TV shows** - Hierarchical navigation with expand/collapse
+- **Resizable split panes** - Adjust library list and detail panel sizes
+- **Adjustable poster sizes** - Real-time slider to resize posters
+- **Square images for music** - Proper aspect ratio for artists, albums, and tracks
+- **Optimized hover effects** - Removed transitions for instant responsiveness
+
+### Performance Optimizations
+- **Hardware-accelerated scrolling** - Smooth scrolling on libraries with 7000+ items
+- **CSS containment** - Optimized rendering for individual items
+- **Removed console logging** - Eliminated performance bottlenecks from debug logs
+- **Background preloading** - Loads all items for instant alphabet navigation
+- **Optimized scroll handlers** - Reduced frequency of scroll event processing
+
+### Metadata Features
+- **Provider-specific refresh** - MusicBrainz/Discogs for music, TVDB for TV shows
+- **Music video support** - Search, download, and manage music videos for tracks
+- **Enhanced image search** - Search multiple providers with tabbed interface
+- **Trailer management** - Automatic naming and local file detection
+- **Subtitle support** - Search and download subtitles from OpenSubtitles
+
+### Bug Fixes
+- Fixed alphabet filter to work across all library items
+- Fixed scroll position calculation for accurate navigation
+- Fixed image aspect ratios for music content
+- Fixed detail panel visibility with alphabet list
+- Fixed hover and selection delays on large libraries
+
 ## Features
 
 ### Library Management
 - Browse and search your entire Plex media library
 - Grid and list view modes with customizable layouts
-- Infinite scroll for seamless browsing
+- **Hierarchical tree view for TV shows and music** - Navigate shows/seasons/episodes and artists/albums/tracks
+- **Artists/Albums toggle for music libraries** - Switch between viewing artists or albums
+- Infinite scroll for seamless browsing with background preloading
 - Advanced filtering and sorting options
-- Alphabet jump list for quick navigation
+- **Alphabet jump list for instant navigation** - Click any letter to jump to that section
+- **Optimized scrolling performance** - Hardware-accelerated smooth scrolling for large libraries
 - Customizable column visibility and ordering
+- **Adjustable poster sizes** - Slider to resize posters from 80px to 320px
+- **Resizable split panes** - Adjust the size of library list and detail panel
 
 ### Metadata Refresh & Editing
-- Enhanced metadata refresh workflow with multi-step process
-- Search and match content from TMDB, Fanart.tv, and other providers
-- Review and select metadata, images, trailers, and cast information
+- **Enhanced metadata refresh workflow** with multi-step process and detailed review
+- **Provider-specific refresh options** - Choose MusicBrainz/Discogs for music, TVDB for TV shows
+- Search and match content from TMDB, TVDB, Fanart.tv, MusicBrainz, and Discogs
+- **Detailed review screen** - Preview all changes before applying (metadata, images, trailers, cast)
+- **Tabbed interface** - Organized tabs for Metadata, Images, Trailers, and Cast & Crew
 - Download and save metadata locally (NFO files, images, trailers)
-- Support for multiple image types: posters, backgrounds, logos, banners
-- Tabbed image selector for organized browsing
-- Trailer quality selection and download
+- Support for multiple image types: posters, backgrounds, logos, banners, clearart
+- **Image search and upload** - Search external providers or upload custom images
+- **Trailer search and download** - Search YouTube and download trailers with quality selection
+- **Music video support** - Search and download music videos for tracks
+- **Subtitle management** - Search, download, and manage subtitles for movies and TV shows
+- **Square aspect ratio for music** - Artists, albums, and tracks display with square images
 
 ### Local Metadata Support
 - Save metadata to local NFO files (Kodi/XBMC format)
-- Download high-quality images (posters, backgrounds, logos, banners)
-- Download trailers with quality selection
+- Download high-quality images (posters, backgrounds, logos, banners, clearart)
+- **Automatic trailer naming** - Trailers saved with proper naming convention (MovieName-trailer.ext)
+- **Music video downloads** - Download and save music videos for tracks
+- Download trailers with quality selection (1080p, 720p, 480p, 360p)
+- **Subtitle downloads** - Search and download subtitles from OpenSubtitles
 - Support for local subtitles and extras
+- **Local file detection** - Automatically detects existing local trailers, subtitles, and music videos
 - Compatible with Plex, Kodi, Emby, and Jellyfin
 
 ### Playlist Management
@@ -35,17 +80,24 @@ A powerful desktop and web application for viewing and editing metadata for movi
 - Support for smart playlists
 
 ### Settings & Configuration
-- Configurable API keys for TMDB, Fanart.tv, and TVDB
+- Configurable API keys for TMDB, Fanart.tv, TVDB, and OpenSubtitles
 - Customizable default view (grid/list)
-- Adjustable poster sizes and image quality
+- **Adjustable poster sizes with live preview** - Slider from 80px to 320px
+- Adjustable image quality settings
 - Theme support (light/dark mode)
+- **Persistent column settings** - Remembers column visibility and order per library type
+- **Persistent view mode** - Remembers grid/list preference
 - Persistent settings across sessions
 
 ### Performance
 - Efficient caching with Dexie (IndexedDB)
 - Image lazy loading and transcoding
-- Virtual scrolling for large libraries
+- **Virtual scrolling for grid view** - Renders only visible items for smooth performance
+- **Hardware-accelerated scrolling** - CSS optimizations for smooth scrolling on large libraries
+- **Background preloading** - Loads all items in background for instant alphabet navigation
 - Optimized API requests with batching and deduplication
+- **Removed expensive transitions** - Instant hover effects for better responsiveness
+- **CSS containment** - Optimized rendering for individual items
 - Progressive Web App (PWA) support for offline access
 
 ## Technology Stack

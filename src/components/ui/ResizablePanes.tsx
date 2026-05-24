@@ -99,7 +99,7 @@ export function ResizablePanes({
   }, [isDragging, minLeftWidth, minRightWidth]);
 
   return (
-    <div ref={containerRef} className="flex h-full w-full min-h-0 overflow-hidden">
+    <div ref={containerRef} className="flex h-full w-full min-h-0">
       {/* Left Pane */}
       <div
         className="flex flex-col min-h-0 overflow-hidden"

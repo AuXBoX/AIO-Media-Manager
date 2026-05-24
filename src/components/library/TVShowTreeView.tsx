@@ -1,8 +1,9 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createPlexClient } from '@/api/plexClient';
 import { queryKeys } from '@/api/queryKeys';
+import { AlphabetJumpList } from '@/components/library/AlphabetJumpList';
 import type { LibraryItem } from '@/managers/LibraryManager';
 
 // Extend Window interface for debug flag
@@ -56,8 +57,57 @@ export function TVShowTreeView({
   const [seasonEpisodes, setSeasonEpisodes] = useState<Map<string, LibraryItem[]>>(new Map());
   const [loadingShows, setLoadingShows] = useState<Set<string>>(new Set());
   const [loadingSeasons, setLoadingSeasons] = useState<Set<string>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const client = useMemo(() => createPlexClient({ baseURL: serverUrl, token }), [serverUrl, token]);
+
+  // Debug: Log container dimensions
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (scrollContainerRef.current) {
+        const container = scrollContainerRef.current;
+        console.log('[TVShowTreeView] Container dimensions:', {
+          clientHeight: container.clientHeight,
+          scrollHeight: container.scrollHeight,
+          offsetHeight: container.offsetHeight,
+          isScrollable: container.scrollHeight > container.clientHeight,
+          itemCount: items.length,
+        });
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [items.length]);
+
+  const handleJumpToLetter = (letter: string) => {
+    console.log('[TVShowTreeView] Jump to letter:', letter);
+    if (!scrollContainerRef.current) {
+      console.log('[TVShowTreeView] No scroll container ref');
+      return;
+    }
+
+    const targetIndex = shows.findIndex((show) => {
+      const title = show.title || '';
+      const firstChar = title.charAt(0).toUpperCase();
+      if (letter === '#') {
+        return /[0-9]/.test(firstChar);
+      }
+      return firstChar === letter;
+    });
+
+    console.log('[TVShowTreeView] Target index:', targetIndex, 'for letter:', letter);
+    if (targetIndex === -1) return;
+
+    // Find the row in the table
+    const rows = scrollContainerRef.current.querySelectorAll('tbody tr[data-show-index]');
+    const targetRow = Array.from(rows).find(
+      (row) => row.getAttribute('data-show-index') === String(targetIndex)
+    );
+
+    console.log('[TVShowTreeView] Target row:', targetRow);
+    if (targetRow) {
+      targetRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   // Fetch seasons for a show
   const fetchSeasons = useCallback(async (showKey: string) => {
@@ -185,7 +235,16 @@ export function TVShowTreeView({
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-white dark:bg-gray-900">
-      <div className="flex-1 overflow-auto" onScroll={onScroll}>
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-auto"
+        style={{ 
+          willChange: 'scroll-position',
+          transform: 'translateZ(0)',
+          WebkitOverflowScrolling: 'touch'
+        }}
+        onScroll={onScroll}
+      >
         <table className="w-full border-collapse">
           <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-10">
             <tr>

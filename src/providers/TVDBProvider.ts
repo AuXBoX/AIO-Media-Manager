@@ -213,9 +213,24 @@ export class TVDBProvider extends BaseExternalMetadataProvider {
   async getDetails(externalId: string): Promise<ExternalMetadata> {
     await this.ensureAuthenticated();
 
-    // External ID format: "series-{tvdbId}"
-    const tvdbId = externalId.replace('series-', '');
+    // External ID format: "series-{tvdbId}", "series-{tvdbId}-season-{seasonNum}", or "series-{tvdbId}-season-{seasonNum}-episode-{episodeNum}"
+    const parts = externalId.split('-');
+    const tvdbId = parts[1]; // series-123 -> 123
+    const seasonIndex = parts.indexOf('season');
+    const episodeIndex = parts.indexOf('episode');
 
+    if (episodeIndex !== -1 && parts[episodeIndex + 1]) {
+      // Episode request: series-123-season-2-episode-5
+      const seasonNum = parseInt(parts[seasonIndex + 1]);
+      const episodeNum = parseInt(parts[episodeIndex + 1]);
+      return this.getEpisodeDetails(tvdbId, seasonNum, episodeNum);
+    } else if (seasonIndex !== -1 && parts[seasonIndex + 1]) {
+      // Season request: series-123-season-2
+      const seasonNum = parseInt(parts[seasonIndex + 1]);
+      return this.getSeasonDetails(tvdbId, seasonNum);
+    }
+
+    // Show request: series-123
     const response = await this.client.get<{
       status: string;
       data: TVDBSeriesDetails;
@@ -227,6 +242,210 @@ export class TVDBProvider extends BaseExternalMetadataProvider {
     });
 
     return this.mapDetails(response.data.data);
+  }
+
+  /**
+   * Get season-specific images
+   */
+  private async getSeasonDetails(seriesId: string, seasonNumber: number): Promise<ExternalMetadata> {
+    await this.ensureAuthenticated();
+
+    try {
+      // Fetch series extended data for basic info
+      const seriesResponse = await this.client.get<{
+        status: string;
+        data: TVDBSeriesDetails;
+      }>(`/series/${seriesId}/extended`, {
+        params: {
+          short: false,
+        },
+      });
+
+      const series = seriesResponse.data.data;
+
+      // Fetch all artworks for the series
+      // TVDB v4 API: /series/{id}/artworks returns all artworks
+      // We need to filter by season in the response
+      const seasonPosters: string[] = [];
+      const seasonBackdrops: string[] = [];
+
+      try {
+        // Fetch artworks - TVDB returns artworks with season information
+        const artworkResponse = await this.client.get<{
+          status: string;
+          data: {
+            artworks: Array<{
+              id: number;
+              image: string;
+              thumbnail: string;
+              language: string;
+              type: number;
+              score: number;
+              width: number;
+              height: number;
+              includesText: boolean;
+              thumbnailWidth: number;
+              thumbnailHeight: number;
+              updatedAt: number;
+              status: {
+                id: number;
+                name: string;
+              };
+              tagOptions: Array<{
+                id: number;
+                tag: number;
+                tagId: number;
+                tagName: string;
+                name: string;
+              }>;
+            }>;
+          };
+        }>(`/series/${seriesId}/artworks`, {
+          params: {
+            lang: 'eng',
+            type: 2, // 2 = poster
+          },
+        });
+
+        // Filter artworks for the specific season
+        // Check tagOptions for season information
+        artworkResponse.data.data?.artworks?.forEach((artwork) => {
+          // Check if this artwork has a season tag matching our season number
+          const hasSeasonTag = artwork.tagOptions?.some(
+            (tag) => tag.tagName === 'Season' && tag.name === String(seasonNumber)
+          );
+          
+          if (hasSeasonTag) {
+            seasonPosters.push(artwork.image);
+          }
+        });
+
+        // Fetch background artworks
+        const backdropResponse = await this.client.get<{
+          status: string;
+          data: {
+            artworks: Array<{
+              id: number;
+              image: string;
+              thumbnail: string;
+              language: string;
+              type: number;
+              score: number;
+              width: number;
+              height: number;
+              includesText: boolean;
+              thumbnailWidth: number;
+              thumbnailHeight: number;
+              updatedAt: number;
+              status: {
+                id: number;
+                name: string;
+              };
+              tagOptions: Array<{
+                id: number;
+                tag: number;
+                tagId: number;
+                tagName: string;
+                name: string;
+              }>;
+            }>;
+          };
+        }>(`/series/${seriesId}/artworks`, {
+          params: {
+            lang: 'eng',
+            type: 3, // 3 = background
+          },
+        });
+
+        backdropResponse.data.data?.artworks?.forEach((artwork) => {
+          const hasSeasonTag = artwork.tagOptions?.some(
+            (tag) => tag.tagName === 'Season' && tag.name === String(seasonNumber)
+          );
+          
+          if (hasSeasonTag) {
+            seasonBackdrops.push(artwork.image);
+          }
+        });
+
+        console.log(`[TVDB] Found ${seasonPosters.length} season ${seasonNumber} posters and ${seasonBackdrops.length} backgrounds`);
+      } catch (error) {
+        console.warn('[TVDB] Could not fetch season artworks:', error);
+      }
+
+      return {
+        externalId: `series-${seriesId}-season-${seasonNumber}`,
+        title: `${series.name} - Season ${seasonNumber}`,
+        summary: series.overviewTranslations?.[0],
+        rating: series.score,
+        year: series.firstAired ? new Date(series.firstAired).getFullYear() : undefined,
+        posters: seasonPosters.length > 0 ? seasonPosters : undefined,
+        backdrops: seasonBackdrops.length > 0 ? seasonBackdrops : undefined,
+        provider: 'tvdb',
+      };
+    } catch (error) {
+      console.error('[TVDB] Error fetching season details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get episode-specific images and details
+   */
+  private async getEpisodeDetails(seriesId: string, seasonNumber: number, episodeNumber: number): Promise<ExternalMetadata> {
+    await this.ensureAuthenticated();
+
+    try {
+      // Fetch series extended data to get episodes
+      const seriesResponse = await this.client.get<{
+        status: string;
+        data: TVDBSeriesDetails;
+      }>(`/series/${seriesId}/extended`, {
+        params: {
+          meta: 'episodes',
+          short: false,
+        },
+      });
+
+      const series = seriesResponse.data.data;
+
+      // Find the specific episode
+      const episode = series.episodes?.find(
+        (ep) => ep.seasonNumber === seasonNumber && ep.number === episodeNumber
+      );
+
+      if (!episode) {
+        console.warn(`[TVDB] Episode S${seasonNumber}E${episodeNumber} not found`);
+        return {
+          externalId: `series-${seriesId}-season-${seasonNumber}-episode-${episodeNumber}`,
+          title: `${series.name} - S${String(seasonNumber).padStart(2, '0')}E${String(episodeNumber).padStart(2, '0')}`,
+          summary: undefined,
+          provider: 'tvdb',
+        };
+      }
+
+      // Episode image is the episode's own image
+      const episodePosters: string[] = [];
+      if (episode.image) {
+        episodePosters.push(episode.image);
+      }
+
+      return {
+        externalId: `series-${seriesId}-season-${seasonNumber}-episode-${episodeNumber}`,
+        title: episode.name || `Episode ${episodeNumber}`,
+        summary: episode.overview,
+        rating: undefined,
+        year: episode.aired ? new Date(episode.aired).getFullYear() : undefined,
+        releaseDate: episode.aired,
+        runtime: episode.runtime,
+        posters: episodePosters.length > 0 ? episodePosters : undefined,
+        // Episodes typically don't have separate backdrops
+        backdrops: undefined,
+        provider: 'tvdb',
+      };
+    } catch (error) {
+      console.error('[TVDB] Error fetching episode details:', error);
+      throw error;
+    }
   }
 
   /**

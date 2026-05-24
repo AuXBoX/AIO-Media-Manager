@@ -10,6 +10,7 @@ import { MetadataRefreshModal } from '@/components/library/MetadataRefreshModal'
 import { SubtitleSearchModal } from '@/components/library/SubtitleSearchModal';
 import { TrailerSearchModal } from '@/components/library/TrailerSearchModal';
 import { ImageSearchModal } from '@/components/library/ImageSearchModal';
+import { MusicVideoSearchModal } from '@/components/library/MusicVideoSearchModal';
 import { queryKeys } from '@/api/queryKeys';
 import { db } from '@/db/database';
 import { useAppStore } from '@/store/appStore';
@@ -22,7 +23,7 @@ interface DetailPanelProps {
   onClose?: () => void;
 }
 
-type TabType = 'details' | 'cast' | 'images' | 'files' | 'trailers' | 'subtitles';
+type TabType = 'details' | 'cast' | 'images' | 'theme' | 'files' | 'trailers' | 'subtitles' | 'musicvideos';
 
 interface EditableField {
   value: string | number | undefined;
@@ -39,10 +40,19 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
   const [localTrailers, setLocalTrailers] = useState<string[]>([]);
   const [localSubtitles, setLocalSubtitles] = useState<LocalSubtitle[]>([]);
   const [plexSubtitles, setPlexSubtitles] = useState<PlexSubtitle[]>([]);
+  const [localMusicVideos, setLocalMusicVideos] = useState<Array<{
+    ratingKey: string;
+    key: string;
+    title: string;
+    thumb?: string;
+    duration?: number;
+    file?: string;
+  }>>([]);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
   const [showSubtitleSearchModal, setShowSubtitleSearchModal] = useState(false);
   const [showTrailerSearch, setShowTrailerSearch] = useState(false);
   const [showImageSearchModal, setShowImageSearchModal] = useState(false);
+  const [showMusicVideoSearch, setShowMusicVideoSearch] = useState(false);
   const [selectedSubtitlesForRemoval, setSelectedSubtitlesForRemoval] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
@@ -202,6 +212,112 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
     scanLocalSubtitles();
   }, [item, fullMetadata]);
 
+  // Fetch music videos from Plex for tracks
+  useEffect(() => {
+    const fetchMusicVideos = async () => {
+      if (!item || item.type !== 'track') return;
+      
+      try {
+        const client = createPlexClient({ baseURL: serverUrl, token });
+        
+        // Try multiple endpoints to find music videos
+        console.log('[MusicVideos] Trying /extras endpoint...');
+        try {
+          const extrasResponse = await client.get(`/library/metadata/${item.ratingKey}/extras`);
+          console.log('[MusicVideos] Extras response:', extrasResponse);
+          
+          if (extrasResponse.MediaContainer?.Metadata) {
+            const videos = extrasResponse.MediaContainer.Metadata.map((video: any) => ({
+              ratingKey: video.ratingKey,
+              key: video.key,
+              title: video.title,
+              thumb: video.thumb,
+              duration: video.duration,
+              file: video.Media?.[0]?.Part?.[0]?.file,
+            }));
+            setLocalMusicVideos(videos);
+            return;
+          }
+        } catch (error) {
+          console.log('[MusicVideos] /extras endpoint failed:', error);
+        }
+        
+        // Try children endpoint
+        console.log('[MusicVideos] Trying /children endpoint...');
+        try {
+          const childrenResponse = await client.get(`/library/metadata/${item.ratingKey}/children`);
+          console.log('[MusicVideos] Children response:', childrenResponse);
+          
+          if (childrenResponse.MediaContainer?.Metadata) {
+            // Filter for video type items
+            const videos = childrenResponse.MediaContainer.Metadata
+              .filter((item: any) => item.type === 'clip' || item.type === 'video')
+              .map((video: any) => ({
+                ratingKey: video.ratingKey,
+                key: video.key,
+                title: video.title,
+                thumb: video.thumb,
+                duration: video.duration,
+                file: video.Media?.[0]?.Part?.[0]?.file,
+              }));
+            
+            if (videos.length > 0) {
+              setLocalMusicVideos(videos);
+              return;
+            }
+          }
+        } catch (error) {
+          console.log('[MusicVideos] /children endpoint failed:', error);
+        }
+        
+        // Try related endpoint as fallback
+        console.log('[MusicVideos] Trying /related endpoint...');
+        const response = await client.get(`/library/metadata/${item.ratingKey}/related`);
+        console.log('[MusicVideos] Related response:', response);
+        
+        const hubs = response.MediaContainer?.Hub || [];
+        console.log('[MusicVideos] Hubs found:', hubs.length);
+        
+        hubs.forEach((hub: any, index: number) => {
+          console.log(`[MusicVideos] Hub ${index}:`, {
+            type: hub.type,
+            hubIdentifier: hub.hubIdentifier,
+            title: hub.title,
+            size: hub.size,
+          });
+        });
+        
+        const musicVideoHub = hubs.find((hub: any) => 
+          hub.type === 'clip' || 
+          hub.hubIdentifier === 'extras' || 
+          hub.hubIdentifier === 'musicVideos' ||
+          hub.title?.toLowerCase().includes('video') ||
+          hub.title?.toLowerCase().includes('extra')
+        );
+        
+        if (musicVideoHub && musicVideoHub.Metadata) {
+          const videos = musicVideoHub.Metadata.map((video: any) => ({
+            ratingKey: video.ratingKey,
+            key: video.key,
+            title: video.title,
+            thumb: video.thumb,
+            duration: video.duration,
+            file: video.Media?.[0]?.Part?.[0]?.file,
+          }));
+          setLocalMusicVideos(videos);
+        } else {
+          console.log('[MusicVideos] No music videos found in any endpoint');
+          setLocalMusicVideos([]);
+        }
+      } catch (error) {
+        console.error('[MusicVideos] Error fetching music videos from Plex:', error);
+        setLocalMusicVideos([]);
+      }
+    };
+    
+    fetchMusicVideos();
+  }, [item, serverUrl, token]);
+
   // Reset edited fields when item changes
   useEffect(() => {
     setEditedFields({});
@@ -233,16 +349,60 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
         await metadataManager.updateMetadata(item.ratingKey, updates);
       }
       
-      // Save to local
+      // Save to local files
       if (saveTarget === 'local' || saveTarget === 'both') {
-        const metadata = await metadataManager.getMetadata(item.ratingKey);
-        const mode: MetadataSaveMode = {
-          target: 'local',
-          localFormat: 'nfo',
-          createBackup: true,
-          overwriteExisting: true,
-        };
-        await localManager.syncToLocal(metadata, mode);
+        // For music items, save to audio file tags
+        if (item.type === 'track' || item.type === 'album') {
+          if (!window.electron?.writeEmbeddedMetadata) {
+            throw new Error('Audio metadata editing is only available in desktop app');
+          }
+          
+          // Get file path(s)
+          const fullMeta = fullMetadata?.MediaContainer?.Metadata?.[0];
+          const filePaths: string[] = [];
+          
+          if (item.type === 'track' && fullMeta?.Media?.[0]?.Part?.[0]?.file) {
+            filePaths.push(fullMeta.Media[0].Part[0].file);
+          } else if (item.type === 'album') {
+            // For albums, get all track files
+            const albumTracks = await client.get(`/library/metadata/${item.ratingKey}/children`);
+            const tracks = albumTracks.MediaContainer?.Metadata || [];
+            tracks.forEach((track: any) => {
+              if (track.Media?.[0]?.Part?.[0]?.file) {
+                filePaths.push(track.Media[0].Part[0].file);
+              }
+            });
+          }
+          
+          // Update each file's metadata
+          for (const filePath of filePaths) {
+            try {
+              const audioMetadata: any = {};
+              
+              if (editedFields.title !== undefined) audioMetadata.title = editedFields.title;
+              if (editedFields.artist !== undefined) audioMetadata.artist = editedFields.artist;
+              if (editedFields.album !== undefined) audioMetadata.album = editedFields.album;
+              if (editedFields.albumArtist !== undefined) audioMetadata.albumArtist = editedFields.albumArtist;
+              if (editedFields.year !== undefined) audioMetadata.year = editedFields.year;
+              
+              await window.electron.writeEmbeddedMetadata(filePath, audioMetadata);
+              console.log(`[DetailPanel] Updated audio metadata for: ${filePath}`);
+            } catch (error) {
+              console.error(`[DetailPanel] Failed to update audio metadata for ${filePath}:`, error);
+              throw new Error(`Failed to update audio file metadata: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+          }
+        } else {
+          // For non-music items, use NFO files
+          const metadata = await metadataManager.getMetadata(item.ratingKey);
+          const mode: MetadataSaveMode = {
+            target: 'local',
+            localFormat: 'nfo',
+            createBackup: true,
+            overwriteExisting: true,
+          };
+          await localManager.syncToLocal(metadata, mode);
+        }
       }
       
       // Save to local database for offline changes
@@ -312,6 +472,11 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
       </svg>
     )},
+    { id: 'theme' as TabType, label: 'Theme', icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+      </svg>
+    )},
     { id: 'trailers' as TabType, label: 'Trailers', icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -323,12 +488,47 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
       </svg>
     )},
+    { id: 'musicvideos' as TabType, label: 'Music Videos', icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      </svg>
+    )},
     { id: 'files' as TabType, label: 'Files', icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
       </svg>
     )},
   ];
+
+  // Filter tabs based on item type
+  // For music items (artist, album, track), hide Cast & Crew, Trailers, and Subtitles
+  const isMusicItem = item.type === 'artist' || item.type === 'album' || item.type === 'track';
+  // For seasons and episodes, hide Trailers (trailers are only for shows and movies)
+  const isSeasonOrEpisode = item.type === 'season' || item.type === 'episode';
+  // Theme tab is only for TV shows
+  const isTVShow = item.type === 'show';
+  // Music videos tab is only for tracks
+  const isTrack = item.type === 'track';
+  
+  const filteredTabs = tabs.filter(tab => {
+    // Hide cast, trailers, and subtitles for music items
+    if (isMusicItem && (tab.id === 'cast' || tab.id === 'trailers' || tab.id === 'subtitles')) {
+      return false;
+    }
+    // Hide trailers for seasons and episodes
+    if (isSeasonOrEpisode && tab.id === 'trailers') {
+      return false;
+    }
+    // Hide theme tab for non-TV shows
+    if (!isTVShow && tab.id === 'theme') {
+      return false;
+    }
+    // Hide music videos tab for non-tracks
+    if (!isTrack && tab.id === 'musicvideos') {
+      return false;
+    }
+    return true;
+  });
 
   const handleFieldChange = (field: string, value: any) => {
     setEditedFields(prev => ({ ...prev, [field]: value }));
@@ -441,7 +641,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
             <img
               src={posterUrl}
               alt={metadata.title}
-              className="w-32 h-48 object-cover rounded shadow-md flex-shrink-0"
+              className={`object-cover rounded shadow-md flex-shrink-0 ${
+                metadata.type === 'artist' || metadata.type === 'album' || metadata.type === 'track' ? 'w-32 h-32' : 'w-32 h-48'
+              }`}
             />
           )}
           <div className="flex-1 min-w-0">
@@ -486,7 +688,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
 
       {/* Tabs */}
       <div className="flex border-b border-secondary-200 dark:border-secondary-700">
-        {tabs.map((tab) => (
+        {filteredTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -524,6 +726,50 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 </p>
               )}
             </div>
+
+            {/* Artist - For music items only */}
+            {(item.type === 'album' || item.type === 'track') && (
+              <div>
+                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
+                  Artist
+                </h4>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={getFieldValue('artist', item.type === 'track' ? metadata.grandparentTitle : metadata.parentTitle || '')}
+                    onChange={(e) => handleFieldChange('artist', e.target.value)}
+                    className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                    placeholder="Artist name"
+                  />
+                ) : (
+                  <p className="text-sm text-secondary-700 dark:text-secondary-300">
+                    {item.type === 'track' ? metadata.grandparentTitle : metadata.parentTitle || 'Unknown Artist'}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Album - For tracks only */}
+            {item.type === 'track' && (
+              <div>
+                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
+                  Album
+                </h4>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={getFieldValue('album', metadata.parentTitle || '')}
+                    onChange={(e) => handleFieldChange('album', e.target.value)}
+                    className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                    placeholder="Album name"
+                  />
+                ) : (
+                  <p className="text-sm text-secondary-700 dark:text-secondary-300">
+                    {metadata.parentTitle || 'Unknown Album'}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Original Title - Editable */}
             {(metadata.originalTitle || isEditing) && (
@@ -860,7 +1106,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                   <img 
                     src={posterUrl} 
                     alt="Poster" 
-                    className="w-32 h-48 rounded shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all object-cover"
+                    className={`rounded shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all object-cover ${
+                      metadata.type === 'artist' || metadata.type === 'album' || metadata.type === 'track' ? 'w-32 h-32' : 'w-32 h-48'
+                    }`}
                     onClick={() => window.open(posterUrl, '_blank')}
                     title="Click to view full size"
                   />
@@ -1066,11 +1314,28 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
               <div className="flex gap-2">
                 <button 
                   onClick={() => {
-                    // Validate that we have the media file path before opening modal
-                    if (!fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file) {
-                      alert('Cannot find media file path. Please ensure the item has a valid media file.');
+                    const metadata = fullMetadata?.MediaContainer?.Metadata?.[0];
+                    
+                    // For TV shows, get the directory path from Location
+                    // For movies/episodes, get the file path from Media
+                    let mediaPath: string | null = null;
+                    
+                    if (item.type === 'show') {
+                      // TV shows have a Location array with directory paths
+                      mediaPath = metadata?.Location?.[0]?.path || null;
+                    } else if (item.type === 'season') {
+                      // Seasons also use Location
+                      mediaPath = metadata?.Location?.[0]?.path || null;
+                    } else {
+                      // Movies and episodes have file paths
+                      mediaPath = metadata?.Media?.[0]?.Part?.[0]?.file || null;
+                    }
+                    
+                    if (!mediaPath) {
+                      alert('Cannot find media path. Please ensure the item has a valid media location.');
                       return;
                     }
+                    
                     setShowTrailerSearch(true);
                   }}
                   className="flex-1 px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2"
@@ -1429,10 +1694,379 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
           </div>
         )}
 
+        {activeTab === 'musicvideos' && (
+          <div className="space-y-4">
+            {/* Music Videos from Plex */}
+            {localMusicVideos.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Music Videos ({localMusicVideos.length})
+                </h4>
+                <div className="space-y-2">
+                  {localMusicVideos.map((video) => {
+                    const fileName = video.file ? video.file.substring(Math.max(video.file.lastIndexOf('/'), video.file.lastIndexOf('\\')) + 1) : video.title;
+                    const thumbnailUrl = video.thumb ? `${serverUrl}${video.thumb}?X-Plex-Token=${token}` : null;
+                    
+                    return (
+                      <div
+                        key={video.ratingKey}
+                        className="flex items-center gap-3 p-3 bg-secondary-50 dark:bg-secondary-800 rounded-lg hover:bg-secondary-100 dark:hover:bg-secondary-750 transition-colors"
+                      >
+                        {/* Thumbnail */}
+                        {thumbnailUrl && (
+                          <img
+                            src={thumbnailUrl}
+                            alt={video.title}
+                            className="w-24 h-16 object-cover rounded flex-shrink-0"
+                          />
+                        )}
+                        
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-secondary-900 dark:text-secondary-50 truncate">
+                            {video.title}
+                          </p>
+                          {video.duration && (
+                            <p className="text-xs text-secondary-500 dark:text-secondary-400">
+                              {formatDuration(video.duration)}
+                            </p>
+                          )}
+                          {video.file && (
+                            <p className="text-xs text-secondary-500 dark:text-secondary-400 truncate">
+                              {fileName}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={async () => {
+                              if (video.file) {
+                                try {
+                                  await window.electron.openFile(video.file);
+                                } catch (error) {
+                                  console.error('Error playing music video:', error);
+                                  alert('Failed to play music video');
+                                }
+                              }
+                            }}
+                            className="p-2 hover:bg-primary-100 dark:hover:bg-primary-900/20 rounded transition-colors"
+                            title="Play music video"
+                            disabled={!video.file}
+                          >
+                            <svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!video.file) {
+                                alert('Cannot delete: file path not available');
+                                return;
+                              }
+                              
+                              if (confirm(`Delete music video: ${video.title}?`)) {
+                                try {
+                                  await window.electron.deleteFile(video.file);
+                                  // Refresh music video list from Plex
+                                  const client = createPlexClient({ baseURL: serverUrl, token });
+                                  const response = await client.get(`/library/metadata/${item.ratingKey}/related`);
+                                  const hubs = response.MediaContainer?.Hub || [];
+                                  const musicVideoHub = hubs.find((hub: any) => 
+                                    hub.type === 'clip' || hub.hubIdentifier === 'extras' || hub.title?.toLowerCase().includes('video')
+                                  );
+                                  if (musicVideoHub && musicVideoHub.Metadata) {
+                                    const videos = musicVideoHub.Metadata.map((v: any) => ({
+                                      ratingKey: v.ratingKey,
+                                      key: v.key,
+                                      title: v.title,
+                                      thumb: v.thumb,
+                                      duration: v.duration,
+                                      file: v.Media?.[0]?.Part?.[0]?.file,
+                                    }));
+                                    setLocalMusicVideos(videos);
+                                  } else {
+                                    setLocalMusicVideos([]);
+                                  }
+                                } catch (error) {
+                                  console.error('Error deleting music video:', error);
+                                  alert('Failed to delete music video file');
+                                }
+                              }
+                            }}
+                            className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
+                            title="Delete music video file"
+                            disabled={!video.file}
+                          >
+                            <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* No music videos found */}
+            {localMusicVideos.length === 0 && (
+              <div className="text-center py-8">
+                <svg className="w-16 h-16 mx-auto mb-4 text-secondary-400 dark:text-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <p className="text-lg text-secondary-600 dark:text-secondary-400 mb-4">
+                  No music videos found
+                </p>
+                <p className="text-sm text-secondary-500 dark:text-secondary-500 mb-6">
+                  Music videos will be saved with the same naming as the audio file
+                </p>
+              </div>
+            )}
+
+            {/* Search music videos button */}
+            <button 
+              onClick={() => {
+                // Check if we have media file path
+                const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
+                if (!mediaFilePath) {
+                  alert('Media file path not found');
+                  return;
+                }
+                setShowMusicVideoSearch(true);
+              }}
+              className="w-full px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Search for Music Videos
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'theme' && (
+          <div className="space-y-6 p-6">
+            <div className="text-center">
+              <h3 className="text-xl font-semibold text-secondary-900 dark:text-secondary-50 mb-4">
+                Theme Music
+              </h3>
+              
+              {metadata.theme ? (
+                <div className="space-y-4">
+                  <div className="bg-secondary-100 dark:bg-secondary-800 rounded-lg p-6">
+                    <audio 
+                      controls 
+                      className="w-full"
+                      src={`${serverUrl}${metadata.theme}?X-Plex-Token=${token}`}
+                      style={{ maxWidth: '600px', margin: '0 auto' }}
+                    >
+                      Your browser does not support the audio element.
+                    </audio>
+                  </div>
+                  
+                  {isEditing && (
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={async () => {
+                          if (!window.electron?.selectFile) {
+                            alert('File selection is only available in desktop app');
+                            return;
+                          }
+                          
+                          try {
+                            const filePath = await window.electron.selectFile({
+                              filters: [
+                                { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] }
+                              ]
+                            });
+                            
+                            if (filePath) {
+                              // Get show directory
+                              const showPath = metadata.Location?.[0]?.path;
+                              if (!showPath) {
+                                alert('Cannot determine show directory');
+                                return;
+                              }
+                              
+                              // Copy file to show directory as theme.mp3
+                              const targetPath = `${showPath}\\theme.mp3`;
+                              await window.electron.copyFile(filePath, targetPath);
+                              
+                              // Update metadata to point to local theme
+                              handleFieldChange('theme', '/library/metadata/' + item.ratingKey + '/theme');
+                              
+                              alert('Theme music added successfully!');
+                            }
+                          } catch (error) {
+                            console.error('Failed to add local theme:', error);
+                            alert('Failed to add local theme: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                          }
+                        }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        Add Local Theme
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!window.electron?.downloadFile) {
+                            alert('File download is only available in desktop app');
+                            return;
+                          }
+                          
+                          try {
+                            // Get show directory
+                            const showPath = metadata.Location?.[0]?.path;
+                            if (!showPath) {
+                              alert('Cannot determine show directory');
+                              return;
+                            }
+                            
+                            // Download Plex theme to show directory
+                            const themeUrl = `${serverUrl}${metadata.theme}?X-Plex-Token=${token}`;
+                            const targetPath = `${showPath}\\theme.mp3`;
+                            
+                            await window.electron.downloadFile(themeUrl, targetPath);
+                            
+                            alert('Plex theme downloaded successfully to show folder!');
+                          } catch (error) {
+                            console.error('Failed to download Plex theme:', error);
+                            alert('Failed to download Plex theme: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                          }
+                        }}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download Plex Theme
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('Remove theme music?')) {
+                            handleFieldChange('theme', '');
+                          }
+                        }}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Remove Theme
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-secondary-50 dark:bg-secondary-800 rounded-lg p-12 text-center">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-secondary-400 dark:text-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  </svg>
+                  <p className="text-lg text-secondary-600 dark:text-secondary-400 mb-4">
+                    No theme music available
+                  </p>
+                  <p className="text-sm text-secondary-500 dark:text-secondary-500 mb-6">
+                    Theme music is automatically provided by Plex for many popular TV shows.
+                  </p>
+                  {isEditing && (
+                    <button
+                      onClick={async () => {
+                        if (!window.electron?.selectFile) {
+                          alert('File selection is only available in desktop app');
+                          return;
+                        }
+                        
+                        try {
+                          const filePath = await window.electron.selectFile({
+                            filters: [
+                              { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] }
+                            ]
+                          });
+                          
+                          if (filePath) {
+                            // Get show directory
+                            const showPath = metadata.Location?.[0]?.path;
+                            if (!showPath) {
+                              alert('Cannot determine show directory');
+                              return;
+                            }
+                            
+                            // Copy file to show directory as theme.mp3
+                            const targetPath = `${showPath}\\theme.mp3`;
+                            await window.electron.copyFile(filePath, targetPath);
+                            
+                            // Update metadata to point to local theme
+                            handleFieldChange('theme', '/library/metadata/' + item.ratingKey + '/theme');
+                            
+                            alert('Theme music added successfully!');
+                          }
+                        } catch (error) {
+                          console.error('Failed to add local theme:', error);
+                          alert('Failed to add local theme: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                        }
+                      }}
+                      className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors flex items-center gap-2 mx-auto"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Add Local Theme Music
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'files' && (
           <div className="space-y-4">
-            {/* Rescan button */}
-            <div className="flex justify-end">
+            {/* Action buttons */}
+            <div className="flex justify-end gap-2">
+              {/* Open Media Folder button */}
+              {(metadata.Media?.[0]?.Part?.[0]?.file || metadata.Location?.[0]?.path) && (
+                <button
+                  onClick={async () => {
+                    let folderPath: string;
+                    
+                    if (metadata.Media?.[0]?.Part?.[0]?.file) {
+                      // For movies and episodes - extract folder from file path
+                      const filePath = metadata.Media[0].Part[0].file;
+                      folderPath = filePath.substring(0, Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/')));
+                    } else if (metadata.Location?.[0]?.path) {
+                      // For TV shows and seasons - use directory path directly
+                      folderPath = metadata.Location[0].path;
+                    } else {
+                      alert('Cannot determine media folder path.');
+                      return;
+                    }
+                    
+                    try {
+                      await window.electron.openFolder(folderPath);
+                    } catch (error) {
+                      console.error('Failed to open folder:', error);
+                      alert('Failed to open media folder. Please check if the path exists.');
+                    }
+                  }}
+                  className="px-4 py-2 text-sm bg-secondary-600 hover:bg-secondary-700 text-white rounded transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  Open Media Folder
+                </button>
+              )}
+              
+              {/* Rescan button */}
               <button
                 onClick={async () => {
                   if (!item) return;
@@ -1611,29 +2245,56 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
       )}
 
       {/* Trailer Search Modal */}
-      {showTrailerSearch && item && fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file && (
-        <TrailerSearchModal
-          isOpen={showTrailerSearch}
-          onClose={() => setShowTrailerSearch(false)}
-          movieTitle={item.title}
-          movieYear={item.year}
-          mediaFilePath={fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file}
-          onTrailerDownloaded={async () => {
-            // Refresh trailer list
-            const mediaFilePath = fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file;
-            if (window.electron?.scanForTrailers) {
-              try {
-                const directory = mediaFilePath.substring(0, Math.max(mediaFilePath.lastIndexOf('/'), mediaFilePath.lastIndexOf('\\')));
-                const baseFilename = mediaFilePath.substring(Math.max(mediaFilePath.lastIndexOf('/'), mediaFilePath.lastIndexOf('\\')) + 1, mediaFilePath.lastIndexOf('.'));
-                const foundTrailers = await window.electron.scanForTrailers(directory, baseFilename);
-                setLocalTrailers(foundTrailers || []);
-              } catch (error) {
-                console.error('Error scanning for trailers:', error);
+      {showTrailerSearch && item && fullMetadata?.MediaContainer?.Metadata?.[0] && (() => {
+        const metadata = fullMetadata.MediaContainer.Metadata[0];
+        
+        // Get media path based on item type
+        let mediaPath: string | null = null;
+        
+        if (item.type === 'show' || item.type === 'season') {
+          // TV shows and seasons use Location directory path
+          mediaPath = metadata.Location?.[0]?.path || null;
+        } else {
+          // Movies and episodes use Media file path
+          mediaPath = metadata.Media?.[0]?.Part?.[0]?.file || null;
+        }
+        
+        if (!mediaPath) return null;
+        
+        return (
+          <TrailerSearchModal
+            isOpen={showTrailerSearch}
+            onClose={() => setShowTrailerSearch(false)}
+            movieTitle={item.title}
+            movieYear={item.year}
+            mediaFilePath={mediaPath}
+            onTrailerDownloaded={async () => {
+              // Refresh trailer list
+              if (window.electron?.scanForTrailers) {
+                try {
+                  let directory: string;
+                  let baseFilename: string;
+                  
+                  if (item.type === 'show' || item.type === 'season') {
+                    // For TV shows/seasons, mediaPath is already a directory
+                    directory = mediaPath;
+                    baseFilename = item.title; // Use show title as base
+                  } else {
+                    // For movies/episodes, extract directory and filename from file path
+                    directory = mediaPath.substring(0, Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\')));
+                    baseFilename = mediaPath.substring(Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\')) + 1, mediaPath.lastIndexOf('.'));
+                  }
+                  
+                  const foundTrailers = await window.electron.scanForTrailers(directory, baseFilename);
+                  setLocalTrailers(foundTrailers || []);
+                } catch (error) {
+                  console.error('Error scanning for trailers:', error);
+                }
               }
-            }
-          }}
-        />
-      )}
+            }}
+          />
+        );
+      })()}
 
       {/* Image Search Modal */}
       {showImageSearchModal && item && (
@@ -1645,6 +2306,55 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
           onImageSelected={() => {
             // Refresh metadata to show new image
             refetch();
+          }}
+        />
+      )}
+
+      {/* Music Video Search Modal */}
+      {showMusicVideoSearch && item && item.type === 'track' && fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file && (
+        <MusicVideoSearchModal
+          isOpen={showMusicVideoSearch}
+          onClose={() => setShowMusicVideoSearch(false)}
+          artistName={metadata.grandparentTitle || 'Unknown Artist'}
+          trackTitle={item.title}
+          mediaFilePath={fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file}
+          onMusicVideoDownloaded={async () => {
+            // Refresh music videos from Plex after download
+            try {
+              // Wait a moment for Plex to detect the new file
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              // Trigger Plex to refresh metadata for this track
+              const client = createPlexClient({ baseURL: serverUrl, token });
+              const metadataManager = createMetadataManager(client);
+              await metadataManager.refreshMetadata(item.ratingKey);
+              
+              // Wait for Plex to process
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              
+              // Fetch updated music videos from Plex
+              const response = await client.get(`/library/metadata/${item.ratingKey}/related`);
+              const hubs = response.MediaContainer?.Hub || [];
+              const musicVideoHub = hubs.find((hub: any) => 
+                hub.type === 'clip' || hub.hubIdentifier === 'extras' || hub.title?.toLowerCase().includes('video')
+              );
+              
+              if (musicVideoHub && musicVideoHub.Metadata) {
+                const videos = musicVideoHub.Metadata.map((v: any) => ({
+                  ratingKey: v.ratingKey,
+                  key: v.key,
+                  title: v.title,
+                  thumb: v.thumb,
+                  duration: v.duration,
+                  file: v.Media?.[0]?.Part?.[0]?.file,
+                }));
+                setLocalMusicVideos(videos);
+              }
+            } catch (error) {
+              console.error('Error refreshing music videos from Plex:', error);
+            }
+            
+            setShowMusicVideoSearch(false);
           }}
         />
       )}

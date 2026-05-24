@@ -9,6 +9,7 @@ import { queryKeys } from '@/api/queryKeys';
 import { VirtualGrid } from '@/components/library/VirtualGrid';
 import { TableListView } from '@/components/library/TableListView';
 import { TVShowTreeView } from '@/components/library/TVShowTreeView';
+import { MusicTreeView } from '@/components/library/MusicTreeView';
 import { DetailPanel } from '@/components/library/DetailPanel';
 import { ColumnSelector } from '@/components/library/ColumnSelector';
 import { MetadataRefreshModal } from '@/components/library/MetadataRefreshModal';
@@ -20,6 +21,7 @@ import { ResizablePanes } from '@/components/ui/ResizablePanes';
 import { db } from '@/db/database';
 
 type ViewMode = 'grid' | 'list';
+type MusicViewMode = 'artists' | 'albums';
 
 /**
  * LibraryView Component
@@ -29,6 +31,7 @@ export function LibraryView() {
   const { libraryKey } = useParams<{ libraryKey: string }>();
   const { serverConnection, currentToken, selectedLibrary } = useAppStore();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [musicViewMode, setMusicViewMode] = useState<MusicViewMode>('artists');
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [cachedItems, setCachedItems] = useState<Map<string, { isCached: boolean; isDirty: boolean }>>(new Map());
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
@@ -113,8 +116,9 @@ export function LibraryView() {
   const activeLibraryKey = libraryKey || selectedLibrary?.key;
   const libraryType = selectedLibrary?.type || 'movie';
   
-  // Check if this is a TV show library
+  // Check if this is a TV show library or music library
   const isTVShowLibrary = libraryType === 'show';
+  const isMusicLibrary = libraryType === 'artist';
 
   // Get default columns for this library type
   const defaultColumns = getColumnDefinitions(libraryType);
@@ -126,6 +130,53 @@ export function LibraryView() {
   useEffect(() => {
     console.log('Selected item changed:', selectedItem?.title, 'View mode:', viewMode);
   }, [selectedItem, viewMode]);
+
+  // Fetch ALL item titles for alphabet navigation (lightweight query)
+  const { data: allTitles, isLoading: isLoadingTitles } = useQuery({
+    queryKey: queryKeys.libraryItems(activeLibraryKey || '', { titlesOnly: true, musicViewMode }),
+    queryFn: async () => {
+      if (!serverConnection || !currentToken || !activeLibraryKey) {
+        throw new Error('No server connection, token, or library selected');
+      }
+
+      console.log('[LibraryView] Fetching all titles for alphabet navigation...');
+
+      const client = createPlexClient({
+        baseURL: serverConnection.uri,
+        token: currentToken,
+      });
+
+      // Fetch all items but only request title, titleSort and ratingKey fields
+      const response = await client.get(`/library/sections/${activeLibraryKey}/all`, {
+        params: {
+          'X-Plex-Container-Size': 0, // Get total count first
+          ...(isTVShowLibrary ? { type: 2 } : {}),
+          ...(isMusicLibrary ? { type: musicViewMode === 'artists' ? 8 : 9 } : {}),
+        },
+      });
+
+      const totalSize = response.MediaContainer?.totalSize || 0;
+      console.log('[LibraryView] Total items in library:', totalSize);
+      
+      // Now fetch all titles (with titleSort for proper alphabetical sorting)
+      const fullResponse = await client.get(`/library/sections/${activeLibraryKey}/all`, {
+        params: {
+          'X-Plex-Container-Size': totalSize,
+          sort: 'titleSort:asc',
+          ...(isTVShowLibrary ? { type: 2 } : {}),
+          ...(isMusicLibrary ? { type: musicViewMode === 'artists' ? 8 : 9 } : {}),
+        },
+      });
+
+      const titles = fullResponse.MediaContainer?.Metadata || [];
+      console.log('[LibraryView] Fetched', titles.length, 'titles');
+      console.log('[LibraryView] First 5 titles:', titles.slice(0, 5).map((t: any) => ({ title: t.title, titleSort: t.titleSort })));
+
+      return titles;
+    },
+    enabled: !!serverConnection && !!currentToken && !!activeLibraryKey,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
 
   // Fetch library items with infinite scroll
   const {
@@ -141,9 +192,17 @@ export function LibraryView() {
       limit: pageSize,
       // For TV show libraries, only fetch shows (type 2), not seasons/episodes
       ...(isTVShowLibrary ? { type: 2 } : {}),
+      // For music libraries, fetch artists (type 8) or albums (type 9) based on view mode
+      ...(isMusicLibrary ? { type: musicViewMode === 'artists' ? 8 : 9 } : {}),
     }),
     queryFn: async ({ pageParam = 0 }) => {
-      console.log('[LibraryView] Fetching page:', { pageParam, pageSize, isTVShowLibrary });
+      console.log('[LibraryView] Fetching page:', { 
+        pageParam, 
+        pageSize, 
+        isTVShowLibrary, 
+        isMusicLibrary, 
+        musicViewMode,
+      });
       
       if (!serverConnection || !currentToken || !activeLibraryKey) {
         throw new Error('No server connection, token, or library selected');
@@ -155,18 +214,26 @@ export function LibraryView() {
       });
 
       const manager = createLibraryManager(client);
-      const result = await manager.getLibraryItems(activeLibraryKey, {
+      
+      // Build filter params - all params go at the top level for Plex API
+      const filterParams: any = {
+        type: isTVShowLibrary ? 2 : isMusicLibrary ? (musicViewMode === 'artists' ? 8 : 9) : undefined,
         offset: pageParam,
         limit: pageSize,
-        // For TV show libraries, only fetch shows (type 2)
-        ...(isTVShowLibrary ? { type: 2 } : {}),
-      });
+        sort: 'titleSort:asc', // Sort alphabetically by title
+      };
+      
+      console.log('[LibraryView] Filter params:', filterParams);
+      
+      const result = await manager.getLibraryItems(activeLibraryKey, filterParams);
       
       console.log('[LibraryView] Page fetched:', {
         offset: pageParam,
         itemsReceived: result.items.length,
         totalSize: result.totalSize,
         isTVShowLibrary,
+        isMusicLibrary,
+        musicViewMode,
         firstItem: result.items[0],
       });
       
@@ -180,6 +247,36 @@ export function LibraryView() {
     enabled: !!serverConnection && !!currentToken && !!activeLibraryKey,
     initialPageParam: 0,
   });
+
+  // Preload all items in the background for instant alphabet navigation
+  // Disabled for now to prevent stack overflow in dev mode
+  // TODO: Re-enable with virtualization or in production only
+  /*
+  useEffect(() => {
+    const preloadAllItems = async () => {
+      // Only preload for music libraries (artists/albums)
+      if (!isMusicLibrary || !hasNextPage || isFetchingNextPage) return;
+      
+      // Wait a bit after initial load before starting background preload
+      const timer = setTimeout(async () => {
+        console.log('[LibraryView] Starting background preload of all items...');
+        
+        // Load all remaining pages in the background
+        while (hasNextPage && !isFetchingNextPage) {
+          await fetchNextPage();
+          // Longer delay between requests to avoid blocking the UI
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        console.log('[LibraryView] Background preload complete. Total items loaded:', allItems.length);
+      }, 3000); // Wait 3 seconds after initial load
+      
+      return () => clearTimeout(timer);
+    };
+    
+    preloadAllItems();
+  }, [isMusicLibrary, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  */
 
   // Flatten all pages into single items array
   const allItems = data?.pages.flatMap((page) => page.items) || [];
@@ -211,11 +308,91 @@ export function LibraryView() {
     return cachedItems.get(ratingKey) || { isCached: false, isDirty: false };
   };
 
-  // Handle alphabet jump
-  const handleJumpToLetter = (letter: string) => {
-    if (gridRef.current) {
-      gridRef.current.scrollToLetter(letter);
+  // Handle alphabet jump - scroll to first item starting with letter
+  const handleJumpToLetter = async (letter: string) => {
+    // If titles are still loading, wait for them
+    if (isLoadingTitles || !allTitles || allTitles.length === 0) {
+      return;
     }
+    
+    // Find the first item starting with this letter in currently loaded items
+    const targetLetter = letter === '#' ? '0' : letter.toUpperCase();
+    const targetIndex = allItems.findIndex(item => {
+      const title = (item.titleSort || item.title || '').toUpperCase();
+      if (letter === '#') {
+        return /^[0-9]/.test(title);
+      } else {
+        return title.startsWith(targetLetter);
+      }
+    });
+    
+    // If found in loaded items, scroll immediately
+    if (targetIndex !== -1) {
+      scrollToIndex(targetIndex);
+      return;
+    }
+    
+    // If not found in loaded items, find it in allTitles and load pages
+    const targetIndexInAll = allTitles.findIndex(item => {
+      const title = (item.titleSort || item.title || '').toUpperCase();
+      if (letter === '#') {
+        return /^[0-9]/.test(title);
+      } else {
+        return title.startsWith(targetLetter);
+      }
+    });
+    
+    if (targetIndexInAll === -1) {
+      return;
+    }
+    
+    // Calculate how many pages we need to load
+    const pagesToLoad = Math.ceil((targetIndexInAll + 1 - allItems.length) / pageSize);
+    
+    // Load pages until we have the target item
+    for (let i = 0; i < pagesToLoad && hasNextPage; i++) {
+      await fetchNextPage();
+    }
+    
+    // Wait briefly for DOM update, then scroll
+    await new Promise(resolve => setTimeout(resolve, 100));
+    scrollToIndex(targetIndexInAll);
+  };
+  
+  // Helper function to scroll to a specific index
+  const scrollToIndex = (index: number) => {
+    const scrollContainers = document.querySelectorAll('.overflow-auto');
+    
+    if (scrollContainers.length === 0) return;
+    
+    const targetItem = allItems[index];
+    if (!targetItem) return;
+    
+    scrollContainers.forEach(container => {
+      // Try to find the element by searching for the title text
+      const allItemElements = container.querySelectorAll('[class*="cursor-pointer"]');
+      
+      // Find the element that matches our target item
+      let targetElement: Element | null = null;
+      allItemElements.forEach((el) => {
+        const textContent = el.textContent || '';
+        if (textContent.includes(targetItem.title)) {
+          targetElement = el;
+        }
+      });
+      
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+      } else {
+        // Fallback to calculated position
+        const itemHeight = 50;
+        const scrollTop = index * itemHeight;
+        container.scrollTo({
+          top: scrollTop,
+          behavior: 'auto'
+        });
+      }
+    });
   };
 
   if (!activeLibraryKey) {
@@ -328,13 +505,12 @@ export function LibraryView() {
     
     // Load more when scrolled 80% down
     if (scrollPercentage > 0.8 && hasNextPage && !isFetchingNextPage) {
-      console.log('[LibraryView] Loading next page at', allItems.length, 'items');
       fetchNextPage();
     }
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
         <div>
@@ -358,6 +534,32 @@ export function LibraryView() {
 
         {/* View Toggle and Column Selector */}
         <div className="flex items-center space-x-4">
+          {/* Music View Mode Toggle (Artists/Albums) */}
+          {isMusicLibrary && (
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-md p-1">
+              <button
+                onClick={() => setMusicViewMode('artists')}
+                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                  musicViewMode === 'artists'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+              >
+                Artists
+              </button>
+              <button
+                onClick={() => setMusicViewMode('albums')}
+                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                  musicViewMode === 'albums'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+              >
+                Albums
+              </button>
+            </div>
+          )}
+
           {/* Selection Actions */}
           {selectedItems.size > 0 && (
             <>
@@ -478,21 +680,35 @@ export function LibraryView() {
         {selectedItem ? (
           <ResizablePanes
             leftPane={
-              isTVShowLibrary ? (
-                // TV Show Tree View
-                <TVShowTreeView
-                  items={allItems}
-                  serverUrl={serverConnection?.uri || ''}
-                  token={currentToken || ''}
-                  onItemClick={(item) => setSelectedItem(item)}
-                  selectedItem={selectedItem}
-                  selectedItems={selectedItems}
-                  onSelectionChange={setSelectedItems}
-                  getCacheStatus={getCacheStatus}
-                  onScroll={handleScroll}
-                />
-              ) : viewMode === 'grid' ? (
-                <div className="h-full overflow-hidden relative">
+              <div className="h-full overflow-hidden relative">
+                {isMusicLibrary ? (
+                  // Music Tree View
+                  <MusicTreeView
+                    items={allItems}
+                    serverUrl={serverConnection?.uri || ''}
+                    token={currentToken || ''}
+                    onItemClick={(item) => setSelectedItem(item)}
+                    selectedItem={selectedItem}
+                    selectedItems={selectedItems}
+                    onSelectionChange={setSelectedItems}
+                    getCacheStatus={getCacheStatus}
+                    onScroll={handleScroll}
+                    viewMode={musicViewMode}
+                  />
+                ) : isTVShowLibrary ? (
+                  // TV Show Tree View
+                  <TVShowTreeView
+                    items={allItems}
+                    serverUrl={serverConnection?.uri || ''}
+                    token={currentToken || ''}
+                    onItemClick={(item) => setSelectedItem(item)}
+                    selectedItem={selectedItem}
+                    selectedItems={selectedItems}
+                    onSelectionChange={setSelectedItems}
+                    getCacheStatus={getCacheStatus}
+                    onScroll={handleScroll}
+                  />
+                ) : viewMode === 'grid' ? (
                   <VirtualGrid
                     ref={gridRef}
                     items={allItems}
@@ -506,20 +722,7 @@ export function LibraryView() {
                     estimatedItemHeight={Math.round(posterSize * 1.5) + 120}
                     onScroll={handleScroll}
                   />
-                  {/* Alphabet Jump List - only show in grid view */}
-                  <AlphabetJumpList
-                    items={allItems}
-                    onJumpToLetter={handleJumpToLetter}
-                  />
-                  {/* Loading indicator */}
-                  {isFetchingNextPage && (
-                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg">
-                      Loading more...
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="relative h-full">
+                ) : (
                   <TableListView
                     items={allItems}
                     columns={columns}
@@ -533,8 +736,20 @@ export function LibraryView() {
                     estimatedItemHeight={56}
                     onScroll={handleScroll}
                   />
-                </div>
-              )
+                )}
+                {/* Alphabet Jump List - show for all views */}
+                <AlphabetJumpList
+                  items={allTitles || allItems}
+                  onJumpToLetter={handleJumpToLetter}
+                  isLoading={isLoadingTitles}
+                />
+                {/* Loading indicator */}
+                {isFetchingNextPage && (
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg">
+                    Loading more...
+                  </div>
+                )}
+              </div>
             }
             rightPane={
               <DetailPanel
@@ -550,7 +765,35 @@ export function LibraryView() {
           />
         ) : (
           <div className="w-full h-full min-h-0 overflow-hidden relative">
-            {isTVShowLibrary ? (
+            {isMusicLibrary ? (
+              // Music Tree View (no detail panel)
+              <>
+                <MusicTreeView
+                  items={allItems}
+                  serverUrl={serverConnection?.uri || ''}
+                  token={currentToken || ''}
+                  onItemClick={(item) => setSelectedItem(item)}
+                  selectedItem={selectedItem}
+                  selectedItems={selectedItems}
+                  onSelectionChange={setSelectedItems}
+                  getCacheStatus={getCacheStatus}
+                  onScroll={handleScroll}
+                  viewMode={musicViewMode}
+                />
+                {/* Alphabet Jump List */}
+                <AlphabetJumpList
+                  items={allTitles || allItems}
+                  onJumpToLetter={handleJumpToLetter}
+                  isLoading={isLoadingTitles}
+                />
+                {/* Loading indicator */}
+                {isFetchingNextPage && (
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg z-10">
+                    Loading more...
+                  </div>
+                )}
+              </>
+            ) : isTVShowLibrary ? (
               // TV Show Tree View (no detail panel)
               <>
                 <TVShowTreeView
@@ -563,6 +806,12 @@ export function LibraryView() {
                   onSelectionChange={setSelectedItems}
                   getCacheStatus={getCacheStatus}
                   onScroll={handleScroll}
+                />
+                {/* Alphabet Jump List */}
+                <AlphabetJumpList
+                  items={allTitles || allItems}
+                  onJumpToLetter={handleJumpToLetter}
+                  isLoading={isLoadingTitles}
                 />
                 {/* Loading indicator */}
                 {isFetchingNextPage && (
@@ -588,8 +837,9 @@ export function LibraryView() {
                 />
                 {/* Alphabet Jump List - only show in grid view */}
                 <AlphabetJumpList
-                  items={allItems}
+                  items={allTitles || allItems}
                   onJumpToLetter={handleJumpToLetter}
+                  isLoading={isLoadingTitles}
                 />
                 {/* Loading indicator */}
                 {isFetchingNextPage && (
@@ -645,4 +895,7 @@ export function LibraryView() {
 }
 
 export default LibraryView;
+
+
+
 

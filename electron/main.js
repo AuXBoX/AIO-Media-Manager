@@ -486,6 +486,63 @@ ipcMain.handle('fs:copyFile', async (event, sourcePath, destPath) => {
   }
 });
 
+ipcMain.handle('fs:selectFile', async (event, options = {}) => {
+  const { dialog } = require('electron');
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: options.title || 'Select File',
+      defaultPath: options.defaultPath,
+      filters: options.filters || [],
+      properties: ['openFile']
+    });
+    
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    
+    return result.filePaths[0];
+  } catch (error) {
+    throw new Error(`Failed to select file: ${error.message}`);
+  }
+});
+
+ipcMain.handle('fs:downloadFile', async (event, url, destPath) => {
+  const https = require('https');
+  const http = require('http');
+  const fsSync = require('fs');
+  
+  try {
+    return await new Promise((resolve, reject) => {
+      const protocol = url.startsWith('https') ? https : http;
+      const file = fsSync.createWriteStream(destPath);
+      
+      protocol.get(url, (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
+          return;
+        }
+        
+        response.pipe(file);
+        
+        file.on('finish', () => {
+          file.close();
+          resolve(true);
+        });
+        
+        file.on('error', (err) => {
+          fsSync.unlink(destPath, () => {});
+          reject(err);
+        });
+      }).on('error', (err) => {
+        fsSync.unlink(destPath, () => {});
+        reject(err);
+      });
+    });
+  } catch (error) {
+    throw new Error(`Failed to download file: ${error.message}`);
+  }
+});
+
 ipcMain.handle('fs:getFileStats', async (event, filePath) => {
   try {
     const stats = await fs.stat(filePath);
@@ -601,6 +658,17 @@ ipcMain.handle('fs:openFile', async (event, filePath) => {
     return true;
   } catch (error) {
     throw new Error(`Failed to open file: ${error.message}`);
+  }
+});
+
+// Open folder in Windows Explorer
+ipcMain.handle('fs:openFolder', async (event, folderPath) => {
+  try {
+    const { shell } = require('electron');
+    await shell.openPath(folderPath);
+    return true;
+  } catch (error) {
+    throw new Error(`Failed to open folder: ${error.message}`);
   }
 });
 

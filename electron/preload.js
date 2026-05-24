@@ -11,11 +11,14 @@ contextBridge.exposeInMainWorld('electron', {
   writeFile: (filePath, content) => ipcRenderer.invoke('fs:writeFile', filePath, content),
   deleteFile: (filePath) => ipcRenderer.invoke('fs:deleteFile', filePath),
   copyFile: (sourcePath, destPath) => ipcRenderer.invoke('fs:copyFile', sourcePath, destPath),
+  selectFile: (options) => ipcRenderer.invoke('fs:selectFile', options),
+  downloadFile: (url, destPath) => ipcRenderer.invoke('fs:downloadFile', url, destPath),
   getFileStats: (filePath) => ipcRenderer.invoke('fs:getFileStats', filePath),
   checkAccess: (dirPath) => ipcRenderer.invoke('fs:checkAccess', dirPath),
   scanForTrailers: (directory, baseFilename) => ipcRenderer.invoke('fs:scanForTrailers', directory, baseFilename),
   scanForSubtitles: (directory, baseFilename) => ipcRenderer.invoke('fs:scanForSubtitles', directory, baseFilename),
   openFile: (filePath) => ipcRenderer.invoke('fs:openFile', filePath),
+  openFolder: (folderPath) => ipcRenderer.invoke('fs:openFolder', folderPath),
   
   // FFmpeg operations
   ffprobe: (mediaFilePath) => ipcRenderer.invoke('ffprobe', mediaFilePath),

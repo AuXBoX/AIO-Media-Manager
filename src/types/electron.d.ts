@@ -32,6 +32,12 @@ export interface ElectronAPI {
   writeFile: (filePath: string, content: string) => Promise<boolean>;
   deleteFile: (filePath: string) => Promise<boolean>;
   copyFile: (sourcePath: string, destPath: string) => Promise<boolean>;
+  selectFile: (options?: {
+    title?: string;
+    defaultPath?: string;
+    filters?: Array<{ name: string; extensions: string[] }>;
+  }) => Promise<string | null>;
+  downloadFile: (url: string, destPath: string) => Promise<boolean>;
   getFileStats: (filePath: string) => Promise<{
     mtimeMs: number;
     size: number;
@@ -45,6 +51,7 @@ export interface ElectronAPI {
   scanForTrailers: (directory: string, baseFilename: string) => Promise<string[]>;
   scanForSubtitles: (directory: string, baseFilename: string) => Promise<string[]>;
   openFile: (filePath: string) => Promise<boolean>;
+  openFolder: (folderPath: string) => Promise<boolean>;
   
   // FFmpeg operations
   ffprobe: (mediaFilePath: string) => Promise<any[]>;

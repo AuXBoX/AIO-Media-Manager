@@ -23,20 +23,6 @@ interface ImageResult {
   provider?: string;
 }
 
-// Helper to load image and get dimensions
-const loadImageDimensions = (url: string): Promise<{ width: number; height: number }> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.onerror = () => {
-      reject(new Error('Failed to load image'));
-    };
-    img.src = url;
-  });
-};
-
 type Step = 'search' | 'images';
 
 export function ImageSearchModal({
@@ -55,7 +41,6 @@ export function ImageSearchModal({
   const [imageDimensions, setImageDimensions] = useState<Map<string, { width: number; height: number }>>(new Map());
 
   const client = createPlexClient({ baseURL: serverUrl, token });
-  const manager = createMetadataManager(client);
   
   const isMovie = item.type === 'movie';
   const isTVShow = item.type === 'show' || item.type === 'season' || item.type === 'episode';
@@ -93,10 +78,39 @@ export function ImageSearchModal({
     queryKey: ['image-search-matches', item.ratingKey, item.type],
     queryFn: async () => {
       try {
+        // For seasons and episodes, use the parent/grandparent title (show name)
+        let searchTitle = item.title;
+        let searchYear = item.year;
+        
+        if (item.type === 'season' && item.parentTitle) {
+          searchTitle = item.parentTitle;
+          // Try to get year from parent if not available
+          if (!searchYear && item.parentRatingKey) {
+            try {
+              const parentMetadata = await client.get(`/library/metadata/${item.parentRatingKey}`);
+              searchYear = parentMetadata.MediaContainer?.Metadata?.[0]?.year;
+            } catch (error) {
+              console.warn('[ImageSearch] Could not fetch parent year:', error);
+            }
+          }
+        } else if (item.type === 'episode' && item.grandparentTitle) {
+          searchTitle = item.grandparentTitle;
+          // Try to get year from grandparent if not available
+          if (!searchYear && item.grandparentRatingKey) {
+            try {
+              const grandparentMetadata = await client.get(`/library/metadata/${item.grandparentRatingKey}`);
+              searchYear = grandparentMetadata.MediaContainer?.Metadata?.[0]?.year;
+            } catch (error) {
+              console.warn('[ImageSearch] Could not fetch grandparent year:', error);
+            }
+          }
+        }
+        
         console.log('[ImageSearch] Searching for matches...', { 
           type: item.type, 
-          title: item.title,
-          year: item.year,
+          originalTitle: item.title,
+          searchTitle,
+          year: searchYear,
         });
         
         // Get API keys from settings
@@ -126,7 +140,7 @@ export function ImageSearchModal({
           if (providerRegistry.hasProvider(provider as any)) {
             try {
               console.log(`[ImageSearch] Searching ${provider}...`);
-              results = await providerRegistry.search(provider as any, item.title, mediaType, item.year);
+              results = await providerRegistry.search(provider as any, searchTitle, mediaType, searchYear);
               console.log(`[ImageSearch] ${provider} results:`, results.length);
               
               if (results.length > 0) {
@@ -151,12 +165,16 @@ export function ImageSearchModal({
 
   // Fetch images from external sources using selected match
   const { data: images, isLoading: isLoadingImages, refetch } = useQuery({
-    queryKey: ['image-search-images', selectedMatch?.externalId, Array.from(selectedTypes).sort().join(',')],
+    queryKey: ['image-search-images', selectedMatch?.externalId, item.type, item.index, Array.from(selectedTypes).sort().join(',')],
     queryFn: async () => {
       if (!selectedMatch) return [];
       
       try {
-        console.log('[ImageSearch] Fetching images for match...', selectedMatch);
+        console.log('[ImageSearch] Fetching images for match...', { 
+          match: selectedMatch,
+          itemType: item.type,
+          seasonNumber: item.index,
+        });
         
         // Get API keys from settings
         const settingsManager = getSettingsManager();
@@ -206,8 +224,18 @@ export function ImageSearchModal({
         // For TV shows, prioritize TVDB
         if (isTVShow && providerRegistry.hasProvider('tvdb') && tvdbId) {
           try {
-            console.log('[ImageSearch] Fetching from TVDB with ID:', tvdbId);
-            const tvdbExternalId = tvdbId.startsWith('series-') ? tvdbId : `series-${tvdbId}`;
+            console.log('[ImageSearch] Fetching from TVDB with ID:', tvdbId, 'Type:', item.type, 'Season:', item.parentIndex, 'Episode:', item.index);
+            let tvdbExternalId = tvdbId.startsWith('series-') ? tvdbId : `series-${tvdbId}`;
+            
+            // For seasons, append season number to fetch season-specific images
+            if (item.type === 'season' && item.index !== undefined) {
+              tvdbExternalId = `${tvdbExternalId}-season-${item.index}`;
+            }
+            // For episodes, append season and episode numbers
+            else if (item.type === 'episode' && item.parentIndex !== undefined && item.index !== undefined) {
+              tvdbExternalId = `${tvdbExternalId}-season-${item.parentIndex}-episode-${item.index}`;
+            }
+            
             const tvdbMetadata = await providerRegistry.getDetails('tvdb', tvdbExternalId);
             
             if (tvdbMetadata.posters) {
@@ -246,8 +274,18 @@ export function ImageSearchModal({
         // Fetch from TMDB (for movies, or as fallback for TV shows)
         if (providerRegistry.hasProvider('tmdb') && tmdbId) {
           try {
-            console.log('[ImageSearch] Fetching from TMDB with ID:', tmdbId);
-            const tmdbExternalId = isMovie ? `movie-${tmdbId}` : `tv-${tmdbId}`;
+            console.log('[ImageSearch] Fetching from TMDB with ID:', tmdbId, 'Type:', item.type, 'Season:', item.parentIndex, 'Episode:', item.index);
+            let tmdbExternalId = isMovie ? `movie-${tmdbId}` : `tv-${tmdbId}`;
+            
+            // For seasons, append season number to fetch season-specific images
+            if (item.type === 'season' && item.index !== undefined) {
+              tmdbExternalId = `${tmdbExternalId}-season-${item.index}`;
+            }
+            // For episodes, append season and episode numbers
+            else if (item.type === 'episode' && item.parentIndex !== undefined && item.index !== undefined) {
+              tmdbExternalId = `${tmdbExternalId}-season-${item.parentIndex}-episode-${item.index}`;
+            }
+            
             const tmdbMetadata = await providerRegistry.getDetails('tmdb', tmdbExternalId);
             
             if (tmdbMetadata.posters) {
@@ -286,9 +324,15 @@ export function ImageSearchModal({
         // Fetch from Fanart.tv (uses TVDB ID for TV shows, TMDB ID for movies)
         if (providerRegistry.hasProvider('fanart')) {
           try {
-            const fanartId = isTVShow ? (tvdbId || tmdbId) : tmdbId;
+            const rawId = isTVShow ? (tvdbId || tmdbId) : tmdbId;
             
-            if (fanartId) {
+            if (rawId) {
+              // Remove any existing prefix from the ID
+              const cleanId = rawId.replace(/^(movie|tv|series)-/, '');
+              
+              // Format the ID for Fanart.tv: "movie-{tmdbId}" or "tv-{tvdbId}"
+              const fanartId = isTVShow ? `tv-${cleanId}` : `movie-${cleanId}`;
+              
               console.log('[ImageSearch] Fetching from Fanart.tv with ID:', fanartId);
               const fanartMetadata = await providerRegistry.getDetails('fanart', fanartId);
               
@@ -322,7 +366,9 @@ export function ImageSearchModal({
               });
             }
           } catch (error) {
-            console.error('[ImageSearch] Fanart.tv fetch failed:', error);
+            // Fanart.tv errors are non-fatal - just log and continue
+            // Common errors: invalid API key, CORS issues, or missing artwork
+            console.warn('[ImageSearch] Fanart.tv fetch failed (non-fatal):', error instanceof Error ? error.message : error);
           }
         }
         
@@ -429,25 +475,54 @@ export function ImageSearchModal({
             const isFile = /\.[^.\\\/]+$/.test(mediaPath);
             
             if (isFile) {
-              // Extract directory and base filename
+              // File path (for movies/episodes)
               const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
               const directory = mediaPath.substring(0, lastSlash);
               const filename = mediaPath.substring(lastSlash + 1);
               const lastDot = filename.lastIndexOf('.');
               const nameWithoutExt = lastDot > 0 ? filename.substring(0, lastDot) : filename;
               
-              if (image.type === 'poster') {
-                targetPath = `${directory}\\${nameWithoutExt}-poster.${ext}`;
+              // For episodes: Use filename.jpg (no suffix)
+              // For movies: Use filename-poster.jpg / filename-fanart.jpg
+              if (item.type === 'episode') {
+                // Episode thumbnails: just the filename with .jpg extension
+                // Only poster type makes sense for episodes (episode thumbnail)
+                if (image.type === 'poster') {
+                  targetPath = `${directory}\\${nameWithoutExt}.${ext}`;
+                } else {
+                  // Episodes don't typically have fanart, but if requested, save as filename-fanart.jpg
+                  targetPath = `${directory}\\${nameWithoutExt}-fanart.${ext}`;
+                }
               } else {
-                targetPath = `${directory}\\${nameWithoutExt}-fanart.${ext}`;
+                // Movies: Use filename-poster.jpg / filename-fanart.jpg
+                if (image.type === 'poster') {
+                  targetPath = `${directory}\\${nameWithoutExt}-poster.${ext}`;
+                } else {
+                  targetPath = `${directory}\\${nameWithoutExt}-fanart.${ext}`;
+                }
               }
             } else {
-              // Directory path (for TV shows)
-              const showName = mediaPath.split(/[\\\/]/).pop() || 'show';
-              if (image.type === 'poster') {
-                targetPath = `${mediaPath}\\${showName}-poster.${ext}`;
+              // Directory path (for TV shows and seasons)
+              if (item.type === 'season' && item.index !== undefined) {
+                // Season posters are saved in the PARENT directory (show root), not in the season directory
+                // Format: Season01.jpg, Season02.jpg, etc.
+                const lastSlash = Math.max(mediaPath.lastIndexOf('/'), mediaPath.lastIndexOf('\\'));
+                const parentDirectory = mediaPath.substring(0, lastSlash);
+                const seasonNum = String(item.index).padStart(2, '0');
+                
+                if (image.type === 'poster') {
+                  targetPath = `${parentDirectory}\\Season${seasonNum}.${ext}`;
+                } else {
+                  // Seasons typically share the show's fanart in the parent directory
+                  targetPath = `${parentDirectory}\\fanart.${ext}`;
+                }
               } else {
-                targetPath = `${mediaPath}\\${showName}-fanart.${ext}`;
+                // TV shows: Use poster.jpg / fanart.jpg in the show directory
+                if (image.type === 'poster') {
+                  targetPath = `${mediaPath}\\poster.${ext}`;
+                } else {
+                  targetPath = `${mediaPath}\\fanart.${ext}`;
+                }
               }
             }
 
@@ -479,7 +554,7 @@ export function ImageSearchModal({
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {step === 'search' 
                 ? `${item.title} • Confirm the correct ${mediaType}`
-                : `${selectedMatch?.title} • Sources: ${isTVShow ? 'TVDB, TMDB, Fanart.tv' : 'TMDB, Fanart.tv'}`
+                : `${selectedMatch?.title} • Searching multiple image sources`
               }
             </p>
           </div>

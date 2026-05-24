@@ -240,11 +240,16 @@ export class FanartProvider extends BaseExternalMetadataProvider {
     // External ID format: "movie-{tmdbId}", "tv-{tvdbId}", or "music-{mbid}"
     const separatorIndex = externalId.indexOf('-');
     if (separatorIndex === -1) {
-      throw new Error(`Invalid Fanart external ID format: ${externalId}`);
+      throw new Error(`Invalid Fanart external ID format: ${externalId}. Expected format: "movie-123", "tv-456", or "music-abc"`);
     }
 
     const entityType = externalId.substring(0, separatorIndex);
     const id = externalId.substring(separatorIndex + 1);
+    
+    // Validate ID is not empty
+    if (!id || id.trim() === '') {
+      throw new Error(`Invalid Fanart external ID: ID part is empty in "${externalId}"`);
+    }
 
     switch (entityType) {
       case 'movie':
@@ -254,7 +259,7 @@ export class FanartProvider extends BaseExternalMetadataProvider {
       case 'music':
         return this.getMusicArtwork(id);
       default:
-        throw new Error(`Invalid Fanart external ID format: ${externalId}`);
+        throw new Error(`Invalid Fanart external ID format: ${externalId}. Unknown entity type: "${entityType}"`);
     }
   }
 
@@ -262,74 +267,107 @@ export class FanartProvider extends BaseExternalMetadataProvider {
    * Get movie artwork
    */
   private async getMovieArtwork(tmdbId: string): Promise<ExternalMetadata> {
-    const response = await this.client.get<FanartMovieImages>(`/movies/${tmdbId}`);
-    const images = response.data;
+    try {
+      const response = await this.client.get<FanartMovieImages>(`/movies/${tmdbId}`);
+      const images = response.data;
 
-    // Sort by likes and extract URLs
-    const sortByLikes = (arr: Array<{ url: string; likes: string }> | undefined) =>
-      arr?.sort((a, b) => parseInt(b.likes, 10) - parseInt(a.likes, 10)).map((img) => img.url);
+      // Sort by likes and extract URLs
+      const sortByLikes = (arr: Array<{ url: string; likes: string }> | undefined) =>
+        arr?.sort((a, b) => parseInt(b.likes, 10) - parseInt(a.likes, 10)).map((img) => img.url);
 
-    return {
-      externalId: `movie-${tmdbId}`,
-      title: images.name,
-      posters: sortByLikes(images.movieposter),
-      backdrops: sortByLikes(images.moviebackground),
-      // Additional artwork types specific to Fanart.tv
-      logos: sortByLikes(images.hdmovielogo || images.movielogo),
-      clearart: sortByLikes(images.hdmovieclearart || images.movieart),
-      banners: sortByLikes(images.moviebanner),
-      thumbs: sortByLikes(images.moviethumb),
-      provider: 'fanart',
-    };
+      return {
+        externalId: `movie-${tmdbId}`,
+        title: images.name,
+        posters: sortByLikes(images.movieposter),
+        backdrops: sortByLikes(images.moviebackground),
+        // Additional artwork types specific to Fanart.tv
+        logos: sortByLikes(images.hdmovielogo || images.movielogo),
+        clearart: sortByLikes(images.hdmovieclearart || images.movieart),
+        banners: sortByLikes(images.moviebanner),
+        thumbs: sortByLikes(images.moviethumb),
+        provider: 'fanart',
+      };
+    } catch (error: any) {
+      // Handle CORS and authentication errors gracefully
+      if (error.response?.status === 401) {
+        throw new Error('Fanart.tv API key is invalid or expired. Please check your API key in settings.');
+      }
+      if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+        throw new Error('Fanart.tv API is unreachable. This may be due to CORS issues or an invalid API key.');
+      }
+      throw error;
+    }
   }
 
   /**
    * Get TV show artwork
    */
   private async getTVArtwork(tvdbId: string): Promise<ExternalMetadata> {
-    const response = await this.client.get<FanartTVImages>(`/tv/${tvdbId}`);
-    const images = response.data;
+    try {
+      const response = await this.client.get<FanartTVImages>(`/tv/${tvdbId}`);
+      const images = response.data;
 
-    // Sort by likes and extract URLs
-    const sortByLikes = (arr: Array<{ url: string; likes: string }> | undefined) =>
-      arr?.sort((a, b) => parseInt(b.likes, 10) - parseInt(a.likes, 10)).map((img) => img.url);
+      // Sort by likes and extract URLs
+      const sortByLikes = (arr: Array<{ url: string; likes: string }> | undefined) =>
+        arr?.sort((a, b) => parseInt(b.likes, 10) - parseInt(a.likes, 10)).map((img) => img.url);
 
-    return {
-      externalId: `tv-${tvdbId}`,
-      title: images.name,
-      posters: sortByLikes(images.tvposter),
-      backdrops: sortByLikes(images.showbackground),
-      // Additional artwork types specific to Fanart.tv
-      logos: sortByLikes(images.hdtvlogo || images.clearlogo),
-      clearart: sortByLikes(images.hdclearart || images.clearart),
-      banners: sortByLikes(images.tvbanner),
-      thumbs: sortByLikes(images.tvthumb),
-      characterart: sortByLikes(images.characterart),
-      provider: 'fanart',
-    };
+      return {
+        externalId: `tv-${tvdbId}`,
+        title: images.name,
+        posters: sortByLikes(images.tvposter),
+        backdrops: sortByLikes(images.showbackground),
+        // Additional artwork types specific to Fanart.tv
+        logos: sortByLikes(images.hdtvlogo || images.clearlogo),
+        clearart: sortByLikes(images.hdclearart || images.clearart),
+        banners: sortByLikes(images.tvbanner),
+        thumbs: sortByLikes(images.tvthumb),
+        characterart: sortByLikes(images.characterart),
+        provider: 'fanart',
+      };
+    } catch (error: any) {
+      // Handle CORS and authentication errors gracefully
+      if (error.response?.status === 401) {
+        throw new Error('Fanart.tv API key is invalid or expired. Please check your API key in settings.');
+      }
+      if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+        throw new Error('Fanart.tv API is unreachable. This may be due to CORS issues or an invalid API key.');
+      }
+      throw error;
+    }
   }
 
   /**
    * Get music artist artwork
    */
   private async getMusicArtwork(mbid: string): Promise<ExternalMetadata> {
-    const response = await this.client.get<FanartMusicImages>(`/music/${mbid}`);
-    const images = response.data;
+    try {
+      const response = await this.client.get<FanartMusicImages>(`/music/${mbid}`);
+      const images = response.data;
 
-    // Sort by likes and extract URLs
-    const sortByLikes = (arr: Array<{ url: string; likes: string }> | undefined) =>
-      arr?.sort((a, b) => parseInt(b.likes, 10) - parseInt(a.likes, 10)).map((img) => img.url);
+      // Sort by likes and extract URLs
+      const sortByLikes = (arr: Array<{ url: string; likes: string }> | undefined) =>
+        arr?.sort((a, b) => parseInt(b.likes, 10) - parseInt(a.likes, 10)).map((img) => img.url);
 
-    return {
-      externalId: `music-${mbid}`,
-      title: images.name,
-      backdrops: sortByLikes(images.artistbackground),
-      thumbs: sortByLikes(images.artistthumb),
-      // Additional artwork types specific to Fanart.tv
-      logos: sortByLikes(images.hdmusiclogo || images.musiclogo),
-      banners: sortByLikes(images.musicbanner),
-      provider: 'fanart',
-    };
+      return {
+        externalId: `music-${mbid}`,
+        title: images.name,
+        backdrops: sortByLikes(images.artistbackground),
+        thumbs: sortByLikes(images.artistthumb),
+        // Additional artwork types specific to Fanart.tv
+        logos: sortByLikes(images.hdmusiclogo || images.musiclogo),
+        banners: sortByLikes(images.musicbanner),
+        provider: 'fanart',
+      };
+    } catch (error: any) {
+      // Handle CORS and authentication errors gracefully
+      if (error.response?.status === 401) {
+        throw new Error('Fanart.tv API key is invalid or expired. Please check your API key in settings.');
+      }
+      if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+        throw new Error('Fanart.tv API is unreachable. This may be due to CORS issues or an invalid API key.');
+      }
+      throw error;
+    }
   }
 
   /**

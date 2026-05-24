@@ -130,9 +130,41 @@ export function MetadataRefreshModal({
           // Search for matches (get top 5 results)
           let results: EnhancedSearchResult[] = [];
           
-          // For TV shows, prioritize TVDB; for movies, use TMDB
-          const primaryProvider = mediaType === 'show' ? 'tvdb' : 'tmdb';
-          const fallbackProvider = mediaType === 'show' ? 'tmdb' : null;
+          // Determine providers based on media type
+          const isTVContent = mediaType === 'show' || item.type === 'season' || item.type === 'episode';
+          const isMusicContent = mediaType === 'artist' || mediaType === 'album' || mediaType === 'track';
+          
+          let primaryProvider: string;
+          let fallbackProvider: string | null = null;
+          
+          if (isMusicContent) {
+            // For music: Use MusicBrainz first, Discogs as fallback
+            primaryProvider = 'musicbrainz';
+            fallbackProvider = 'discogs';
+          } else if (isTVContent) {
+            // For TV: Use TVDB first, TMDB as fallback
+            primaryProvider = 'tvdb';
+            fallbackProvider = 'tmdb';
+          } else {
+            // For movies: Use TMDB
+            primaryProvider = 'tmdb';
+            fallbackProvider = null;
+          }
+          
+          // For seasons and episodes, use the parent/grandparent title for searching
+          let searchTitle = item.title;
+          if (item.type === 'season' && item.parentTitle) {
+            searchTitle = item.parentTitle;
+          } else if (item.type === 'episode' && item.grandparentTitle) {
+            searchTitle = item.grandparentTitle;
+          }
+          
+          console.log('[MetadataRefresh] Search params:', {
+            originalTitle: item.title,
+            searchTitle,
+            itemType: item.type,
+            primaryProvider,
+          });
           
           // Try primary provider first
           if (providerRegistry.hasProvider(primaryProvider)) {
@@ -140,7 +172,7 @@ export function MetadataRefreshModal({
               console.log(`[MetadataRefresh] Searching ${primaryProvider.toUpperCase()}...`);
               const primaryResults = await providerRegistry.search(
                 primaryProvider as any,
-                item.title,
+                searchTitle,
                 mediaType,
                 item.year
               );
@@ -421,9 +453,30 @@ export function MetadataRefreshModal({
           }
 
           // Get full metadata from the provider that was used for search
+          let externalId = selectedResult.externalId;
+          
+          // For seasons and episodes, append the season/episode number to the external ID
+          if (reviewItem.item.type === 'season' && reviewItem.item.index !== undefined) {
+            // Append season number: series-123 -> series-123-season-2
+            if (selectedResult.provider === 'tvdb') {
+              externalId = `${externalId}-season-${reviewItem.item.index}`;
+            } else if (selectedResult.provider === 'tmdb') {
+              externalId = `${externalId}-season-${reviewItem.item.index}`;
+            }
+            console.log('[MetadataRefresh] Fetching season-specific details:', externalId);
+          } else if (reviewItem.item.type === 'episode' && reviewItem.item.index !== undefined && reviewItem.item.parentIndex !== undefined) {
+            // Append season and episode numbers: series-123 -> series-123-season-2-episode-5
+            if (selectedResult.provider === 'tvdb') {
+              externalId = `${externalId}-season-${reviewItem.item.parentIndex}-episode-${reviewItem.item.index}`;
+            } else if (selectedResult.provider === 'tmdb') {
+              externalId = `${externalId}-season-${reviewItem.item.parentIndex}-episode-${reviewItem.item.index}`;
+            }
+            console.log('[MetadataRefresh] Fetching episode-specific details:', externalId);
+          }
+          
           const externalMetadata = await providerRegistry.getDetails(
             selectedResult.provider,
-            selectedResult.externalId
+            externalId
           );
 
           // Update metadata with external data
@@ -1052,39 +1105,44 @@ export function MetadataRefreshModal({
                   </div>
                 </label>
 
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={options.refreshTrailers}
-                    onChange={(e) => setOptions({ ...options, refreshTrailers: e.target.checked })}
-                    className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
-                      Refresh Trailers
-                    </div>
-                    <div className="text-xs text-secondary-600 dark:text-secondary-400">
-                      Fetch available trailers from YouTube (no API key required)
-                    </div>
-                  </div>
-                </label>
+                {/* Hide trailers and cast for music items */}
+                {!items.every(item => item.type === 'artist' || item.type === 'album' || item.type === 'track') && (
+                  <>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={options.refreshTrailers}
+                        onChange={(e) => setOptions({ ...options, refreshTrailers: e.target.checked })}
+                        className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
+                          Refresh Trailers
+                        </div>
+                        <div className="text-xs text-secondary-600 dark:text-secondary-400">
+                          Fetch available trailers from YouTube (no API key required)
+                        </div>
+                      </div>
+                    </label>
 
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={options.refreshCast}
-                    onChange={(e) => setOptions({ ...options, refreshCast: e.target.checked })}
-                    className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
-                      Refresh Cast & Crew
-                    </div>
-                    <div className="text-xs text-secondary-600 dark:text-secondary-400">
-                      Update actor information and download actor photos
-                    </div>
-                  </div>
-                </label>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={options.refreshCast}
+                        onChange={(e) => setOptions({ ...options, refreshCast: e.target.checked })}
+                        className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
+                          Refresh Cast & Crew
+                        </div>
+                        <div className="text-xs text-secondary-600 dark:text-secondary-400">
+                          Update actor information and download actor photos
+                        </div>
+                      </div>
+                    </label>
+                  </>
+                )}
               </div>
 
               {/* Save Locally Section - At Bottom */}

@@ -154,19 +154,37 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
    * Get detailed metadata for a movie or TV show
    */
   async getDetails(externalId: string): Promise<ExternalMetadata> {
-    // External ID format: "movie-123" or "tv-456"
+    // External ID format: "movie-123", "tv-456", "tv-456-season-2", or "tv-456-season-2-episode-5"
     const parts = externalId.split('-');
     if (parts.length < 2) {
       throw new Error(`Invalid TMDB external ID format: ${externalId}`);
     }
 
     const mediaType = parts[0];
-    const id = parts.slice(1).join('-'); // Rejoin in case ID contains hyphens
-
+    
     if (mediaType === 'movie') {
+      const id = parts.slice(1).join('-');
       return this.getMovieDetails(id);
     } else if (mediaType === 'tv') {
-      return this.getTVDetails(id);
+      // Check if this is an episode request: tv-123-season-2-episode-5
+      const seasonIndex = parts.indexOf('season');
+      const episodeIndex = parts.indexOf('episode');
+      
+      if (episodeIndex !== -1 && parts[episodeIndex + 1]) {
+        const seriesId = parts.slice(1, seasonIndex).join('-');
+        const seasonNumber = parseInt(parts[seasonIndex + 1]);
+        const episodeNumber = parseInt(parts[episodeIndex + 1]);
+        return this.getEpisodeDetails(seriesId, seasonNumber, episodeNumber);
+      } else if (seasonIndex !== -1 && parts[seasonIndex + 1]) {
+        // Season request: tv-123-season-2
+        const seriesId = parts.slice(1, seasonIndex).join('-');
+        const seasonNumber = parseInt(parts[seasonIndex + 1]);
+        return this.getSeasonDetails(seriesId, seasonNumber);
+      } else {
+        // Show request: tv-123
+        const id = parts.slice(1).join('-');
+        return this.getTVDetails(id);
+      }
     } else {
       throw new Error(`Invalid TMDB external ID format: ${externalId}`);
     }
@@ -252,6 +270,70 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
       backdrops: show.images?.backdrops?.map((b) => `${this.imageBaseURL}${b.file_path}`),
       provider: 'tmdb',
     };
+  }
+
+  /**
+   * Get season-specific details and images
+   */
+  private async getSeasonDetails(seriesId: string, seasonNumber: number): Promise<ExternalMetadata> {
+    try {
+      // Fetch season images
+      const response = await this.client.get(`/tv/${seriesId}/season/${seasonNumber}/images`);
+      
+      const posters = response.data.posters?.map((p: any) => `${this.imageBaseURL}${p.file_path}`) || [];
+      
+      // Also fetch series info for metadata
+      const seriesResponse = await this.client.get<TMDBTVDetails>(`/tv/${seriesId}`);
+      const show = seriesResponse.data;
+
+      return {
+        externalId: `tv-${seriesId}-season-${seasonNumber}`,
+        title: `${show.name} - Season ${seasonNumber}`,
+        summary: show.overview,
+        rating: show.vote_average,
+        year: show.first_air_date ? new Date(show.first_air_date).getFullYear() : undefined,
+        posters: posters.length > 0 ? posters : undefined,
+        // Seasons typically use show backdrops
+        backdrops: undefined,
+        provider: 'tmdb',
+      };
+    } catch (error) {
+      console.error('[TMDB] Error fetching season details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get episode-specific details and images
+   */
+  private async getEpisodeDetails(seriesId: string, seasonNumber: number, episodeNumber: number): Promise<ExternalMetadata> {
+    try {
+      // Fetch episode images
+      const response = await this.client.get(`/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}/images`);
+      
+      const stills = response.data.stills?.map((s: any) => `${this.imageBaseURL}${s.file_path}`) || [];
+      
+      // Also fetch episode info for metadata
+      const episodeResponse = await this.client.get(`/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}`);
+      const episode = episodeResponse.data;
+
+      return {
+        externalId: `tv-${seriesId}-season-${seasonNumber}-episode-${episodeNumber}`,
+        title: episode.name || `Episode ${episodeNumber}`,
+        summary: episode.overview,
+        rating: episode.vote_average,
+        year: episode.air_date ? new Date(episode.air_date).getFullYear() : undefined,
+        releaseDate: episode.air_date,
+        runtime: episode.runtime,
+        posters: stills.length > 0 ? stills : undefined,
+        // Episodes typically don't have separate backdrops
+        backdrops: undefined,
+        provider: 'tmdb',
+      };
+    } catch (error) {
+      console.error('[TMDB] Error fetching episode details:', error);
+      throw error;
+    }
   }
 
   /**
