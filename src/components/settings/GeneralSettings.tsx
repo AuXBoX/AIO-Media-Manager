@@ -26,6 +26,20 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
   });
 
   const [hasChanges, setHasChanges] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>('');
+  const [checkingForUpdates, setCheckingForUpdates] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<string>('');
+
+  useEffect(() => {
+    // Get app version from package.json via electron
+    const getVersion = async () => {
+      if (window.electron?.binaries?.getAppVersion) {
+        const version = await window.electron.binaries.getAppVersion();
+        setAppVersion(version || '');
+      }
+    };
+    getVersion();
+  }, []);
 
   useEffect(() => {
     const changed =
@@ -222,6 +236,46 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Higher quality uses more bandwidth and storage
         </p>
+      </div>
+
+      {/* About & Updates */}
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">About</h3>
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div>
+            <p className="font-medium text-gray-900 dark:text-white">AIO Media Manager</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Version {appVersion || '1.0.0'}
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              setCheckingForUpdates(true);
+              setUpdateStatus('');
+              try {
+                const result = await window.electron?.updater?.checkForUpdates();
+                if (result) {
+                  setUpdateStatus(`Update available: v${result.version}`);
+                } else {
+                  setUpdateStatus('You have the latest version');
+                }
+              } catch (err) {
+                setUpdateStatus('Failed to check for updates');
+              } finally {
+                setCheckingForUpdates(false);
+              }
+            }}
+            disabled={checkingForUpdates}
+          >
+            {checkingForUpdates ? 'Checking...' : 'Check for Updates'}
+          </Button>
+        </div>
+        {updateStatus && (
+          <p className={`mt-2 text-sm ${updateStatus.includes('latest') ? 'text-green-600 dark:text-green-400' : 'text-primary-600 dark:text-primary-400'}`}>
+            {updateStatus}
+          </p>
+        )}
       </div>
 
       {/* Action Buttons */}

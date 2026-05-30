@@ -148,9 +148,9 @@ export const SettingsView: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col min-h-0 bg-background-primary overflow-y-auto">
+    <div className="h-full flex flex-col min-h-0 bg-background-primary overflow-y-scroll">
       {/* Header / Toolbar with Glass Effect */}
-      <div className="sticky top-0 z-50 h-16 bg-white/75 backdrop-blur-md border-b border-border">
+      <div className="sticky top-0 z-50 h-16 flex-shrink-0 bg-white/75 backdrop-blur-md border-b border-border">
         <div className="max-w-7xl mx-auto px-6 h-full flex flex-col justify-center">
           <h1 className="text-xl font-semibold text-text-primary tracking-tight">Settings</h1>
           <p className="text-sm text-text-tertiary">
@@ -212,8 +212,8 @@ export const SettingsView: React.FC = () => {
           </div>
 
           {/* Settings Content */}
-          <div className="flex-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex-1 min-w-0">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 w-[800px] max-w-full">
               {activeTab === 'general' && (
                 <GeneralSettings
                   settings={settings}

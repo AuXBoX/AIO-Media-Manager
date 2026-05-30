@@ -1032,6 +1032,11 @@ ipcMain.handle('youtube:download', async (event, videoUrl, outputPath, quality) 
   }
 });
 
+// App version handler
+ipcMain.handle('app:getVersion', () => {
+  return app.getVersion();
+});
+
 // Binary manager handlers
 ipcMain.handle('binaries:getVersion', async () => {
   try {

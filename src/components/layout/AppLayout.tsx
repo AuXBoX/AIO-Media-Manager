@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { ResponsiveLayout, ResponsiveHeader } from './ResponsiveLayout';
 import { 
   SidebarNav, 
@@ -20,6 +21,18 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { serverConnection, selectedServer, currentUser, currentToken, clearAuthentication, selectLibrary, selectedLibrary } = useAppStore();
+  const [appVersion, setAppVersion] = useState<string>('');
+
+  useEffect(() => {
+    // Get app version
+    const getVersion = async () => {
+      if (window.electron?.binaries?.getAppVersion) {
+        const version = await window.electron.binaries.getAppVersion();
+        setAppVersion(version || '');
+      }
+    };
+    getVersion();
+  }, []);
 
   // Fetch libraries from Plex server
   const { data: libraries, isLoading } = useQuery({
@@ -158,6 +171,13 @@ export function AppLayout() {
           />
         </div>
       </SidebarNav>
+
+      {/* Version number */}
+      {appVersion && (
+        <div className="flex items-center justify-center py-2">
+          <span className="text-sm text-gray-400 dark:text-gray-500">v{appVersion}</span>
+        </div>
+      )}
 
       {/* User info and logout */}
       <SidebarFooter>

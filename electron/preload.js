@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('electron', {
     checkUpdate: () => ipcRenderer.invoke('binaries:checkUpdate'),
     update: () => ipcRenderer.invoke('binaries:update'),
     getPaths: () => ipcRenderer.invoke('binaries:getPaths'),
+    getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
   },
   
   // Settings operations (stored in %APPDATA%\aio-media-manager)

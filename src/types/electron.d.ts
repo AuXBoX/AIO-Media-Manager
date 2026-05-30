@@ -132,6 +132,19 @@ export interface ElectronAPI {
       };
       error?: string;
     }>;
+    getAppVersion: () => Promise<string>;
+  };
+
+  // Auto-updater
+  updater?: {
+    checkForUpdates: () => Promise<{ version: string; releaseDate?: string } | null>;
+    downloadUpdate: () => Promise<boolean>;
+    installUpdate: () => Promise<boolean>;
+    getStatus: () => Promise<{ available: any; downloaded: boolean }>;
+    onAvailable: (callback: (info: any) => void) => () => void;
+    onProgress: (callback: (progress: any) => void) => () => void;
+    onDownloaded: (callback: (info: any) => void) => () => void;
+    onError: (callback: (error: any) => void) => () => void;
   };
 
   // Settings operations (stored in %APPDATA%\aio-media-manager)
