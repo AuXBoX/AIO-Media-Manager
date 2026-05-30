@@ -8,6 +8,14 @@ const { autoUpdater } = require('electron-updater');
 // Auto-updater configuration
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.allowPrerelease = false;
+autoUpdater.allowDowngrade = false;
+
+// Force JSON responses from GitHub API
+autoUpdater.requestHeaders = {
+  ...autoUpdater.requestHeaders,
+  'Accept': 'application/json',
+};
 
 // Update status tracking
 let updateAvailable = null;
@@ -241,12 +249,16 @@ function setupAutoUpdater() {
     }
   });
 
-  // Check for updates after a short delay
-  setTimeout(() => {
-    autoUpdater.checkForUpdates().catch((err) => {
-      console.error('[AutoUpdater] Failed to check for updates:', err);
-    });
-  }, 5000);
+  // Check for updates after a short delay (only in packaged app)
+  if (app.isPackaged) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.error('[AutoUpdater] Failed to check for updates:', err.message);
+      });
+    }, 10000);
+  } else {
+    console.log('[AutoUpdater] Skipping update check in dev mode');
+  }
 }
 
 // IPC Handlers for auto-updater
@@ -255,8 +267,9 @@ ipcMain.handle('update:check', async () => {
     const result = await autoUpdater.checkForUpdates();
     return result?.updateInfo || null;
   } catch (error) {
-    console.error('[AutoUpdater] Check failed:', error);
-    throw error;
+    console.error('[AutoUpdater] Check failed:', error.message);
+    // Return null instead of throwing - update check is non-critical
+    return null;
   }
 });
 
@@ -265,8 +278,8 @@ ipcMain.handle('update:download', async () => {
     await autoUpdater.downloadUpdate();
     return true;
   } catch (error) {
-    console.error('[AutoUpdater] Download failed:', error);
-    throw error;
+    console.error('[AutoUpdater] Download failed:', error.message);
+    return false;
   }
 });
 

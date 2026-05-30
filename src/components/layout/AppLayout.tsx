@@ -95,7 +95,7 @@ export function AppLayout() {
       {/* Logo */}
       <div className="pt-3">
         <img 
-          src="/logo.png" 
+          src="./logo.png" 
           alt="AIO Media Manager" 
           className="w-full h-auto block"
         />

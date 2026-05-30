@@ -7,15 +7,6 @@ A powerful desktop and web application for viewing and editing metadata for movi
 
 ## Recent Improvements
 
-### Playlist Features (New)
-- **Built-in music playback** - Audio player with full controls and persistent player bar
-- **Advanced playlist management** - Drag-and-drop reordering, add/remove tracks, bulk operations
-- **Import playlists** - Import from CSV or text files with automatic track matching
-- **Cover art management** - Upload custom covers or select from album art
-- **Track matching** - Find better matches for tracks in your library
-- **Missing track detection** - Identify and export tracks not in library
-- **Keyboard shortcuts** - Ctrl+A to select all, Delete to remove, Escape to clear
-
 ### UI/UX Enhancements
 - **Default list view** - First install now shows list view for better information density
 - **Trailer resolution badges** - Color-coded badges showing available resolutions
@@ -40,6 +31,15 @@ A powerful desktop and web application for viewing and editing metadata for movi
 - **Enhanced image search** - Search multiple providers with tabbed interface
 - **Trailer management** - Automatic naming and local file detection
 - **Subtitle support** - Search and download subtitles from OpenSubtitles
+
+### Playlist Features
+- **Built-in music playback** - Audio player with full controls and persistent player bar
+- **Advanced playlist management** - Drag-and-drop reordering, add/remove tracks, bulk operations
+- **Import playlists** - Import from CSV or text files with automatic track matching
+- **Cover art management** - Upload custom covers or select from album art
+- **Track matching** - Find better matches for tracks in your library
+- **Missing track detection** - Identify and export tracks not in library
+- **Keyboard shortcuts** - Ctrl+A to select all, Delete to remove, Escape to clear
 
 ## Features
 
