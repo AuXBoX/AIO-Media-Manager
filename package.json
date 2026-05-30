@@ -27,7 +27,7 @@
                      "electron",
                      "desktop"
                  ],
-    "author":  "",
+    "author":  "AIO Media Manager <auxbox2007@gmail.com>",
     "license":  "MIT",
     "dependencies":  {
                          "@tanstack/react-query":  "^5.56.2",
