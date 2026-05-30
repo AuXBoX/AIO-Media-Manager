@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useAppStore } from '@/store/appStore';
@@ -131,10 +131,10 @@ export function LibraryView() {
   const isMusicLibrary = libraryType === 'artist';
 
   // Get default columns for this library type
-  const defaultColumns = getColumnDefinitions(libraryType);
+  const defaultColumns = getColumnDefinitions(libraryType, isMusicLibrary ? musicViewMode : undefined);
   
   // Use persistent column settings
-  const [columns, setColumns] = useColumnSettings(libraryType, defaultColumns);
+  const [columns, setColumns] = useColumnSettings(`${libraryType}_${musicViewMode}`, defaultColumns);
 
   // Debug logging removed to prevent performance issues
 
@@ -218,9 +218,36 @@ export function LibraryView() {
     initialPageParam: 0,
   });
 
+  // Fetch album counts for artists in music libraries
+  const { data: albumCounts } = useQuery({
+    queryKey: ['artistAlbumCounts', activeLibraryKey],
+    queryFn: async () => {
+      if (!serverConnection || !currentToken || !activeLibraryKey) {
+        return new Map<string, number>();
+      }
+      const client = createPlexClient({ baseURL: serverConnection.uri, token: currentToken });
+      const manager = createLibraryManager(client);
+      return manager.getArtistAlbumCounts(activeLibraryKey);
+    },
+    enabled: !!serverConnection && !!currentToken && !!activeLibraryKey && isMusicLibrary && musicViewMode === 'artists',
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    refetchOnMount: 'always',
+  });
+
   // Flatten all pages into single items array
-  const allItems = data?.pages.flatMap((page) => page.items) || [];
+  const allItemsRaw = data?.pages.flatMap((page) => page.items) || [];
   const totalSize = data?.pages[0]?.totalSize || 0;
+
+  // Merge album counts into artist items
+  const allItems = useMemo(() => {
+    if (isMusicLibrary && musicViewMode === 'artists' && albumCounts) {
+      return allItemsRaw.map(item => ({
+        ...item,
+        childCount: albumCounts.get(String(item.ratingKey)) ?? 0,
+      }));
+    }
+    return allItemsRaw;
+  }, [allItemsRaw, albumCounts, isMusicLibrary, musicViewMode]);
 
   // Track background loading to hide "Loading more..." indicator during preload
   const isBackgroundLoadingRef = useRef(false);
@@ -239,6 +266,9 @@ export function LibraryView() {
   // Preload all items in the background for instant alphabet navigation
   useEffect(() => {
     let isCancelled = false;
+    
+    // Reset background loading state when view mode changes
+    isBackgroundLoadingRef.current = false;
     
     const preloadAllItems = async () => {
       // Only start if not already loading
@@ -299,9 +329,9 @@ export function LibraryView() {
     return () => {
       isCancelled = true;
     };
-  // Only re-run when the library key changes (new library selected)
+  // Re-run when library key or music view mode changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLibraryKey]);
+  }, [activeLibraryKey, musicViewMode]);
 
   // Check cache status for items
   useEffect(() => {
@@ -408,7 +438,7 @@ export function LibraryView() {
     // Find the first item starting with this letter in currently loaded items
     const targetLetter = letter === '#' ? '0' : letter.toUpperCase();
     const targetIndex = allItems.findIndex(item => {
-      const title = (item.titleSort || item.title || '').toUpperCase();
+      const title = (item['titleSort'] || item.title || '').toUpperCase();
       if (letter === '#') {
         return /^[0-9]/.test(title);
       } else {

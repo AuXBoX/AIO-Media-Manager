@@ -265,6 +265,7 @@ export function DetailedReviewScreen({
             onBannerChange={handleBannerSelection}
             serverUrl={serverUrl}
             token={token}
+            isMusic={currentItem.item.type === 'artist' || currentItem.item.type === 'album' || currentItem.item.type === 'track'}
           />
         )}
 

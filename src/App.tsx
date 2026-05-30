@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useOfflineDetection } from '@/hooks/useOfflineDetection';
@@ -30,18 +30,23 @@ function App() {
     setOnlineStatus(isOnline);
   }, [isOnline, setOnlineStatus]);
 
-  // Show notifications when connection status changes
+  // Track previous online status to only show toast on actual transitions
+  const prevOnlineRef = useRef<boolean | null>(null);
+
+  // Show notifications when connection status changes (but not on initial mount)
   useEffect(() => {
-    // Skip notification on initial mount
-    if (serverConnection) {
+    const prevOnline = prevOnlineRef.current;
+    prevOnlineRef.current = isOnline;
+
+    // Only show toast on actual transition (not initial mount)
+    if (prevOnline !== null && prevOnline !== isOnline) {
       if (isOnline) {
         showToast('Connection restored. Syncing offline changes...', 'info');
       } else {
         showToast('Connection lost. Working in offline mode.', 'warning');
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline]); // Only run when isOnline changes, not on mount
+  }, [isOnline, showToast]);
 
   // Create cache manager instance
   const cacheManager = useMemo(() => {

@@ -18,6 +18,8 @@ import type { SubtitleResult, SubtitleSearchParams } from '@/types/subtitle';
 interface OpenSubtitlesConfig {
   apiKey?: string; // Not used for XML-RPC API
   userAgent?: string; // Optional custom User-Agent
+  username?: string; // OpenSubtitles.org username
+  password?: string; // OpenSubtitles.org password
 }
 
 interface XMLRPCResponse {
@@ -41,7 +43,7 @@ export class OpenSubtitlesProvider {
   }
 
   /**
-   * Login to OpenSubtitles (anonymous)
+   * Login to OpenSubtitles (with credentials or anonymous)
    */
   private async login(): Promise<string> {
     // Check if we have a valid token
@@ -50,25 +52,35 @@ export class OpenSubtitlesProvider {
     }
 
     try {
-      console.log('[OpenSubtitles] Logging in...');
+      const username = this.config.username || '';
+      const password = this.config.password || '';
+      const isAnonymous = !username || !password;
+
+      console.log(`[OpenSubtitles] Logging in (${isAnonymous ? 'anonymous' : 'authenticated'})...`);
       
       const response = await this.xmlrpcCall('LogIn', [
-        '', // username (blank for anonymous)
-        '', // password (blank for anonymous)
+        username,
+        password,
         'en', // language
         this.userAgent,
       ]);
 
-      console.log('[OpenSubtitles] Login response:', response);
+      console.log('[OpenSubtitles] Login response status:', response.status);
 
       if (response.status !== '200 OK') {
         console.error('[OpenSubtitles] Login failed with status:', response.status);
-        console.error('[OpenSubtitles] Full response:', JSON.stringify(response, null, 2));
-        throw new Error(`Login failed: ${response.status}`);
+        if (isAnonymous) {
+          throw new Error(
+            'OpenSubtitles anonymous login failed (401 Unauthorized). ' +
+            'Anonymous access has been disabled. ' +
+            'Please add your OpenSubtitles.org username and password in Settings > API Keys.'
+          );
+        }
+        throw new Error(`Login failed: ${response.status}. Please check your credentials.`);
       }
 
       if (!response.token) {
-        console.error('[OpenSubtitles] No token in response:', JSON.stringify(response, null, 2));
+        console.error('[OpenSubtitles] No token in response');
         throw new Error('No token returned from login');
       }
 
@@ -85,12 +97,12 @@ export class OpenSubtitlesProvider {
       if (error instanceof Error && error.message.includes('401')) {
         throw new Error(
           'OpenSubtitles login failed (401 Unauthorized). ' +
-          'The XML-RPC API may require User-Agent registration or anonymous access may be disabled. ' +
-          'Please download subtitles manually from opensubtitles.org and place them next to your video files.'
+          'Please add your OpenSubtitles.org username and password in Settings > API Keys. ' +
+          'Create a free account at opensubtitles.org if you don\'t have one.'
         );
       }
       
-      throw new Error('Failed to connect to OpenSubtitles. Please try again later.');
+      throw error instanceof Error ? error : new Error('Failed to connect to OpenSubtitles. Please try again later.');
     }
   }
 
@@ -101,17 +113,23 @@ export class OpenSubtitlesProvider {
     try {
       const token = await this.login();
 
-      // Build search query
+      // Build search query - prefer IMDB ID (most reliable), fall back to title
       const searchQuery: any = {};
 
-      // Add IMDB ID if available (most reliable)
-      if (params.imdbId) {
-        searchQuery.imdbid = params.imdbId.replace(/^tt/, '');
-      }
+      // Add language (use first language or default to English)
+      const language = params.languages && params.languages.length > 0 
+        ? this.convertTo3LetterCode(params.languages[0])
+        : 'eng';
+      searchQuery.sublanguageid = language;
 
-      // Add query (title)
-      if (params.title) {
+      if (params.imdbId) {
+        // IMDB ID gives exact match - don't include query/title as it can override
+        searchQuery.imdbid = params.imdbId.replace(/^tt/, '');
+        console.log('[OpenSubtitles] Searching by IMDB ID:', searchQuery.imdbid);
+      } else if (params.title) {
+        // Fall back to title search
         searchQuery.query = params.title;
+        console.log('[OpenSubtitles] Searching by title:', params.title);
       }
 
       // Add season/episode for TV shows
@@ -122,13 +140,7 @@ export class OpenSubtitlesProvider {
         searchQuery.episode = params.episode.toString();
       }
 
-      // Add language (use first language or default to English)
-      const language = params.languages && params.languages.length > 0 
-        ? this.convertTo3LetterCode(params.languages[0])
-        : 'eng';
-      searchQuery.sublanguageid = language;
-
-      console.log('[OpenSubtitles] Search query:', searchQuery);
+      console.log('[OpenSubtitles] Search query:', JSON.stringify(searchQuery));
 
       const response = await this.xmlrpcCall('SearchSubtitles', [
         token,
@@ -139,13 +151,14 @@ export class OpenSubtitlesProvider {
         throw new Error(`Search failed: ${response.status}`);
       }
 
-      // Check if we got results
-      if (!response.data || !Array.isArray(response.data)) {
-        console.log('[OpenSubtitles] No results found');
+      // Check if we got results - handle both null/undefined and empty array
+      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+        console.log('[OpenSubtitles] No results found. data:', JSON.stringify(response.data));
         return [];
       }
 
       console.log('[OpenSubtitles] Found', response.data.length, 'results');
+      console.log('[OpenSubtitles] First result sample:', JSON.stringify(response.data[0]).substring(0, 500));
 
       // Convert to our format
       return response.data.map((item: any) => this.convertToSubtitleResult(item));
@@ -312,87 +325,160 @@ export class OpenSubtitlesProvider {
 
     const result: XMLRPCResponse = { status: '' };
     
-    // Extract struct members from the response
-    const memberRegex = /<member>\s*<name>([^<]+)<\/name>\s*<value>([^]*?)<\/value>\s*<\/member>/g;
-    let match;
+    // Find the top-level struct inside <params><param><value><struct>...</struct></value></param></params>
+    const structStart = xml.indexOf('<struct>');
+    const structEnd = xml.lastIndexOf('</struct>');
+    if (structStart === -1 || structEnd === -1) {
+      return result;
+    }
     
-    while ((match = memberRegex.exec(xml)) !== null) {
-      const name = match[1];
-      const valueXML = match[2];
-      result[name] = this.parseXMLValue(valueXML);
+    const structXML = xml.substring(structStart, structEnd + '</struct>'.length);
+    const parsed = this.parseXMLValue(structXML);
+    
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      Object.assign(result, parsed);
     }
 
     return result;
   }
 
   /**
-   * Parse XML value
+   * Extract content between balanced XML tags
+   */
+  private extractBalanced(xml: string, openTag: string, closeTag: string): string | null {
+    const startIdx = xml.indexOf(openTag);
+    if (startIdx === -1) return null;
+    
+    let depth = 0;
+    let i = startIdx;
+    const contentStart = startIdx + openTag.length;
+    
+    while (i < xml.length) {
+      if (xml.substring(i, i + openTag.length) === openTag) {
+        depth++;
+        i += openTag.length;
+      } else if (xml.substring(i, i + closeTag.length) === closeTag) {
+        depth--;
+        if (depth === 0) {
+          return xml.substring(contentStart, i);
+        }
+        i += closeTag.length;
+      } else {
+        i++;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Parse XML value - handles nested structures properly
    */
   private parseXMLValue(xml: string): any {
+    const trimmed = xml.trim();
+    
     // String
-    const stringMatch = xml.match(/<string>([^<]*)<\/string>/);
+    const stringMatch = trimmed.match(/^<string>([\s\S]*)<\/string>$/);
     if (stringMatch) {
       return stringMatch[1];
     }
 
-    // Int
-    const intMatch = xml.match(/<int>([^<]+)<\/int>/);
-    if (intMatch) {
+    // Int / i4
+    const intMatch = trimmed.match(/^<(?:int|i4)>([^<]+)<\/(?:int|i4)>$/);
+    if (intMatch && intMatch[1]) {
       return parseInt(intMatch[1], 10);
     }
 
     // Double
-    const doubleMatch = xml.match(/<double>([^<]+)<\/double>/);
-    if (doubleMatch) {
+    const doubleMatch = trimmed.match(/^<double>([^<]+)<\/double>$/);
+    if (doubleMatch && doubleMatch[1]) {
       return parseFloat(doubleMatch[1]);
     }
 
     // Boolean
-    const boolMatch = xml.match(/<boolean>([^<]+)<\/boolean>/);
+    const boolMatch = trimmed.match(/^<boolean>([^<]+)<\/boolean>$/);
     if (boolMatch) {
       return boolMatch[1] === '1';
     }
 
-    // Array
-    if (xml.includes('<array>')) {
-      return this.parseXMLArray(xml);
-    }
-
     // Struct
-    if (xml.includes('<struct>')) {
+    if (trimmed.startsWith('<struct>')) {
       const struct: any = {};
-      const memberRegex = /<member>\s*<name>([^<]+)<\/name>\s*<value>([^]*?)<\/value>\s*<\/member>/g;
-      let match;
+      const inner = this.extractBalanced(trimmed, '<struct>', '</struct>');
+      if (!inner) return struct;
       
-      while ((match = memberRegex.exec(xml)) !== null) {
-        struct[match[1]] = this.parseXMLValue(match[2]);
+      // Find all <member>...</member> blocks using balanced extraction
+      let searchFrom = 0;
+      while (searchFrom < inner.length) {
+        const memberStart = inner.indexOf('<member>', searchFrom);
+        if (memberStart === -1) break;
+        
+        const memberContent = this.extractBalanced(inner.substring(memberStart), '<member>', '</member>');
+        if (!memberContent) break;
+        
+        // Extract name
+        const nameMatch = memberContent.match(/<name>([^<]+)<\/name>/);
+        if (!nameMatch || !nameMatch[1]) {
+          searchFrom = memberStart + 1;
+          continue;
+        }
+        const name = nameMatch[1];
+        
+        // Extract value content (between <value> and </value>)
+        const valueContent = this.extractBalanced(memberContent, '<value>', '</value>');
+        if (valueContent) {
+          struct[name] = this.parseXMLValue(valueContent.trim());
+        }
+        
+        searchFrom = memberStart + memberContent.length + '<member>'.length + '</member>'.length;
       }
       
       return struct;
+    }
+
+    // Array
+    if (trimmed.startsWith('<array>')) {
+      const result: any[] = [];
+      const inner = this.extractBalanced(trimmed, '<array>', '</array>');
+      if (!inner) return result;
+      
+      const dataContent = this.extractBalanced(inner, '<data>', '</data>');
+      if (!dataContent) return result;
+      
+      // Find all <value>...</value> blocks using balanced extraction
+      let searchFrom = 0;
+      while (searchFrom < dataContent.length) {
+        const valueStart = dataContent.indexOf('<value>', searchFrom);
+        if (valueStart === -1) break;
+        
+        const valueContent = this.extractBalanced(dataContent.substring(valueStart), '<value>', '</value>');
+        if (!valueContent) break;
+        
+        result.push(this.parseXMLValue(valueContent.trim()));
+        searchFrom = valueStart + valueContent.length + '<value>'.length + '</value>'.length;
+      }
+      
+      return result;
+    }
+
+    // Try to extract from wrapper
+    if (trimmed.startsWith('<value>')) {
+      const inner = this.extractBalanced(trimmed, '<value>', '</value>');
+      if (inner) {
+        return this.parseXMLValue(inner.trim());
+      }
     }
 
     return null;
   }
 
   /**
-   * Parse XML array
+   * Parse XML array (delegates to parseXMLValue)
    */
   private parseXMLArray(xml: string): any[] {
-    const result: any[] = [];
-    
-    // Extract data section
-    const dataMatch = xml.match(/<data>([^]*?)<\/data>/);
-    if (!dataMatch) return result;
-    
-    const dataXML = dataMatch[1];
-    const valueRegex = /<value>([^]*?)<\/value>/g;
-    let match;
-    
-    while ((match = valueRegex.exec(dataXML)) !== null) {
-      result.push(this.parseXMLValue(match[1]));
-    }
-    
-    return result;
+    const dataContent = this.extractBalanced(xml, '<data>', '</data>');
+    if (!dataContent) return [];
+    const result = this.parseXMLValue(`<array><data>${dataContent}</data></array>`);
+    return Array.isArray(result) ? result : [];
   }
 
   /**
@@ -469,8 +555,14 @@ export class OpenSubtitlesProvider {
 /**
  * Create OpenSubtitles provider instance
  */
-export function createOpenSubtitlesProvider(apiKey?: string): OpenSubtitlesProvider {
+export function createOpenSubtitlesProvider(config?: {
+  apiKey?: string;
+  username?: string;
+  password?: string;
+}): OpenSubtitlesProvider {
   return new OpenSubtitlesProvider({
-    apiKey,
+    apiKey: config?.apiKey,
+    username: config?.username,
+    password: config?.password,
   });
 }

@@ -355,6 +355,135 @@ export class PlexClient {
   getConfig(): PlexClientConfig {
     return { ...this.config };
   }
+
+  /**
+   * Search for available subtitles that Plex can download on-demand
+   * This is what Plex shows when you search for subtitles during playback
+   */
+  async searchAvailableSubtitles(
+    ratingKey: string,
+    language: string = 'en',
+    hearingImpaired: number = 0,
+    forced: number = 0
+  ): Promise<PlexAvailableSubtitle[]> {
+    const params = new URLSearchParams({
+      language,
+      hearingImpaired: hearingImpaired.toString(),
+      forced: forced.toString(),
+    });
+
+    const url = `/library/metadata/${ratingKey}/subtitles?${params.toString()}`;
+    console.log('[PlexClient] Searching subtitles:', url);
+
+    const response = await this.get<any>(url);
+    console.log('[PlexClient] Subtitle search response:', response);
+
+    // Extract subtitle streams from the response
+    // The response structure may vary - check multiple possible locations
+    const streams =
+      response?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.Stream ||
+      response?.MediaContainer?.Stream ||
+      [];
+    console.log('[PlexClient] Raw subtitle streams:', streams);
+    return streams
+      .filter((s: any) => s.streamType === 3) // streamType 3 = subtitle
+      .map((s: any) => ({
+        id: s.id,
+        key: s.key,
+        language: s.language || s.languageTag || 'Unknown',
+        languageCode: s.languageCode || s.languageTag || '',
+        codec: s.codec || s.format || '',
+        forced: s.forced || false,
+        hearingImpaired: s.hearingImpaired || s.sdh || false,
+        source: s.provider?.title || s.provider || s.source || 'Plex',
+        title: s.title || '',
+        score: s.score || 0,
+      }));
+  }
+
+  /**
+   * Download an on-demand subtitle from Plex
+   * Note: This downloads to the Plex server's media folder, not locally
+   */
+  async downloadSubtitle(ratingKey: string, subtitleKey: string): Promise<any> {
+    // Try the standard endpoint first
+    const url = `/library/metadata/${ratingKey}/subtitles`;
+    console.log('[PlexClient] Downloading subtitle:', { url, key: subtitleKey });
+    
+    // Method 1: PUT with key as query parameter (standard approach from Python PlexAPI)
+    const response = await this.put<any>(url, null, {
+      params: { key: subtitleKey },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    console.log('[PlexClient] Download subtitle response (PUT):', response);
+    return response;
+  }
+
+  /**
+   * Download subtitle file directly from Plex stream URL
+   * Returns the subtitle file content as a Blob
+   */
+  async downloadSubtitleFile(subtitleKey: string): Promise<Blob> {
+    console.log('[PlexClient] Downloading subtitle file:', subtitleKey);
+    const response = await this.get(subtitleKey, {
+      responseType: 'blob',
+    });
+    return response as Blob;
+  }
+
+  /**
+   * Set the default audio stream for a media item
+   * @param partId - The part ID (from Media.Part.id)
+   * @param audioStreamId - The audio stream ID to set as default
+   * @param allParts - Whether to apply to all parts (default: true)
+   */
+  async setDefaultAudioStream(partId: string | number, audioStreamId: string | number, allParts: boolean = true): Promise<void> {
+    const url = `/library/parts/${partId}`;
+    console.log('[PlexClient] Setting default audio stream:', { url, audioStreamId, allParts });
+    
+    await this.put(url, null, {
+      params: {
+        audioStreamID: audioStreamId,
+        allParts: allParts ? 1 : 0,
+      },
+    });
+  }
+
+  /**
+   * Set the default subtitle stream for a media item
+   * @param partId - The part ID (from Media.Part.id)
+   * @param subtitleStreamId - The subtitle stream ID to set as default (0 to disable)
+   * @param allParts - Whether to apply to all parts (default: true)
+   */
+  async setDefaultSubtitleStream(partId: string | number, subtitleStreamId: string | number, allParts: boolean = true): Promise<void> {
+    const url = `/library/parts/${partId}`;
+    console.log('[PlexClient] Setting default subtitle stream:', { url, subtitleStreamId, allParts });
+    
+    await this.put(url, null, {
+      params: {
+        subtitleStreamID: subtitleStreamId,
+        allParts: allParts ? 1 : 0,
+      },
+    });
+  }
+}
+
+/**
+ * Available subtitle from Plex's on-demand search
+ */
+export interface PlexAvailableSubtitle {
+  id: string;
+  key: string;
+  language: string;
+  languageCode: string;
+  codec: string;
+  forced: boolean;
+  hearingImpaired: boolean;
+  source: string;
+  title: string;
+  score: number;
 }
 
 /**

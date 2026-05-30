@@ -80,7 +80,6 @@ export class MusicBrainzProvider extends BaseExternalMetadataProvider {
     this.client = axios.create({
       baseURL: config.baseURL || 'https://musicbrainz.org/ws/2',
       headers: {
-        'User-Agent': config.userAgent || 'AIO-Media-Manager/1.0.0',
         'Accept': 'application/json',
       },
     });

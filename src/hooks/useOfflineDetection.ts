@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface OfflineDetectionOptions {
   /**
@@ -15,6 +15,11 @@ interface OfflineDetectionOptions {
    * Default: 5000 (5 seconds)
    */
   pingTimeout?: number;
+  /**
+   * Number of consecutive failed pings before marking offline
+   * Default: 2
+   */
+  failureThreshold?: number;
   /**
    * Callback when online status changes
    */
@@ -61,6 +66,7 @@ export function useOfflineDetection(
     serverUrl,
     checkInterval = 30000,
     pingTimeout = 5000,
+    failureThreshold = 2,
     onStatusChange,
   } = options;
 
@@ -69,6 +75,7 @@ export function useOfflineDetection(
   );
   const [serverReachable, setServerReachable] = useState(true);
   const [lastChecked, setLastChecked] = useState<number | null>(null);
+  const consecutiveFailuresRef = useRef(0);
 
   // Combined online status
   const isOnline = navigatorOnline && serverReachable;
@@ -102,13 +109,31 @@ export function useOfflineDetection(
   }, [serverUrl, pingTimeout, navigatorOnline]);
 
   /**
-   * Perform full connectivity check
+   * Perform full connectivity check with failure tolerance
    */
   const checkConnectivity = useCallback(async () => {
     const reachable = await checkServerConnectivity();
-    setServerReachable(reachable);
+    
+    if (reachable) {
+      consecutiveFailuresRef.current = 0;
+      setServerReachable(true);
+    } else {
+      consecutiveFailuresRef.current += 1;
+      // Only mark as unreachable after multiple consecutive failures
+      if (consecutiveFailuresRef.current >= failureThreshold) {
+        console.log(
+          `[OfflineDetection] Server marked offline after ${consecutiveFailuresRef.current} consecutive failures`
+        );
+        setServerReachable(false);
+      } else {
+        console.log(
+          `[OfflineDetection] Ping failed (${consecutiveFailuresRef.current}/${failureThreshold}), still online`
+        );
+      }
+    }
+    
     setLastChecked(Date.now());
-  }, [checkServerConnectivity]);
+  }, [checkServerConnectivity, failureThreshold]);
 
   /**
    * Handle browser online event
@@ -125,6 +150,7 @@ export function useOfflineDetection(
   const handleOffline = useCallback(() => {
     setNavigatorOnline(false);
     setServerReachable(false);
+    consecutiveFailuresRef.current = 0; // Reset counter
     setLastChecked(Date.now());
   }, []);
 

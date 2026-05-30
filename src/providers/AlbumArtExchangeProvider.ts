@@ -26,7 +26,6 @@ export class AlbumArtExchangeProvider extends BaseExternalMetadataProvider {
     this.client = axios.create({
       baseURL: config.baseURL || 'https://www.albumartexchange.com',
       headers: {
-        'User-Agent': 'AIO-Media-Manager/1.0.0',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
     });
@@ -44,13 +43,14 @@ export class AlbumArtExchangeProvider extends BaseExternalMetadataProvider {
     try {
       const response = await this.client.get('/covers.php', {
         params: { q: query },
-        timeout: 10000,
+        timeout: 20000,
       });
 
       const html = response.data as string;
       return this.parseSearchResults(html);
     } catch (error) {
-      console.error('[AlbumArtExchange] Search failed:', error);
+      // Log at debug level - timeouts are common and not critical
+      console.debug('[AlbumArtExchange] Search unavailable:', error instanceof Error ? error.message : error);
       return [];
     }
   }

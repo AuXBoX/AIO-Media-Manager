@@ -33,6 +33,8 @@ export interface AppSettings {
   tvdbApiKey?: string;
   subdlApiKey?: string;
   lastfmApiKey?: string;
+  opensubtitlesUsername?: string;
+  opensubtitlesPassword?: string;
 
   // Cache settings
   cacheEnabled: boolean;

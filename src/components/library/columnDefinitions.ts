@@ -183,9 +183,9 @@ export function getColumnDefinitions(libraryType: string, contentType?: string):
     return tvShowColumns;
   } else if (libraryType === 'artist') {
     // Music library - determine if showing artists, albums, or tracks
-    if (contentType === 'album' || contentType === '9') {
+    if (contentType === 'album' || contentType === 'albums' || contentType === '9') {
       return albumColumns;
-    } else if (contentType === 'track' || contentType === '10') {
+    } else if (contentType === 'track' || contentType === 'tracks' || contentType === '10') {
       return trackColumns;
     } else {
       return artistColumns;
@@ -402,11 +402,11 @@ export function formatCellValue(columnId: string, _value: any, item: any): strin
 
     case 'leafCount':
       // For albums/shows - number of tracks/episodes
-      return item.leafCount ? String(item.leafCount) : '-';
+      return item.leafCount !== undefined && item.leafCount !== null ? String(item.leafCount) : '-';
 
     case 'childCount':
       // For artists - number of albums
-      return item.childCount ? String(item.childCount) : '-';
+      return item.childCount !== undefined && item.childCount !== null ? String(item.childCount) : '-';
 
     case 'viewedLeafCount':
       // For shows - watched episodes
@@ -419,7 +419,7 @@ export function formatCellValue(columnId: string, _value: any, item: any): strin
       return total > 0 ? String(total - watched) : '-';
 
     case 'seasonCount':
-      return item.childCount ? String(item.childCount) : '-';
+      return item.childCount !== undefined && item.childCount !== null ? String(item.childCount) : '-';
 
     case 'status':
       return item.status || '-';

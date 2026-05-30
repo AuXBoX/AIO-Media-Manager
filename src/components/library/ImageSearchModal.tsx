@@ -742,7 +742,7 @@ export function ImageSearchModal({
                       <img
                         src={result.thumb}
                         alt={result.title}
-                        className="w-20 h-30 object-cover rounded-lg shadow-sm"
+                        className={`${isMusic ? 'w-20 h-20' : 'w-20 h-30'} object-cover rounded-lg shadow-sm`}
                       />
                     )}
                     <div className="flex-1">

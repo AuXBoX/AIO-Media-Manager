@@ -1,7 +1,7 @@
 /**
  * SubtitleSearchModal
  * 
- * Modal for searching and downloading subtitles from SubDL
+ * Modal for searching and downloading subtitles from SubDL and OpenSubtitles
  * Updated with modern Plex Pro design system
  */
 
@@ -12,12 +12,12 @@ import { Button } from '@/components/ui/Button';
 import type { LibraryItem } from '@/managers/LibraryManager';
 import type { SubtitleResult, SubtitleSearchParams } from '@/types/subtitle';
 import { createSubDLProvider } from '@/providers/SubDLProvider';
-import { createSubtitleManager } from '@/managers/SubtitleManager';
-import { createSettingsManager } from '@/managers/SettingsManager';
+import { createOpenSubtitlesProvider } from '@/providers/OpenSubtitlesProvider';
 
 interface SubtitleSearchModalProps {
   item: LibraryItem;
   mediaFilePath: string;
+  imdbId?: string;
   onClose: () => void;
   onSubtitleAdded: () => void;
 }
@@ -25,6 +25,7 @@ interface SubtitleSearchModalProps {
 export function SubtitleSearchModal({
   item,
   mediaFilePath,
+  imdbId,
   onClose,
   onSubtitleAdded,
 }: SubtitleSearchModalProps) {
@@ -34,32 +35,29 @@ export function SubtitleSearchModal({
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [subdlApiKey, setSubdlApiKey] = useState<string | null>(null);
+  const [osCredentials, setOsCredentials] = useState<{ username: string; password: string } | null>(null);
 
-  // Load API key from settings
+  // Load API keys from settings
   useEffect(() => {
-    const loadApiKey = async () => {
+    const loadApiKeys = async () => {
       try {
-        // Detect if running in Electron
-        const isElectron = typeof window !== 'undefined' && (window as any).electron !== undefined;
-        console.log('[SubtitleSearchModal] Is Electron:', isElectron);
-        
-        // Use the singleton to ensure we're using the same instance
         const { getSettingsManager } = await import('@/managers/SettingsManager');
         const settingsManager = getSettingsManager();
-        console.log('[SubtitleSearchModal] Settings manager created');
-        
         const settings = await settingsManager.getSettings();
-        console.log('[SubtitleSearchModal] Loaded settings:', JSON.stringify(settings, null, 2));
-        console.log('[SubtitleSearchModal] SubDL API key exists:', !!settings.subdlApiKey);
-        console.log('[SubtitleSearchModal] SubDL API key value:', settings.subdlApiKey);
         
         setSubdlApiKey(settings.subdlApiKey || null);
-        console.log('[SubtitleSearchModal] State updated with API key:', settings.subdlApiKey || 'null');
+        
+        if (settings.opensubtitlesUsername && settings.opensubtitlesPassword) {
+          setOsCredentials({
+            username: settings.opensubtitlesUsername,
+            password: settings.opensubtitlesPassword,
+          });
+        }
       } catch (error) {
         console.error('[SubtitleSearchModal] Error loading settings:', error);
       }
     };
-    loadApiKey();
+    loadApiKeys();
   }, []);
 
   // Available languages
@@ -82,68 +80,96 @@ export function SubtitleSearchModal({
   ];
 
   const handleSearch = async () => {
-    if (!subdlApiKey) {
-      setSearchError('SubDL API key not configured. Please add your API key in Settings > API Keys.');
+    if (!subdlApiKey && !osCredentials) {
+      setSearchError('No subtitle providers configured. Add SubDL API key or OpenSubtitles credentials in Settings > API Keys.');
       return;
     }
 
     setIsSearching(true);
     setSearchError(null);
+    setSearchResults([]);
+
+    // Build common search params
+    const searchParams: SubtitleSearchParams = {
+      title: item.title,
+      year: item.year,
+      languages: selectedLanguages,
+      type: item.type === 'episode' ? 'episode' : 'movie',
+    };
+
+    // Add IMDB ID (from prop or item.guid)
+    if (imdbId) {
+      searchParams.imdbId = imdbId;
+    } else if (item.guid) {
+      const imdbMatch = item.guid.match(/imdb:\/\/tt(\d+)/);
+      if (imdbMatch && imdbMatch[1]) {
+        searchParams.imdbId = `tt${imdbMatch[1]}`;
+      }
+    }
+
+    // Add TMDB ID if available
+    if (item.guid) {
+      const tmdbMatch = item.guid.match(/tmdb:\/\/(\d+)/);
+      if (tmdbMatch && tmdbMatch[1]) {
+        searchParams.tmdbId = parseInt(tmdbMatch[1], 10);
+      }
+    }
+
+    // Add season/episode for TV shows
+    if (item.type === 'episode') {
+      searchParams.season = item.parentIndex;
+      searchParams.episode = item.index;
+    }
 
     try {
-      const provider = createSubDLProvider(subdlApiKey);
+      // Search both providers in parallel
+      const promises: Promise<SubtitleResult[]>[] = [];
 
-      // Build search params
-      const searchParams: SubtitleSearchParams = {
-        title: item.title,
-        year: item.year,
-        languages: selectedLanguages,
-        type: item.type === 'episode' ? 'episode' : 'movie',
-      };
-
-      // Add IMDB ID if available
-      if (item.guid) {
-        const imdbMatch = item.guid.match(/imdb:\/\/tt(\d+)/);
-        if (imdbMatch) {
-          searchParams.imdbId = `tt${imdbMatch[1]}`;
-        }
-      }
-
-      // Add TMDB ID if available
-      if (item.guid) {
-        const tmdbMatch = item.guid.match(/tmdb:\/\/(\d+)/);
-        if (tmdbMatch) {
-          searchParams.tmdbId = parseInt(tmdbMatch[1]!, 10);
-        }
-      }
-
-      // Add season/episode for TV shows
-      if (item.type === 'episode') {
-        searchParams.season = item.parentIndex;
-        searchParams.episode = item.index;
-      }
-
-      const results = await provider.search(searchParams);
-      
-      // Filter for forced subtitles if requested
-      const filteredResults = forcedOnly 
-        ? results.filter(sub => {
-            const name = sub.releaseName.toLowerCase();
-            return name.includes('forced') || 
-                   name.includes('force') ||
-                   name.includes('non-english') || 
-                   name.includes('non english') ||
-                   name.includes('foreign') ||
-                   name.includes('foreign parts');
+      if (subdlApiKey) {
+        const subdlProvider = createSubDLProvider(subdlApiKey);
+        promises.push(
+          subdlProvider.search(searchParams).catch(err => {
+            console.error('[SubtitleSearchModal] SubDL search error:', err);
+            return [];
           })
-        : results;
-      
-      setSearchResults(filteredResults);
+        );
+      }
 
-      if (filteredResults.length === 0) {
+      if (osCredentials) {
+        const osProvider = createOpenSubtitlesProvider(osCredentials);
+        promises.push(
+          osProvider.search(searchParams).catch(err => {
+            console.error('[SubtitleSearchModal] OpenSubtitles search error:', err);
+            return [];
+          })
+        );
+      }
+
+      const resultsArrays = await Promise.all(promises);
+      let allResults = resultsArrays.flat();
+
+      // Filter for forced subtitles if requested
+      if (forcedOnly) {
+        allResults = allResults.filter(sub => {
+          const name = sub.releaseName.toLowerCase();
+          return name.includes('forced') || 
+                 name.includes('force') ||
+                 name.includes('non-english') || 
+                 name.includes('non english') ||
+                 name.includes('foreign') ||
+                 name.includes('foreign parts');
+        });
+      }
+
+      // Sort by download count (most popular first)
+      allResults.sort((a, b) => b.downloadCount - a.downloadCount);
+
+      setSearchResults(allResults);
+
+      if (allResults.length === 0) {
         setSearchError(forcedOnly 
           ? 'No forced subtitles found. Try searching without the forced filter.'
-          : 'No subtitles found. Try different languages or search terms.');
+          : 'No subtitles found from any provider. Try different languages.');
       }
     } catch (error) {
       console.error('Subtitle search error:', error);
@@ -155,15 +181,6 @@ export function SubtitleSearchModal({
 
   const downloadMutation = useMutation({
     mutationFn: async (subtitle: SubtitleResult) => {
-      if (!subdlApiKey) {
-        throw new Error('SubDL API key not configured');
-      }
-
-      // Check if running in Electron
-      if (typeof window === 'undefined' || !window.electron?.downloadAndExtractSubtitle) {
-        throw new Error('This feature is only available in the desktop app');
-      }
-
       // Determine if this is a forced subtitle
       const name = subtitle.releaseName.toLowerCase();
       const isForced = name.includes('forced') || 
@@ -172,15 +189,42 @@ export function SubtitleSearchModal({
                       name.includes('non english') ||
                       name.includes('foreign');
 
-      // Download and extract subtitle
-      const result = await window.electron.downloadAndExtractSubtitle({
-        url: subtitle.url,
-        mediaFilePath,
-        languageCode: subtitle.languageCode,
-        isForced,
-      });
-
-      return result;
+      if (subtitle.provider === 'subdl.com') {
+        // SubDL: download ZIP and extract
+        if (!subdlApiKey) throw new Error('SubDL API key not configured');
+        if (typeof window === 'undefined' || !window.electron?.downloadAndExtractSubtitle) {
+          throw new Error('This feature is only available in the desktop app');
+        }
+        const result = await window.electron.downloadAndExtractSubtitle({
+          url: subtitle.url,
+          mediaFilePath,
+          languageCode: subtitle.languageCode,
+          isForced,
+        });
+        return result;
+      } else {
+        // OpenSubtitles: download content directly and write to file
+        if (!osCredentials) throw new Error('OpenSubtitles credentials not configured');
+        if (typeof window === 'undefined' || !window.electron?.writeFile) {
+          throw new Error('This feature is only available in the desktop app');
+        }
+        
+        const provider = createOpenSubtitlesProvider(osCredentials);
+        const { content } = await provider.download(subtitle.id);
+        
+        // Build output path: same folder as media file
+        const sep = mediaFilePath.includes('\\') ? '\\' : '/';
+        const mediaDir = mediaFilePath.substring(0, Math.max(mediaFilePath.lastIndexOf('/'), mediaFilePath.lastIndexOf('\\')));
+        const mediaBaseName = mediaFilePath.substring(Math.max(mediaFilePath.lastIndexOf('/'), mediaFilePath.lastIndexOf('\\')) + 1).replace(/\.[^.]+$/, '');
+        const ext = subtitle.format || 'srt';
+        const langCode = subtitle.languageCode || 'en';
+        const forcedSuffix = isForced ? '.forced' : '';
+        const outputFileName = `${mediaBaseName}.${langCode}${forcedSuffix}.${ext}`;
+        const outputPath = `${mediaDir}${sep}${outputFileName}`;
+        
+        await window.electron.writeFile(outputPath, content);
+        return { success: true, path: outputPath, fileName: outputFileName };
+      }
     },
     onSuccess: (result) => {
       console.log('[SubtitleSearchModal] Subtitle saved:', result.path);
@@ -227,7 +271,7 @@ export function SubtitleSearchModal({
 
         {/* Language selector */}
         <div className="p-6 border-b border-border bg-background-secondary">
-          {!subdlApiKey && (
+          {!subdlApiKey && !osCredentials && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
               <div className="flex items-start gap-3">
                 <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -235,24 +279,29 @@ export function SubtitleSearchModal({
                 </svg>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-yellow-900 mb-1">
-                    API Key Required
+                    Subtitle Provider Required
                   </p>
                   <p className="text-xs text-yellow-800">
-                    To search for subtitles, you need a free SubDL API key. Get yours at{' '}
-                    <a
-                      href="https://subdl.com/panel/register"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:no-underline font-semibold"
-                    >
-                      subdl.com/panel/register
-                    </a>
-                    {' '}and add it in Settings &gt; API Keys.
+                    Configure at least one subtitle source in Settings &gt; API Keys:
+                    <br />• <strong>SubDL</strong>: Get free API key at{' '}
+                    <a href="https://subdl.com/panel/register" target="_blank" rel="noopener noreferrer" className="underline font-semibold">subdl.com</a>
+                    <br />• <strong>OpenSubtitles</strong>: Free account at{' '}
+                    <a href="https://www.opensubtitles.org/en/user/register" target="_blank" rel="noopener noreferrer" className="underline font-semibold">opensubtitles.org</a>
                   </p>
                 </div>
               </div>
             </div>
           )}
+          
+          {/* Provider status */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <span className={`px-2 py-1 text-xs rounded font-medium ${subdlApiKey ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+              SubDL {subdlApiKey ? '✓' : '—'}
+            </span>
+            <span className={`px-2 py-1 text-xs rounded font-medium ${osCredentials ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+              OpenSubtitles {osCredentials ? '✓' : '—'}
+            </span>
+          </div>
           
           <h3 className="text-sm font-semibold text-text-primary mb-3">
             Languages
@@ -299,7 +348,7 @@ export function SubtitleSearchModal({
           <Button
             variant="primary"
             onClick={handleSearch}
-            disabled={isSearching || selectedLanguages.length === 0 || !subdlApiKey}
+            disabled={isSearching || selectedLanguages.length === 0 || (!subdlApiKey && !osCredentials)}
             loading={isSearching}
             className="mt-4"
             icon={
@@ -357,6 +406,13 @@ export function SubtitleSearchModal({
                         {subtitle.releaseName}
                       </h4>
                       <div className="flex flex-wrap items-center gap-2 text-xs mb-2">
+                        <span className={`px-2 py-1 rounded font-medium ${
+                          subtitle.provider === 'subdl.com' 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {subtitle.provider === 'subdl.com' ? 'SubDL' : 'OpenSubtitles'}
+                        </span>
                         <span className="px-2 py-1 bg-primary-subtle text-primary-500 rounded font-medium">
                           {subtitle.language}
                         </span>
@@ -425,7 +481,7 @@ export function SubtitleSearchModal({
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-xs text-text-tertiary">
-                Powered by SubDL.com
+                Powered by SubDL.com &amp; OpenSubtitles.org
               </p>
             </div>
             <Button

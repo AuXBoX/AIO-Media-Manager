@@ -240,7 +240,7 @@ export function TableListView({
 
       {/* Table Header - Sticky */}
       <div className="flex-shrink-0 bg-white border-b border-border sticky top-0 z-40 overflow-x-auto">
-        <div className="flex items-center h-12 min-w-max">
+        <div className="flex items-center h-12 min-w-max pr-8">
           {/* Expand arrow column header spacer */}
           {isExpandable && <div className="w-8 flex-shrink-0" />}
           
@@ -263,7 +263,7 @@ export function TableListView({
           )}
           
           {/* Data columns */}
-          {visibleColumns.map((column) => (
+          {visibleColumns.map((column, index) => (
             <div
               key={column.id}
               className={`px-4 text-xs font-semibold text-[#64748B] uppercase tracking-[0.05em] ${
@@ -273,7 +273,7 @@ export function TableListView({
               onClick={() => column.sortable && handleSort(column.id)}
               title={column.label}
             >
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${index === 0 ? 'justify-start' : 'justify-center'}`}>
                 <span className="whitespace-nowrap">{column.label}</span>
                 {column.sortable && sortColumn === column.id && (
                   <svg
@@ -334,7 +334,7 @@ export function TableListView({
                     console.log('Item clicked:', item.title, item);
                     onItemClick(item);
                   }}
-                  className={`group flex items-center border-b border-border cursor-pointer transition-all duration-150 min-w-max ${
+                  className={`group flex items-center border-b border-border cursor-pointer transition-all duration-150 min-w-max pr-8 ${
                     isSelected 
                       ? 'bg-primary-50' 
                       : isChecked
@@ -418,7 +418,7 @@ export function TableListView({
                         className="px-4 text-sm text-text-primary"
                         style={cellStyle}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className={`flex items-center gap-3 min-w-0 ${column.id !== 'title' ? 'justify-center' : ''}`}>
                           {/* Play button for music tracks - positioned before poster */}
                           {column.id === 'title' && isMusicLibrary && item.type === 'track' && (
                             <button
@@ -458,7 +458,7 @@ export function TableListView({
                           )}
                           
                           {/* Cell content */}
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className={`flex items-center gap-2 min-w-0 ${column.id !== 'title' ? 'justify-center' : 'flex-1'}`}>
                             <span className={`truncate ${depth === 0 ? 'font-medium' : 'font-normal text-text-secondary'}`} title={cellValue}>
                               {cellValue}
                             </span>

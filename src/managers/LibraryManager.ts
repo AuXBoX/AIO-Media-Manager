@@ -48,6 +48,8 @@ export interface LibraryItem {
   viewCount?: number;
   duration?: number;
   rating?: number;
+  childCount?: number;  // Number of albums (for artists) or seasons (for shows)
+  leafCount?: number;   // Number of tracks (for albums/artists) or episodes (for shows)
   [key: string]: any;
 }
 
@@ -117,6 +119,9 @@ export interface ILibraryManager {
   
   // Refresh
   refreshLibrary(sectionId: string): Promise<void>;
+  
+  // Artist album counts
+  getArtistAlbumCounts(sectionId: string): Promise<Map<string, number>>;
 }
 
 /**
@@ -368,6 +373,49 @@ export class LibraryManager implements ILibraryManager {
   }
 
   /**
+   * Get album counts for all artists in a music library
+   * Fetches all albums (with pagination) and groups by parentRatingKey (artist)
+   */
+  async getArtistAlbumCounts(sectionId: string): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    const pageSize = 5000;
+    let offset = 0;
+    let totalSize = Infinity;
+    
+    try {
+      while (offset < totalSize) {
+        const response = await this.client.get<any>(`/library/sections/${sectionId}/all`, {
+          params: {
+            type: 9, // Album type
+            'X-Plex-Container-Start': offset,
+            'X-Plex-Container-Size': pageSize,
+          },
+        });
+
+        const container = response.MediaContainer || {};
+        totalSize = container.totalSize || 0;
+        const albums = container.Metadata || [];
+        
+        for (const album of albums) {
+          const artistKey = String(album.parentRatingKey);
+          if (artistKey && artistKey !== 'undefined') {
+            counts.set(artistKey, (counts.get(artistKey) || 0) + 1);
+          }
+        }
+        
+        offset += albums.length;
+        
+        // Safety check - if no albums returned, break
+        if (albums.length === 0) break;
+      }
+    } catch (error) {
+      console.error('[LibraryManager] Failed to fetch artist album counts:', error);
+    }
+    
+    return counts;
+  }
+
+  /**
    * Map Plex metadata item to LibraryItem
    */
   private mapMetadataItem(item: any): LibraryItem {
@@ -395,6 +443,9 @@ export class LibraryManager implements ILibraryManager {
       viewCount: item.viewCount,
       duration: item.duration,
       rating: item.rating,
+      // Music/TV count fields
+      childCount: item.childCount,
+      leafCount: item.leafCount,
       // Include any additional fields
       ...item,
     };

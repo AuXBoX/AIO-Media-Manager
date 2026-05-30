@@ -12,6 +12,7 @@ interface ImageSelectorProps {
   onBannerChange: (selectedIndex: number) => void;
   serverUrl: string;
   token: string;
+  isMusic?: boolean;
 }
 
 type ImageTab = 'posters' | 'backgrounds' | 'logos' | 'banners';
@@ -32,6 +33,7 @@ export function ImageSelector({
   onBannerChange,
   serverUrl,
   token,
+  isMusic = false,
 }: ImageSelectorProps) {
   const [activeTab, setActiveTab] = useState<ImageTab>('posters');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -108,7 +110,7 @@ export function ImageSelector({
   const getAspectRatioClass = () => {
     switch (activeTab) {
       case 'posters':
-        return 'aspect-[2/3]'; // Portrait
+        return isMusic ? 'aspect-square' : 'aspect-[2/3]'; // Square for music, portrait for movies/TV
       case 'backgrounds':
         return 'aspect-video'; // 16:9
       case 'logos':

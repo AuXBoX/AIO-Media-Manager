@@ -72,8 +72,12 @@ export class SubDLProvider {
       });
 
       // Add IMDB ID if available (most reliable)
+      // SubDL expects full IMDB ID with tt prefix (e.g., tt0289043)
       if (params.imdbId) {
-        queryParams.append('imdb_id', params.imdbId.replace(/^tt/, ''));
+        const imdbId = params.imdbId.startsWith('tt') 
+          ? params.imdbId 
+          : `tt${params.imdbId}`;
+        queryParams.append('imdb_id', imdbId);
       }
 
       // Add TMDB ID if available

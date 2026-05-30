@@ -123,7 +123,7 @@ export class DiscogsProvider extends BaseExternalMetadataProvider {
     this.client = axios.create({
       baseURL: config.baseURL || 'https://api.discogs.com',
       headers: {
-        'User-Agent': 'AIO-Media-Manager/1.0.0',
+        'Accept': 'application/json',
       },
     });
   }

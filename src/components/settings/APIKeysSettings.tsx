@@ -18,6 +18,8 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
   const [tvdbKey, setTvdbKey] = useState(settings.tvdbApiKey || '');
   const [lastfmKey, setLastfmKey] = useState(settings.lastfmApiKey || '');
   const [subdlKey, setSubdlKey] = useState(settings.subdlApiKey || '');
+  const [osUsername, setOsUsername] = useState(settings.opensubtitlesUsername || '');
+  const [osPassword, setOsPassword] = useState(settings.opensubtitlesPassword || '');
   const [testingSubdl, setTestingSubdl] = useState(false);
   const [subdlTestResult, setSubdlTestResult] = useState<{
     success: boolean;
@@ -31,6 +33,8 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
       tvdbApiKey: tvdbKey || undefined,
       lastfmApiKey: lastfmKey || undefined,
       subdlApiKey: subdlKey || undefined,
+      opensubtitlesUsername: osUsername || undefined,
+      opensubtitlesPassword: osPassword || undefined,
     });
   };
 
@@ -346,6 +350,62 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
             >
               subdl.com/panel/register
             </a>
+          </span>
+        </div>
+      </div>
+
+      {/* OpenSubtitles.org Credentials */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+              OpenSubtitles.org Account
+            </label>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              OpenSubtitles.org XML-RPC API - Same database Plex uses
+            </p>
+          </div>
+          <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+            Free Account
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Username</label>
+            <input
+              type="text"
+              value={osUsername}
+              onChange={(e) => setOsUsername(e.target.value)}
+              placeholder="Your OpenSubtitles username"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Password</label>
+            <input
+              type="password"
+              value={osPassword}
+              onChange={(e) => setOsPassword(e.target.value)}
+              placeholder="Your OpenSubtitles password"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>
+            Create a free account at{' '}
+            <a
+              href="https://www.opensubtitles.org/en/user/register"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary-600 dark:text-primary-400 hover:underline"
+            >
+              opensubtitles.org/user/register
+            </a>
+            {' '}— 200 downloads/day limit
           </span>
         </div>
       </div>

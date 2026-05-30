@@ -7,6 +7,7 @@ import { createLocalMetadataManager, type MetadataSaveMode } from '@/managers/Lo
 import { createSubtitleManager } from '@/managers/SubtitleManager';
 import { createFFmpegManager } from '@/managers/FFmpegManager';
 import { createProviderRegistry } from '@/providers/ProviderRegistry';
+// OpenSubtitlesProvider and SubtitleResult now handled in SubtitleSearchModal
 import { MetadataRefreshModal } from '@/components/library/MetadataRefreshModal';
 import { SubtitleSearchModal } from '@/components/library/SubtitleSearchModal';
 import { TrailerSearchModal } from '@/components/library/TrailerSearchModal';
@@ -57,6 +58,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
   }>>([]);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
   const [showSubtitleSearchModal, setShowSubtitleSearchModal] = useState(false);
+  // Plex and OpenSubtitles search state - now handled in SubtitleSearchModal
   const [showTrailerSearch, setShowTrailerSearch] = useState(false);
   const [showImageSearchModal, setShowImageSearchModal] = useState(false);
   const [showMusicVideoSearch, setShowMusicVideoSearch] = useState(false);
@@ -1255,6 +1257,50 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 />
               </div>
             </div>
+
+            {/* Default Audio Language */}
+            {(() => {
+              const mediaPart = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0];
+              if (!mediaPart?.Stream) return null;
+              
+              const audioStreams = mediaPart.Stream.filter((s: any) => s.streamType === 2); // streamType 2 = audio
+              if (audioStreams.length === 0) return null;
+              
+              const selectedAudio = audioStreams.find((s: any) => s.selected) || audioStreams[0];
+              
+              return (
+                <div>
+                  <label className="block text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-2">
+                    Default Audio Language
+                  </label>
+                  <select
+                    value={selectedAudio?.id || ''}
+                    onChange={async (e) => {
+                      const streamId = e.target.value;
+                      if (!streamId || !mediaPart.id) return;
+                      
+                      try {
+                        const client = createPlexClient({ baseURL: serverUrl, token });
+                        await client.setDefaultAudioStream(mediaPart.id, streamId);
+                        console.log('[DetailPanel] Set default audio stream to:', streamId);
+                        refetch();
+                      } catch (error) {
+                        console.error('Failed to set default audio stream:', error);
+                        alert('Failed to set default audio language');
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 appearance-none cursor-pointer"
+                  >
+                    {audioStreams.map((stream: any) => (
+                      <option key={stream.id} value={stream.id}>
+                        {stream.language || 'Unknown'} ({stream.codec || 'Unknown'})
+                        {stream.selected ? ' ✓' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
           </TabPanel>
 
           <TabPanel value="cast" className="space-y-5">
@@ -1685,12 +1731,11 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
 
           <TabPanel value="subtitles" className="space-y-5">
             {/* Search subtitles button - at top */}
-            <div className="flex justify-end">
+            <div>
               <Button
-                variant="secondary"
+                variant="primary"
                 size="medium"
                 onClick={() => {
-                  // Check if we have media file path
                   const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
                   if (!mediaFilePath) {
                     alert('Media file path not found');
@@ -1699,7 +1744,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                   setShowSubtitleSearchModal(true);
                 }}
               >
-                Search for Subtitles
+                Search Subtitles
               </Button>
             </div>
 
@@ -1973,7 +2018,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             title="Embed into video"
                             icon={
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 1 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                               </svg>
                             }
                           />
@@ -2611,20 +2656,40 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
       )}
 
       {/* Subtitle Search Modal */}
-      {showSubtitleSearchModal && item && fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file && (
-        <SubtitleSearchModal
-          item={item}
-          mediaFilePath={fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file}
-          onClose={() => setShowSubtitleSearchModal(false)}
-          onSubtitleAdded={async () => {
-            // Refresh subtitle list
-            const mediaFilePath = fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file;
-            const subtitleManager = createSubtitleManager();
-            const updatedSubtitles = await subtitleManager.scanSubtitles(mediaFilePath);
-            setLocalSubtitles(updatedSubtitles);
-          }}
-        />
-      )}
+      {showSubtitleSearchModal && item && fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file && (() => {
+        // Extract IMDB ID from full metadata Guid array or item.guid
+        let modalImdbId: string | undefined;
+        const metadataItem = fullMetadata.MediaContainer.Metadata[0];
+        if (metadataItem.Guid) {
+          for (const g of metadataItem.Guid) {
+            const m = g?.id?.match(/imdb:\/\/tt(\d+)/);
+            if (m && m[1]) {
+              modalImdbId = `tt${m[1]}`;
+              break;
+            }
+          }
+        }
+        if (!modalImdbId && item.guid) {
+          const m = item.guid.match(/imdb:\/\/tt(\d+)/);
+          if (m && m[1]) modalImdbId = `tt${m[1]}`;
+        }
+        
+        return (
+          <SubtitleSearchModal
+            item={item}
+            mediaFilePath={fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file}
+            imdbId={modalImdbId}
+            onClose={() => setShowSubtitleSearchModal(false)}
+            onSubtitleAdded={async () => {
+              // Refresh subtitle list
+              const mediaFilePath = fullMetadata.MediaContainer.Metadata[0].Media[0].Part[0].file;
+              const subtitleManager = createSubtitleManager();
+              const updatedSubtitles = await subtitleManager.scanSubtitles(mediaFilePath);
+              setLocalSubtitles(updatedSubtitles);
+            }}
+          />
+        );
+      })()}
 
       {/* Trailer Search Modal */}
       {showTrailerSearch && item && fullMetadata?.MediaContainer?.Metadata?.[0] && (() => {
