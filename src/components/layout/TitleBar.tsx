@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import iconUrl from '/icon.png?url';
 
 /**
  * Custom title bar for frameless Electron window
@@ -54,7 +55,7 @@ export function TitleBar() {
     <div className="flex items-center justify-between h-8 bg-secondary-100 dark:bg-secondary-900 select-none" style={{ WebkitAppRegion: 'drag' } as any}>
       {/* App title with logo */}
       <div className="flex items-center gap-2 px-3 text-sm font-medium text-secondary-700 dark:text-secondary-300">
-        <img src="./icon.png" alt="AIO Media Manager" className="w-6 h-6 rounded-sm" onError={(e) => e.currentTarget.style.display = 'none'} />
+        <img src={iconUrl} alt="AIO Media Manager" className="w-6 h-6 rounded-sm" onError={(e) => e.currentTarget.style.display = 'none'} />
       </div>
 
       {/* Window controls */}

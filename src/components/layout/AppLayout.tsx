@@ -15,6 +15,7 @@ import { createLibraryManager, type LibrarySection } from '@/managers/LibraryMan
 import { queryKeys } from '@/api/queryKeys';
 import { AudioPlayerProvider, AudioPlayerBar } from '@/components/audio/AudioPlayer';
 import { UpdateNotification } from '@/components/pwa/UpdateNotification';
+import logoUrl from '/logo.png?url';
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ export function AppLayout() {
       {/* Logo */}
       <div className="pt-3">
         <img 
-          src="./logo.png" 
+          src={logoUrl} 
           alt="AIO Media Manager" 
           className="w-full h-auto block"
         />
