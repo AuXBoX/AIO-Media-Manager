@@ -64,7 +64,7 @@ export function FilterPanel({
             </svg>
             <span>Advanced Filters</span>
             {activeFilterCount > 0 && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-100">
                 {activeFilterCount}
               </span>
             )}
@@ -82,7 +82,7 @@ export function FilterPanel({
             {onSavePreset && activeFilterCount > 0 && (
               <button
                 onClick={onSavePreset}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300"
               >
                 Save Preset
               </button>
@@ -114,7 +114,7 @@ export function FilterPanel({
               </button>
               <button
                 onClick={onApply}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
               >
                 Apply Filters
               </button>
@@ -144,7 +144,7 @@ function FilterField({ filter, value, onChange }: FilterFieldProps) {
             type="text"
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             placeholder={`Enter ${filter.title.toLowerCase()}`}
           />
         );
@@ -157,7 +157,7 @@ function FilterField({ filter, value, onChange }: FilterFieldProps) {
             type="number"
             value={value || ''}
             onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
-            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             placeholder={`Enter ${filter.title.toLowerCase()}`}
           />
         );
@@ -168,7 +168,7 @@ function FilterField({ filter, value, onChange }: FilterFieldProps) {
             id={inputId}
             value={value === undefined ? '' : value ? 'true' : 'false'}
             onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value === 'true')}
-            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           >
             <option value="">All</option>
             <option value="true">Yes</option>
@@ -183,7 +183,7 @@ function FilterField({ filter, value, onChange }: FilterFieldProps) {
               id={inputId}
               value={value || ''}
               onChange={(e) => onChange(e.target.value)}
-              className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             >
               <option value="">All</option>
               {filter.values.map((option) => (
@@ -201,7 +201,7 @@ function FilterField({ filter, value, onChange }: FilterFieldProps) {
             type="text"
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             placeholder={`Enter ${filter.title.toLowerCase()}`}
           />
         );
@@ -213,7 +213,7 @@ function FilterField({ filter, value, onChange }: FilterFieldProps) {
             type="date"
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           />
         );
 
@@ -224,7 +224,7 @@ function FilterField({ filter, value, onChange }: FilterFieldProps) {
             type="text"
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           />
         );
     }

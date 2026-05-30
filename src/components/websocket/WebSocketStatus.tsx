@@ -56,7 +56,7 @@ export function WebSocketStatus() {
         {!isConnected && (
           <button
             onClick={connect}
-            className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+            className="px-2 py-1 text-xs font-medium text-white bg-primary-600 rounded hover:bg-primary-700 transition-colors"
             disabled={connectionState === ConnectionState.CONNECTING}
           >
             Connect

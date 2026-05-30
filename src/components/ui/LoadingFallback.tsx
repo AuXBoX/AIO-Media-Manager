@@ -13,8 +13,9 @@ export const LoadingFallback: FC<LoadingFallbackProps> = ({
   message = 'Loading...' 
 }) => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background-primary">
-      <Spinner size="lg" label={message} showLabel />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background-primary gap-4">
+      <Spinner size="lg" />
+      {message && <p className="text-gray-500 dark:text-gray-400">{message}</p>}
     </div>
   );
 };

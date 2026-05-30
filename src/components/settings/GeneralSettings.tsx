@@ -118,7 +118,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
           id="language"
           value={localSettings.language}
           onChange={(e) => handleChange('language', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         >
           <option value="en">English</option>
           <option value="es">Español</option>
@@ -213,7 +213,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
           id="thumbnailQuality"
           value={localSettings.thumbnailQuality}
           onChange={(e) => handleChange('thumbnailQuality', e.target.value as any)}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         >
           <option value="low">Low (Faster loading)</option>
           <option value="medium">Medium (Balanced)</option>

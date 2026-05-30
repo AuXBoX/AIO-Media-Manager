@@ -261,7 +261,7 @@ describe('ConflictResolutionModal', () => {
       await user.click(localButton);
       
       // Button should be highlighted
-      expect(localButton).toHaveClass('bg-blue-600');
+      expect(localButton).toHaveClass('bg-primary-600');
     });
 
     it('should allow selecting server resolution', async () => {

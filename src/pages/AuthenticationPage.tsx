@@ -220,7 +220,7 @@ export function AuthenticationPage() {
               href="https://www.plex.tv/sign-up/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-primary-600 dark:text-primary-400 hover:underline"
             >
               Create one here
             </a>

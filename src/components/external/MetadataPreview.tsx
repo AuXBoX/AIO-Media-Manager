@@ -21,7 +21,7 @@ export function MetadataPreview({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4"></div>
         <p className="text-gray-600 dark:text-gray-400">Loading metadata...</p>
       </div>
     );
@@ -89,7 +89,7 @@ export function MetadataPreview({
               {metadata.genres.map((genre, index) => (
                 <span
                   key={index}
-                  className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm"
+                  className="px-3 py-1 bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 rounded-full text-sm"
                 >
                   {genre}
                 </span>

@@ -54,7 +54,7 @@ export function PinDisplay({ pin, loading, error, onRefresh }: PinDisplayProps) 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 dark:border-primary-400"></div>
         <p className="mt-4 text-gray-600 dark:text-gray-300">Generating PIN...</p>
       </div>
     );
@@ -104,7 +104,7 @@ export function PinDisplay({ pin, loading, error, onRefresh }: PinDisplayProps) 
             href="https://app.plex.tv/auth"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+            className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
           >
             app.plex.tv/auth
           </a>
@@ -123,7 +123,7 @@ export function PinDisplay({ pin, loading, error, onRefresh }: PinDisplayProps) 
                 text-3xl sm:text-4xl font-bold rounded-lg
                 ${isExpired 
                   ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500' 
-                  : 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
+                  : 'bg-primary-100 dark:bg-primary-900 text-primary-900 dark:text-primary-100'
                 }
                 transition-colors
               `}

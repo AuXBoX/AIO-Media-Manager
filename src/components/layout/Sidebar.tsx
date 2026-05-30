@@ -7,7 +7,7 @@ import { ReactNode } from 'react';
  * - White background with subtle shadow
  * - Floating appearance (margin from edges)
  * - Modern monochrome icons (20px)
- * - Active item: soft blue pill background (#3B82F6 with white text)
+ * - Active item: soft yellow pill background (#E5A00D with white text)
  * - Hover state: light gray background (#F8FAFC)
  * - Elegant spacing between items (4px gap)
  * - Collapsible support
@@ -118,7 +118,7 @@ interface SidebarItemProps {
 }
 
 /**
- * Sidebar navigation item with blue pill active state
+ * Sidebar navigation item with yellow pill active state
  */
 export function SidebarItem({
   icon,
@@ -203,7 +203,7 @@ export function SidebarUser({
       <div className={`flex justify-center ${className}`} title={displayName}>
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-          style={{ background: '#3B82F6' }}
+          style={{ background: '#E5A00D' }}
         >
           {avatar ? (
             <img src={avatar} alt={displayName} className="w-full h-full rounded-full object-cover" />
@@ -219,7 +219,7 @@ export function SidebarUser({
     <div className={`flex items-center gap-3 px-3 py-2 mb-2 ${className}`}>
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
-        style={{ background: '#3B82F6' }}
+        style={{ background: '#E5A00D' }}
       >
         {avatar ? (
           <img src={avatar} alt={displayName} className="w-full h-full rounded-full object-cover" />

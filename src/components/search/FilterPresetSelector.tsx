@@ -127,7 +127,7 @@ function PresetItem({ preset, isSelected, onSelect, onDelete }: PresetItemProps)
   return (
     <div
       className={`w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-        isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+        isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : ''
       }`}
     >
       <button
@@ -141,7 +141,7 @@ function PresetItem({ preset, isSelected, onSelect, onDelete }: PresetItemProps)
             </span>
             {isSelected && (
               <svg
-                className="h-4 w-4 text-blue-600 dark:text-blue-400"
+                className="h-4 w-4 text-primary-600 dark:text-primary-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >

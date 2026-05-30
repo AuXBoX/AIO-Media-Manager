@@ -52,7 +52,7 @@ describe('Toast', () => {
     render(<Toast message="Info" type="info" onClose={onClose} />);
 
     const toast = screen.getByRole('alert');
-    expect(toast).toHaveClass('bg-blue-600');
+    expect(toast).toHaveClass('bg-primary-600');
   });
 
   it('renders warning toast with correct styling', () => {

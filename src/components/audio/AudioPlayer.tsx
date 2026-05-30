@@ -54,6 +54,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [queue, setQueue] = useState<AudioTrack[]>([]);
   const [queueIndex, setQueueIndex] = useState(-1);
 
+  // Refs for queue state to avoid stale closures in event listeners
+  const queueRef = useRef(queue);
+  const queueIndexRef = useRef(queueIndex);
+  queueRef.current = queue;
+  queueIndexRef.current = queueIndex;
+
   // Initialize audio element
   useEffect(() => {
     if (!audioRef.current) {
@@ -70,18 +76,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       });
       
       audioRef.current.addEventListener('ended', () => {
-        // Auto-play next track
-        if (queueIndex < queue.length - 1) {
-          const nextIndex = queueIndex + 1;
-          const nextTrack = queue[nextIndex];
+        // Auto-play next track using refs for current state
+        const currentQueue = queueRef.current;
+        const currentIndex = queueIndexRef.current;
+        
+        if (currentIndex < currentQueue.length - 1) {
+          const nextIndex = currentIndex + 1;
+          const nextTrack = currentQueue[nextIndex];
           if (nextTrack) {
             setQueueIndex(nextIndex);
             setCurrentTrack(nextTrack);
-            if (audioRef.current) {
-              audioRef.current.src = nextTrack.streamUrl;
-              audioRef.current.play().catch(console.error);
-              setIsPlaying(true);
-            }
           }
         } else {
           setIsPlaying(false);
@@ -89,8 +93,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         }
       });
       
-      audioRef.current.addEventListener('error', (e) => {
-        console.error('Audio playback error:', e);
+      audioRef.current.addEventListener('error', () => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        
+        // Ignore errors from intentional cleanup (empty src)
+        if (!audio.src || audio.src === window.location.href) return;
+        
+        const error = audio.error;
+        console.error('Audio playback error:', {
+          message: error?.message || 'Unknown error',
+          code: error?.code,
+          src: audio.src,
+          networkState: audio.networkState,
+          readyState: audio.readyState,
+        });
+        
         setIsPlaying(false);
       });
     }
@@ -352,7 +370,7 @@ export function AudioPlayerBar() {
             className="flex-1 h-1 bg-gray-700 rounded-full cursor-pointer group"
           >
             <div
-              className="h-full bg-blue-500 rounded-full relative"
+              className="h-full bg-primary-500 rounded-full relative"
               style={{ width: `${progressPercent}%` }}
             >
               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -397,7 +415,7 @@ export function AudioPlayerBar() {
                 onChange={(e) => setVolume(parseFloat(e.target.value))}
                 className="w-24 h-2 appearance-none bg-gray-600 rounded-full cursor-pointer"
                 style={{
-                  background: `linear-gradient(to right, #3b82f6 ${volume * 100}%, #4b5563 ${volume * 100}%)`
+                  background: `linear-gradient(to right, #E5A00D ${volume * 100}%, #4b5563 ${volume * 100}%)`
                 }}
               />
             </div>
@@ -450,7 +468,7 @@ export function PlayButton({ track, size = 'medium', onPlay, className = '' }: P
   return (
     <button
       onClick={handleClick}
-      className={`${sizeClasses[size]} bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center transition-all hover:scale-110 ${className}`}
+      className={`${sizeClasses[size]} bg-primary-500 hover:bg-primary-600 rounded-full flex items-center justify-center transition-all hover:scale-110 ${className}`}
     >
       {isCurrentTrack && isPlaying ? (
         <svg className={`${iconSize[size]} text-white`} fill="currentColor" viewBox="0 0 24 24">

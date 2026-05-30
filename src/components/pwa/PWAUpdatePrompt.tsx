@@ -60,7 +60,7 @@ export const PWAUpdatePrompt: React.FC = () => {
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0">
             <svg
-              className="w-6 h-6 text-blue-500"
+              className="w-6 h-6 text-primary-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -83,7 +83,7 @@ export const PWAUpdatePrompt: React.FC = () => {
             <div className="flex gap-2">
               <button
                 onClick={handleUpdate}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
+                className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-md transition-colors"
               >
                 Update Now
               </button>

@@ -40,7 +40,7 @@ export const LoadingStatesExample: FC = () => {
             Loading States - Plex Pro Design System
           </h1>
           <p className="text-text-secondary">
-            Comprehensive showcase of all loading state components with soft blue accents (#3B82F6)
+            Comprehensive showcase of all loading state components with soft blue accents (#E5A00D)
           </p>
         </div>
 

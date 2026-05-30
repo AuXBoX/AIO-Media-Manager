@@ -114,8 +114,8 @@ export function OnlineIndicator({
 
             {/* Sync Status */}
             {isSyncing && (
-              <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <div className="flex items-center gap-2 text-sm text-primary-600 dark:text-primary-400">
+                <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
                 <span>Syncing changes...</span>
               </div>
             )}
@@ -127,7 +127,7 @@ export function OnlineIndicator({
                   onManualSync();
                   setShowDetails(false);
                 }}
-                className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                className="w-full px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 Sync Now
               </button>

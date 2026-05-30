@@ -375,16 +375,21 @@ export function TableListView({
                     // Only show posters for top-level items and seasons (depth < 2), not episodes
                     const showPoster = showPosters && column.id === 'title' && depth < 2;
                     const posterUrl = showPoster ? getPosterUrl(item) : null;
-                    // Only apply indentation to the title column to keep other columns aligned
-                    const indentStyle = column.id === 'title' && depth > 0 ? { paddingLeft: `${depth * 24}px` } : {};
+                    // Apply indentation to the outer cell for proper header alignment
+                    const cellStyle = {
+                      width: column.width || 'auto',
+                      minWidth: column.width || 140,
+                      flex: column.width ? '0 0 auto' : 1,
+                      paddingLeft: column.id === 'title' && depth > 0 ? `${16 + depth * 24}px` : undefined,
+                    };
                     
                     return (
                       <div
                         key={column.id}
                         className="px-4 text-sm text-text-primary"
-                        style={{ width: column.width || 'auto', minWidth: column.width || 140, flex: column.width ? '0 0 auto' : 1 }}
+                        style={cellStyle}
                       >
-                        <div className="flex items-center gap-3 min-w-0" style={indentStyle}>
+                        <div className="flex items-center gap-3 min-w-0">
                           {/* Poster thumbnail for title column - 34x50px or 50x50px for music */}
                           {showPoster && posterUrl && (
                             <div className={`flex-shrink-0 ${squarePosters ? 'w-[50px] h-[50px]' : 'w-[34px] h-[50px]'} rounded overflow-hidden bg-secondary-100 shadow-sm`}>
@@ -426,7 +431,7 @@ export function TableListView({
                                   e.stopPropagation();
                                   handlePlayTrack(item);
                                 }}
-                                className="flex-shrink-0 w-6 h-6 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
+                                className="flex-shrink-0 w-6 h-6 bg-primary-500 hover:bg-primary-600 rounded-full flex items-center justify-center transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
                                 title={currentTrack?.ratingKey === item.ratingKey && isPlaying ? "Pause" : "Play"}
                               >
                                 {currentTrack?.ratingKey === item.ratingKey && isPlaying ? (

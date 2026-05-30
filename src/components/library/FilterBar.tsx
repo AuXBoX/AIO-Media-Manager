@@ -57,7 +57,7 @@ export function FilterBar({ filters, activeFilters, onFilterChange, onClearFilte
             </svg>
             <span>Filters</span>
             {activeFilterCount > 0 && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-100">
                 {activeFilterCount}
               </span>
             )}
@@ -66,7 +66,7 @@ export function FilterBar({ filters, activeFilters, onFilterChange, onClearFilte
           {activeFilterCount > 0 && (
             <button
               onClick={onClearFilters}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300"
             >
               Clear all
             </button>
@@ -87,7 +87,7 @@ export function FilterBar({ filters, activeFilters, onFilterChange, onClearFilte
                   id={`filter-${filterGroup.key}`}
                   value={activeFilters[filterGroup.key] || ''}
                   onChange={(e) => onFilterChange(filterGroup.key, e.target.value)}
-                  className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                 >
                   <option value="">All</option>
                   {filterGroup.options.map((option) => (

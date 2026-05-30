@@ -105,7 +105,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
               <div className="space-y-3">
                 <label className="flex items-start p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
                   format === 'nfo'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                     : 'border-gray-200 dark:border-gray-700'
                 }">
                   <input
@@ -129,7 +129,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
 
                 <label className="flex items-start p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
                   format === 'embedded'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                     : 'border-gray-200 dark:border-gray-700'
                 }">
                   <input
@@ -153,7 +153,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
 
                 <label className="flex items-start p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
                   format === 'both'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
                     : 'border-gray-200 dark:border-gray-700'
                 }">
                   <input
@@ -201,7 +201,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
             <div className="mb-6">
               <div className="flex items-center justify-center py-8">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
                   <p className="text-gray-700 dark:text-gray-300 font-medium">
                     Exporting metadata...
                   </p>
@@ -330,7 +330,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
             <button
               onClick={handleExport}
               disabled={exporting || selectedItems.length === 0}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exporting ? 'Exporting...' : 'Export'}
             </button>

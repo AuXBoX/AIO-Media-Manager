@@ -86,7 +86,7 @@ export function UserSwitcher({ adminToken, onUserSwitch }: UserSwitcherProps) {
     return (
       <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
         <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 dark:border-blue-400"></div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 dark:border-primary-400"></div>
           <span className="ml-2 text-gray-600 dark:text-gray-300">Loading users...</span>
         </div>
       </div>
@@ -129,7 +129,7 @@ export function UserSwitcher({ adminToken, onUserSwitch }: UserSwitcherProps) {
               className={`
                 w-full flex items-center gap-3 p-3 rounded-lg transition-colors
                 ${isCurrentUser 
-                  ? 'bg-blue-50 dark:bg-blue-900/20 cursor-default' 
+                  ? 'bg-primary-50 dark:bg-primary-900/20 cursor-default' 
                   : 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
                 }
                 ${isSwitching ? 'opacity-50' : ''}
@@ -180,14 +180,14 @@ export function UserSwitcher({ adminToken, onUserSwitch }: UserSwitcherProps) {
               {/* Status */}
               <div className="flex-shrink-0">
                 {isCurrentUser && (
-                  <div className="flex items-center text-blue-600 dark:text-blue-400">
+                  <div className="flex items-center text-primary-600 dark:text-primary-400">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                   </div>
                 )}
                 {isSwitching && (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 dark:border-blue-400"></div>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600 dark:border-primary-400"></div>
                 )}
               </div>
             </button>

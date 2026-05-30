@@ -48,7 +48,7 @@ export function CollectionsView({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
@@ -59,7 +59,7 @@ export function CollectionsView({
         <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
         <button
           onClick={loadCollections}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
           Retry
         </button>
@@ -87,7 +87,7 @@ export function CollectionsView({
         {onCreateCollection && (
           <button
             onClick={onCreateCollection}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             Create Collection
           </button>
@@ -103,7 +103,7 @@ export function CollectionsView({
         {onCreateCollection && (
           <button
             onClick={onCreateCollection}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
           >
             <svg
               className="h-5 w-5"

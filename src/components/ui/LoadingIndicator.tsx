@@ -24,7 +24,7 @@ export interface LoadingIndicatorProps {
  * LoadingIndicator Component
  * 
  * Floating loading indicator for "Loading more..." states.
- * Matches the Plex Pro design with blue background and white text.
+ * Matches the Plex Pro design with yellow background and white text.
  * 
  * @example
  * ```tsx
@@ -59,7 +59,7 @@ export const LoadingIndicator: FC<LoadingIndicatorProps> = ({
     <div
       className={clsx(
         'flex items-center gap-3',
-        'bg-[#3B82F6] text-white', // Plex Pro blue
+        'bg-[#E5A00D] text-white', // Plex yellow
         'px-4 py-2 rounded-full shadow-lg',
         'z-50',
         positionClasses[position],
@@ -112,7 +112,7 @@ export const LoadingBadge: FC<LoadingBadgeProps> = ({
       className={clsx(
         'inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium',
         {
-          'bg-[#EEF4FF] text-[#3B82F6]': variant === 'primary', // Plex Pro blue subtle
+          'bg-[#FEF9E7] text-[#E5A00D]': variant === 'primary', // Plex yellow subtle
           'bg-[#F1F5F9] text-[#64748B]': variant === 'secondary', // Plex Pro gray
         },
         className

@@ -130,7 +130,7 @@ export function AddTracksModal({ isOpen, onClose, onAdd, existingTrackKeys = new
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               autoFocus
-              className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
         </div>
@@ -139,7 +139,7 @@ export function AddTracksModal({ isOpen, onClose, onAdd, existingTrackKeys = new
         <div className="flex-1 overflow-y-auto p-4">
           {searching ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
             </div>
           ) : searchResults.length === 0 && searchQuery ? (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
@@ -160,13 +160,13 @@ export function AddTracksModal({ isOpen, onClose, onAdd, existingTrackKeys = new
                   onClick={() => toggleSelection(track.ratingKey)}
                   className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
                     selectedTracks.has(track.ratingKey)
-                      ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700'
+                      ? 'bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700'
                       : 'hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
                   }`}
                 >
                   <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
                     selectedTracks.has(track.ratingKey)
-                      ? 'bg-blue-500 border-blue-500'
+                      ? 'bg-primary-500 border-primary-500'
                       : 'border-gray-300 dark:border-gray-600'
                   }`}>
                     {selectedTracks.has(track.ratingKey) && (
@@ -212,7 +212,7 @@ export function AddTracksModal({ isOpen, onClose, onAdd, existingTrackKeys = new
               <button
                 onClick={handleAdd}
                 disabled={selectedTracks.size === 0}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-full font-medium transition-colors"
+                className="px-5 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-full font-medium transition-colors"
               >
                 Add Tracks
               </button>

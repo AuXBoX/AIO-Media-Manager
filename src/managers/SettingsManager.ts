@@ -70,7 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   defaultView: 'list',
   gridColumns: 4,
-  thumbnailQuality: 'medium',
+  thumbnailQuality: 'low',
   language: 'en',
 
   // External providers

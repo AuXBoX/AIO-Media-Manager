@@ -171,7 +171,7 @@ describe('SyncButton', () => {
         />
       );
       
-      const button = container.querySelector('.bg-blue-600');
+      const button = container.querySelector('.bg-primary-600');
       expect(button).toBeInTheDocument();
     });
 

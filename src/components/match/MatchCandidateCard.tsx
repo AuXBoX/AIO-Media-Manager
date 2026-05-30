@@ -32,14 +32,14 @@ export function MatchCandidateCard({
     <div
       className={`relative flex items-start space-x-4 p-4 rounded-lg border-2 transition-all ${
         isBestMatch
-          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
           : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50'
       }`}
     >
       {/* Best Match Badge */}
       {isBestMatch && (
         <div className="absolute top-2 right-2">
-          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-blue-500 text-white">
+          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-primary-500 text-white">
             ⭐ Best Match
           </span>
         </div>
@@ -114,7 +114,7 @@ export function MatchCandidateCard({
           disabled={isSelecting}
           className={`w-full px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             isBestMatch
-              ? 'bg-blue-500 text-white hover:bg-blue-600'
+              ? 'bg-primary-500 text-white hover:bg-primary-600'
               : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-500'
           }`}
         >

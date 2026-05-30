@@ -156,7 +156,7 @@ export function ServerSelectionPage() {
       );
     } else {
       return (
-        <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
+        <span className="px-2 py-1 text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200 rounded">
           Remote
         </span>
       );
@@ -219,7 +219,7 @@ export function ServerSelectionPage() {
               className={`
                 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md
                 hover:shadow-lg transition-all text-left
-                ${selectedServerId === server.machineIdentifier ? 'ring-2 ring-blue-500' : ''}
+                ${selectedServerId === server.machineIdentifier ? 'ring-2 ring-primary-500' : ''}
                 ${connecting && selectedServerId !== server.machineIdentifier ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                 disabled:cursor-not-allowed
               `}

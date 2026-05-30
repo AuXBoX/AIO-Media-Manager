@@ -379,7 +379,7 @@ export function LibraryView() {
     }
     
     // If not found in loaded items, find it in allTitles and load pages
-    const targetIndexInAll = allTitles.findIndex(item => {
+    const targetIndexInAll = (allTitles || []).findIndex((item: any) => {
       const title = (item.titleSort || item.title || '').toUpperCase();
       if (letter === '#') {
         return /^[0-9]/.test(title);

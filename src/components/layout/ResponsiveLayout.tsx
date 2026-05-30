@@ -58,7 +58,7 @@ export function ResponsiveLayout({
     <div 
       className="h-full flex flex-col min-h-0 animate-fade-in" 
       style={{ 
-        background: 'var(--color-bg-primary)', // #F8FAFC - Light gray-blue background
+        background: 'var(--color-bg-primary)', // #F8FAFC - Light gray-yellow background
       }}
     >
       {/* Header with glass effect - Sticky at top with proper z-index (40) */}
@@ -104,7 +104,7 @@ export function ResponsiveLayout({
         <main 
           className="flex-1 min-h-0 overflow-hidden flex flex-col"
           style={{
-            background: 'var(--color-bg-primary)', // #F8FAFC - Light gray-blue background
+            background: 'var(--color-bg-primary)', // #F8FAFC - Light gray-yellow background
             position: 'relative',
             zIndex: 'var(--z-base)', // z-index: 1
           }}
@@ -150,7 +150,7 @@ export function ResponsiveHeader({
   return (
     <div 
       style={{
-        background: 'var(--color-bg-primary)', // #F8FAFC - Light gray-blue background
+        background: 'var(--color-bg-primary)', // #F8FAFC - Light gray-yellow background
         padding: '24px', // 24px padding as per spec
       }}
     >
@@ -204,7 +204,7 @@ export function ResponsiveContent({
     <div 
       className={className}
       style={{
-        background: 'var(--color-bg-primary)', // #F8FAFC - Light gray-blue background
+        background: 'var(--color-bg-primary)', // #F8FAFC - Light gray-yellow background
         padding: noPadding ? undefined : '24px', // 24px padding as per spec
       }}
     >

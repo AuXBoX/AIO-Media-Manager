@@ -50,7 +50,7 @@ describe('SidebarVisualTest', () => {
     render(<SidebarVisualTest />);
     
     expect(screen.getByText('✅ Implementation Complete')).toBeInTheDocument();
-    expect(screen.getByText(/Active State \(Blue Pill\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Active State \(yellow pill\)/)).toBeInTheDocument();
     expect(screen.getByText(/Hover State/)).toBeInTheDocument();
     expect(screen.getByText(/Spacing & Layout/)).toBeInTheDocument();
   });

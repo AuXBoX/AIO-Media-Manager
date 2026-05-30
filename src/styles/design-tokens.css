@@ -4,14 +4,14 @@
 :root {
   /* Color Palette */
   --color-bg-primary: #F8FAFC;
-  --color-bg-secondary: #EEF4FF;
+  --color-bg-secondary: #FEF9E7;
   --color-bg-glass: rgba(255, 255, 255, 0.75);
   --color-bg-glass-strong: rgba(255, 255, 255, 0.9);
   
-  --color-primary: #3B82F6;
-  --color-primary-dark: #2563EB;
-  --color-primary-light: #60A5FA;
-  --color-primary-subtle: rgba(59, 130, 246, 0.1);
+  --color-primary: #E5A00D;
+  --color-primary-dark: #CC8F0C;
+  --color-primary-light: #F9D56B;
+  --color-primary-subtle: rgba(229, 160, 13, 0.1);
   
   --color-text-primary: #0F172A;
   --color-text-secondary: #334155;

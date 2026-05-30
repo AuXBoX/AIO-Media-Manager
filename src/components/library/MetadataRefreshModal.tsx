@@ -5,7 +5,7 @@ import { createPlexClient } from '@/api/plexClient';
 import { createMetadataManager } from '@/managers/MetadataManager';
 import { createLocalMetadataManager } from '@/managers/LocalMetadataManager';
 import { createProviderRegistry } from '@/providers/ProviderRegistry';
-import type { ExternalMetadata, MediaType, SearchResult as PlexSearchResult } from '@/types';
+import type { ExternalMetadata, MediaType, SearchResult as PlexSearchResult, ExternalProvider } from '@/types';
 import type {
   RefreshWorkflowStatus,
   RefreshOptions,
@@ -140,8 +140,8 @@ export function MetadataRefreshModal({
           const isTVContent = mediaType === 'show' || item.type === 'season' || item.type === 'episode';
           const isMusicContent = mediaType === 'artist' || mediaType === 'album' || mediaType === 'track';
           
-          let primaryProvider: string;
-          let fallbackProvider: string | null = null;
+          let primaryProvider: ExternalProvider;
+          let fallbackProvider: ExternalProvider | null = null;
           
           if (isMusicContent) {
             // For music: Use Last.fm first (has images + genres), MusicBrainz as fallback
@@ -375,7 +375,7 @@ export function MetadataRefreshModal({
 
   const handleCustomSearch = async (query: string) => {
     const client = createPlexClient({ baseURL: serverUrl, token });
-    const tmdbApiKey = import.meta.env.VITE_TMDB_API_KEY;
+    const tmdbApiKey = import.meta.env['VITE_TMDB_API_KEY'];
     
     // Don't pass undefined config - let ProviderRegistry use fallback keys
     const providerRegistry = createProviderRegistry(client, tmdbApiKey ? {
@@ -422,8 +422,8 @@ export function MetadataRefreshModal({
   const fetchDetailsMutation = useMutation({
     mutationFn: async () => {
       const client = createPlexClient({ baseURL: serverUrl, token });
-      const tmdbApiKey = import.meta.env.VITE_TMDB_API_KEY;
-      const fanartApiKey = import.meta.env.VITE_FANART_API_KEY;
+      const tmdbApiKey = import.meta.env['VITE_TMDB_API_KEY'];
+      const fanartApiKey = import.meta.env['VITE_FANART_API_KEY'];
       
       // Don't pass undefined config - let ProviderRegistry use fallback keys
       const config: any = {};
@@ -553,14 +553,19 @@ export function MetadataRefreshModal({
           // For music items, fetch images from Last.fm and AlbumArtExchange
           const isMusicItem = reviewItem.item.type === 'artist' || reviewItem.item.type === 'album' || reviewItem.item.type === 'track';
           if (isMusicItem) {
+            // Determine media type for music searches
+            const musicMediaType: MediaType = reviewItem.item.type === 'artist' ? 'artist' 
+              : reviewItem.item.type === 'album' ? 'album' 
+              : 'track';
+            
             // Fetch from Last.fm if available (and not already used as primary provider)
-            if (providerRegistry.hasProvider('lastfm') && selectedResult.provider !== 'lastfm') {
+            if (providerRegistry.hasProvider('lastfm') && (selectedResult.provider as string) !== 'lastfm') {
               try {
                 console.log('[MetadataRefresh] Fetching Last.fm images for:', reviewItem.item.title);
                 const lastfmSearchQuery = reviewItem.item.type === 'album' 
                   ? `${reviewItem.item.parentTitle || ''} ${reviewItem.item.title}`.trim()
                   : reviewItem.item.title;
-                const lastfmResults = await providerRegistry.search('lastfm' as any, lastfmSearchQuery, mediaType);
+                const lastfmResults = await providerRegistry.search('lastfm', lastfmSearchQuery, musicMediaType);
                 if (lastfmResults.length > 0 && lastfmResults[0]) {
                   const lastfmMeta = await providerRegistry.getDetails('lastfm' as any, lastfmResults[0].externalId);
                   if (lastfmMeta.posters) allPosters.push(...lastfmMeta.posters);
@@ -578,7 +583,7 @@ export function MetadataRefreshModal({
                 const aaeQuery = reviewItem.item.type === 'album'
                   ? `${reviewItem.item.parentTitle || ''} ${reviewItem.item.title}`.trim()
                   : reviewItem.item.title;
-                const aaeResults = await providerRegistry.search('albumartexchange' as any, aaeQuery, mediaType);
+                const aaeResults = await providerRegistry.search('albumartexchange' as any, aaeQuery, musicMediaType);
                 if (aaeResults.length > 0 && aaeResults[0]) {
                   const aaeMeta = await providerRegistry.getDetails('albumartexchange' as any, aaeResults[0].externalId);
                   if (aaeMeta.posters) allPosters.push(...aaeMeta.posters);
@@ -1071,7 +1076,7 @@ export function MetadataRefreshModal({
                   </h3>
 
                   {/* Change All / Select Changes Toggle */}
-                  <div className="bg-blue-50 rounded-xl p-4 space-y-3 mb-6">
+                  <div className="bg-primary-50 rounded-xl p-4 space-y-3 mb-6">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-text-primary">
                         Change Mode
@@ -1120,10 +1125,10 @@ export function MetadataRefreshModal({
                       type="checkbox"
                       checked={options.refreshMetadata}
                       onChange={(e) => setOptions({ ...options, refreshMetadata: e.target.checked })}
-                      className="mt-1 w-4 h-4 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                      className="mt-1 w-4 h-4 accent-primary-500 border-slate-300 rounded focus:ring-primary-500 focus:ring-offset-0 transition-colors"
                     />
                     <div className="flex-1">
-                      <div className="text-sm font-medium text-text-primary group-hover:text-blue-600 transition-colors">
+                      <div className="text-sm font-medium text-text-primary group-hover:text-primary-600 transition-colors">
                         Refresh Metadata
                       </div>
                       <div className="text-xs text-text-tertiary mt-0.5">
@@ -1137,10 +1142,10 @@ export function MetadataRefreshModal({
                       type="checkbox"
                       checked={options.refreshImages}
                       onChange={(e) => setOptions({ ...options, refreshImages: e.target.checked })}
-                      className="mt-1 w-4 h-4 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                      className="mt-1 w-4 h-4 accent-primary-500 border-slate-300 rounded focus:ring-primary-500 focus:ring-offset-0 transition-colors"
                     />
                     <div className="flex-1">
-                      <div className="text-sm font-medium text-text-primary group-hover:text-blue-600 transition-colors">
+                      <div className="text-sm font-medium text-text-primary group-hover:text-primary-600 transition-colors">
                         Refresh Images
                       </div>
                       <div className="text-xs text-text-tertiary mt-0.5">
@@ -1157,10 +1162,10 @@ export function MetadataRefreshModal({
                           type="checkbox"
                           checked={options.refreshTrailers}
                           onChange={(e) => setOptions({ ...options, refreshTrailers: e.target.checked })}
-                          className="mt-1 w-4 h-4 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                          className="mt-1 w-4 h-4 accent-primary-500 border-slate-300 rounded focus:ring-primary-500 focus:ring-offset-0 transition-colors"
                         />
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-text-primary group-hover:text-blue-600 transition-colors">
+                          <div className="text-sm font-medium text-text-primary group-hover:text-primary-600 transition-colors">
                             Refresh Trailers
                           </div>
                           <div className="text-xs text-text-tertiary mt-0.5">
@@ -1174,10 +1179,10 @@ export function MetadataRefreshModal({
                           type="checkbox"
                           checked={options.refreshCast}
                           onChange={(e) => setOptions({ ...options, refreshCast: e.target.checked })}
-                          className="mt-1 w-4 h-4 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                          className="mt-1 w-4 h-4 accent-primary-500 border-slate-300 rounded focus:ring-primary-500 focus:ring-offset-0 transition-colors"
                         />
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-text-primary group-hover:text-blue-600 transition-colors">
+                          <div className="text-sm font-medium text-text-primary group-hover:text-primary-600 transition-colors">
                             Refresh Cast & Crew
                           </div>
                           <div className="text-xs text-text-tertiary mt-0.5">
@@ -1207,10 +1212,10 @@ export function MetadataRefreshModal({
                         downloadImages: e.target.checked,
                         downloadTrailers: e.target.checked,
                       })}
-                      className="mt-1 w-5 h-5 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                      className="mt-1 w-5 h-5 text-primary-500 border-slate-300 rounded focus:ring-primary-500 focus:ring-offset-0 transition-colors"
                     />
                     <div className="flex-1">
-                      <div className="text-sm font-semibold text-text-primary mb-2 group-hover:text-blue-600 transition-colors">
+                      <div className="text-sm font-semibold text-text-primary mb-2 group-hover:text-primary-600 transition-colors">
                         Save All to Local Folder
                       </div>
                       <div className="text-xs text-text-tertiary space-y-2">
@@ -1247,8 +1252,8 @@ export function MetadataRefreshModal({
           {workflowStatus === 'searching' && (
             <div className="space-y-6 py-8">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-50 rounded-full mb-6">
-                  <svg className="w-10 h-10 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-50 rounded-full mb-6">
+                  <svg className="w-10 h-10 text-primary-500 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
@@ -1285,8 +1290,8 @@ export function MetadataRefreshModal({
           {workflowStatus === 'fetching-details' && (
             <div className="space-y-6 py-8">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-50 rounded-full mb-6">
-                  <svg className="w-10 h-10 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-50 rounded-full mb-6">
+                  <svg className="w-10 h-10 text-primary-500 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
@@ -1322,8 +1327,8 @@ export function MetadataRefreshModal({
           {workflowStatus === 'applying' && (
             <div className="space-y-6 py-8">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-50 rounded-full mb-6">
-                  <svg className="w-10 h-10 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-50 rounded-full mb-6">
+                  <svg className="w-10 h-10 text-primary-500 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>

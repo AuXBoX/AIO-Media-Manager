@@ -198,7 +198,7 @@ export const LocalChangeConflictModal: React.FC<LocalChangeConflictModalProps> =
                                 onClick={() => toggleManualSelection(conflict.field, 'plex')}
                                 className={`px-2 py-1 rounded text-xs ${
                                   (manualSelections[conflict.field] || 'plex') === 'plex'
-                                    ? 'bg-blue-600 text-white'
+                                    ? 'bg-primary-600 text-white'
                                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                                 }`}
                               >
@@ -208,7 +208,7 @@ export const LocalChangeConflictModal: React.FC<LocalChangeConflictModalProps> =
                                 onClick={() => toggleManualSelection(conflict.field, 'local')}
                                 className={`px-2 py-1 rounded text-xs ${
                                   manualSelections[conflict.field] === 'local'
-                                    ? 'bg-blue-600 text-white'
+                                    ? 'bg-primary-600 text-white'
                                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                                 }`}
                               >
@@ -242,7 +242,7 @@ export const LocalChangeConflictModal: React.FC<LocalChangeConflictModalProps> =
           </button>
           <button
             onClick={handleResolve}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors"
           >
             Resolve Conflicts
           </button>

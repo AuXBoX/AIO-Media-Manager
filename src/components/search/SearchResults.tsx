@@ -22,7 +22,7 @@ export function SearchResults({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" role="status" aria-label="Loading search results"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" role="status" aria-label="Loading search results"></div>
       </div>
     );
   }
@@ -104,7 +104,7 @@ function SearchResultCard({ item, onClick, serverUrl, token }: SearchResultCardP
           onClick();
         }
       }}
-      className="group relative bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+      className="group relative bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
     >
       {/* Thumbnail */}
       <div className="aspect-[2/3] bg-gray-200 dark:bg-gray-700">
@@ -136,7 +136,7 @@ function SearchResultCard({ item, onClick, serverUrl, token }: SearchResultCardP
 
       {/* Info */}
       <div className="p-2">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-primary-600 dark:group-hover:text-primary-400">
           {item.title}
         </h3>
         {item.year && (

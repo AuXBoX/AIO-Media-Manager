@@ -365,7 +365,7 @@ describe('BatchOperationExample', () => {
     const matchButton = screen.getByText(/Match Selected/);
     const updateButton = screen.getByText(/Update Selected/);
 
-    expect(refreshButton).toHaveClass('bg-blue-500');
+    expect(refreshButton).toHaveClass('bg-primary-500');
     expect(matchButton).toHaveClass('bg-green-500');
     expect(updateButton).toHaveClass('bg-purple-500');
   });

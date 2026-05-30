@@ -318,8 +318,8 @@ export function InputExamples() {
             <p><strong>Border:</strong> rgba(148, 163, 184, 0.12)</p>
             <p><strong>Border Radius:</strong> 8px</p>
             <p><strong>Padding:</strong> 10px 16px</p>
-            <p><strong>Focus Border:</strong> #3B82F6 (Primary Blue)</p>
-            <p><strong>Focus Ring:</strong> rgba(59, 130, 246, 0.1) with 3px width</p>
+            <p><strong>Focus Border:</strong> #E5A00D (Plex Yellow)</p>
+            <p><strong>Focus Ring:</strong> rgba(229, 160, 13, 0.1) with 3px width</p>
             <p><strong>Font Size:</strong> 14px</p>
             <p><strong>Label:</strong> 14px, font-weight 500, color #0F172A</p>
             <p><strong>Hint:</strong> 12px, color #64748B</p>

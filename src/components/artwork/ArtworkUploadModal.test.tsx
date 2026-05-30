@@ -49,7 +49,7 @@ describe('ArtworkUploadModal', () => {
     render(<ArtworkUploadModal {...defaultProps} defaultType="background" />);
 
     const backgroundButton = screen.getByText('background');
-    expect(backgroundButton).toHaveClass('bg-blue-500');
+    expect(backgroundButton).toHaveClass('bg-primary-500');
   });
 
   it('allows switching artwork type', async () => {
@@ -59,7 +59,7 @@ describe('ArtworkUploadModal', () => {
     const bannerButton = screen.getByText('banner');
     await user.click(bannerButton);
 
-    expect(bannerButton).toHaveClass('bg-blue-500');
+    expect(bannerButton).toHaveClass('bg-primary-500');
   });
 
   it('displays drag and drop area', () => {

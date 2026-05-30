@@ -94,16 +94,16 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
       </div>
 
       {/* Info Box */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+      <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <svg className="w-5 h-5 text-primary-600 dark:text-primary-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
           <div className="flex-1">
-            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">
+            <h3 className="text-sm font-semibold text-primary-900 dark:text-primary-100 mb-1">
               Why do I need API keys?
             </h3>
-            <p className="text-sm text-blue-800 dark:text-blue-200">
+            <p className="text-sm text-primary-800 dark:text-primary-200">
               API keys allow the app to fetch high-quality metadata, images, and trailers from external sources. 
               The app includes fallback keys for TMDB, but adding your own keys provides better rate limits and access to additional providers like Fanart.tv.
             </p>
@@ -131,7 +131,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
           value={tmdbKey}
           onChange={(e) => setTmdbKey(e.target.value)}
           placeholder="Enter your TMDB API key (optional - fallback key included)"
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
         <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,7 +143,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
               href="https://www.themoviedb.org/settings/api"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-primary-600 dark:text-primary-400 hover:underline"
             >
               themoviedb.org/settings/api
             </a>
@@ -171,7 +171,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
           value={fanartKey}
           onChange={(e) => setFanartKey(e.target.value)}
           placeholder="Enter your Fanart.tv API key"
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
         <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -183,7 +183,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
               href="https://fanart.tv/get-an-api-key/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-primary-600 dark:text-primary-400 hover:underline"
             >
               fanart.tv/get-an-api-key
             </a>
@@ -211,7 +211,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
           value={tvdbKey}
           onChange={(e) => setTvdbKey(e.target.value)}
           placeholder="Enter your TVDB API key (optional)"
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
         <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,7 +223,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
               href="https://thetvdb.com/api-information"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-primary-600 dark:text-primary-400 hover:underline"
             >
               thetvdb.com/api-information
             </a>
@@ -251,7 +251,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
           value={subdlKey}
           onChange={(e) => setSubdlKey(e.target.value)}
           placeholder="Enter your SubDL API key"
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
         <div className="flex items-center gap-2">
           <button
@@ -300,7 +300,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
               href="https://subdl.com/panel/register"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-primary-600 dark:text-primary-400 hover:underline"
             >
               subdl.com/panel/register
             </a>

@@ -224,7 +224,7 @@ export function ConflictResolutionModal({
               <button
                 onClick={() => handleBulkResolve('local')}
                 disabled={isResolving}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >
                 Keep All Local Changes
               </button>
@@ -308,8 +308,8 @@ export function ConflictResolutionModal({
                   </div>
                   <div className="grid grid-cols-2 divide-x divide-gray-200 dark:divide-gray-700">
                     {/* Local Value */}
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20">
-                      <div className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase mb-2">
+                    <div className="p-4 bg-primary-50 dark:bg-primary-900/20">
+                      <div className="text-xs font-semibold text-primary-700 dark:text-primary-400 uppercase mb-2">
                         Your Changes
                       </div>
                       <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
@@ -339,7 +339,7 @@ export function ConflictResolutionModal({
                 disabled={isResolving}
                 className={`flex-1 px-6 py-3 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
                   resolutions.get(currentConflict.ratingKey) === 'local'
-                    ? 'bg-blue-600 text-white shadow-lg'
+                    ? 'bg-primary-600 text-white shadow-lg'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
@@ -420,7 +420,7 @@ export function ConflictResolutionModal({
             <button
               onClick={handleResolve}
               disabled={isResolving || resolutions.size !== conflicts.length}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isResolving && (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

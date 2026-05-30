@@ -283,7 +283,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                       type="text"
                       value={editedData.title || ''}
                       onChange={(e) => setEditedData({ ...editedData, title: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white">{metadata.title}</p>
@@ -302,7 +302,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                       onChange={(e) =>
                         setEditedData({ ...editedData, originalTitle: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white">
@@ -323,7 +323,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                       onChange={(e) =>
                         setEditedData({ ...editedData, year: parseInt(e.target.value) })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white">{metadata.year || '-'}</p>
@@ -340,7 +340,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                       value={editedData.summary || ''}
                       onChange={(e) => setEditedData({ ...editedData, summary: e.target.value })}
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
@@ -359,7 +359,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                       type="text"
                       value={editedData.tagline || ''}
                       onChange={(e) => setEditedData({ ...editedData, tagline: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white">{metadata.tagline || '-'}</p>
@@ -376,7 +376,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                       type="text"
                       value={editedData.studio || ''}
                       onChange={(e) => setEditedData({ ...editedData, studio: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white">{metadata.studio || '-'}</p>
@@ -395,7 +395,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                       onChange={(e) =>
                         setEditedData({ ...editedData, contentRating: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white">
@@ -420,7 +420,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                         })
                       }
                       placeholder="Action, Drama, Thriller"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   ) : (
                     <div className="flex flex-wrap gap-2">
@@ -428,7 +428,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                         metadata.genres.map((genre, index) => (
                           <span
                             key={index}
-                            className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm"
+                            className="px-3 py-1 bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 rounded-full text-sm"
                           >
                             {genre.tag}
                           </span>
@@ -455,7 +455,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
                       onChange={(e) =>
                         setEditedData({ ...editedData, rating: parseFloat(e.target.value) })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   ) : (
                     <p className="text-gray-900 dark:text-white">

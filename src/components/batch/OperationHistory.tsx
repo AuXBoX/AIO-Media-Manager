@@ -256,7 +256,7 @@ export function OperationHistory({ getHistory, onRetry }: OperationHistoryProps)
               {operation.failed > 0 && (
                 <button
                   onClick={() => onRetry(operation.id)}
-                  className="ml-4 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                  className="ml-4 px-3 py-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-md transition-colors"
                   aria-label="Retry failed items"
                 >
                   Retry

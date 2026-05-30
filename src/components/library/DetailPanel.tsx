@@ -665,8 +665,11 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
       
       // Save locally
       if (saveTarget === 'local' || saveTarget === 'both') {
-        const localMetadataManager = createLocalMetadataManager(client);
-        await localMetadataManager.saveMetadata(item.ratingKey, update, 'nfo');
+        // TODO: Implement local metadata save with proper LocalMetadataManager API
+        // const metadataManager = createMetadataManager(client);
+        // const localMetadataManager = createLocalMetadataManager(metadataManager);
+        // await localMetadataManager.syncToLocal(item, 'nfo');
+        console.warn('[DetailPanel] Local save not yet implemented for cast data');
       }
       
       const castCount = fetchedCastData.cast.length;
@@ -729,7 +732,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
               {/* Status indicators */}
               <div className="flex items-center gap-2">
                 {hasLocalNfo && (
-                  <span className="px-2.5 py-1 text-xs font-medium bg-blue-500/90 backdrop-blur-md text-white rounded-full flex items-center gap-1.5 shadow-lg">
+                  <span className="px-2.5 py-1 text-xs font-medium bg-primary-500/90 backdrop-blur-md text-white rounded-full flex items-center gap-1.5 shadow-lg">
                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
                       <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
@@ -820,7 +823,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                   <div className="flex flex-wrap gap-1.5 mt-1">
                     {videoResolution && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-black/40 text-gray-200 rounded border border-white/10 uppercase">
-                        <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-3 h-3 text-primary-400" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M2 4a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V4zm3 10h8a1 1 0 010 2H5a1 1 0 010-2z" />
                         </svg>
                         {videoResolution === 'sd' ? 'SD' : videoResolution.toUpperCase()}
@@ -883,7 +886,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     value={tab.id}
                     className={`text-sm font-semibold whitespace-nowrap px-4 py-3 rounded-none border-b-[3px] transition-all ${
                       activeTab === tab.id 
-                        ? 'border-blue-500 text-white' 
+                        ? 'border-primary-500 text-white' 
                         : 'border-transparent text-gray-300 hover:text-white hover:border-white/30'
                     }`}
                   >
@@ -911,7 +914,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                   value={getFieldValue('title', metadata.title)}
                   onChange={(e) => handleFieldChange('title', e.target.value)}
                   labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                  className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                  className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                 />
               ) : (
                 <>
@@ -936,7 +939,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     onChange={(e) => handleFieldChange('artist', e.target.value)}
                     placeholder="Artist name"
                     labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                   />
                 ) : (
                   <>
@@ -962,7 +965,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     onChange={(e) => handleFieldChange('album', e.target.value)}
                     placeholder="Album name"
                     labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                   />
                 ) : (
                   <>
@@ -987,7 +990,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     value={getFieldValue('originalTitle', metadata.originalTitle || '')}
                     onChange={(e) => handleFieldChange('originalTitle', e.target.value)}
                     labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                   />
                 ) : (
                   <>
@@ -1012,7 +1015,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     onChange={(e) => handleFieldChange('summary', e.target.value)}
                     rows={6}
                     labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                   />
                 ) : (
                   <>
@@ -1037,7 +1040,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     value={getFieldValue('tagline', metadata.tagline || '')}
                     onChange={(e) => handleFieldChange('tagline', e.target.value)}
                     labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                   />
                 ) : (
                   <>
@@ -1062,7 +1065,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     value={getFieldValue('year', metadata.year || '')}
                     onChange={(e) => handleFieldChange('year', e.target.value)}
                     labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                   />
                 ) : (
                   <>
@@ -1086,7 +1089,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                       value={getFieldValue('studio', metadata.studio || '')}
                       onChange={(e) => handleFieldChange('studio', e.target.value)}
                       labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                     />
                   ) : (
                     <>
@@ -1111,7 +1114,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                       value={getFieldValue('contentRating', metadata.contentRating || '')}
                       onChange={(e) => handleFieldChange('contentRating', e.target.value)}
                       labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                     />
                   ) : (
                     <>
@@ -1139,7 +1142,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                       value={getFieldValue('rating', metadata.rating || '')}
                       onChange={(e) => handleFieldChange('rating', e.target.value)}
                       labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
+                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
                     />
                   ) : (
                     <>
@@ -1216,7 +1219,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 <input
                   type="text"
                   placeholder="Add genre..."
-                  className="px-3 py-1.5 text-sm bg-transparent border border-dashed border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-w-[100px] max-w-[150px]"
+                  className="px-3 py-1.5 text-sm bg-transparent border border-dashed border-gray-300 rounded-full focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 min-w-[100px] max-w-[150px]"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -1505,14 +1508,14 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
             {metadata.Extras && metadata.Extras.filter((extra: any) => extra.type === 'clip' && extra.extraType === 1).length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-3 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                   </svg>
                   Plex Trailers
                 </h4>
                 <div className="space-y-3">
                   {metadata.Extras.filter((extra: any) => extra.type === 'clip' && extra.extraType === 1).map((trailer: any, index: number) => (
-                    <div key={`plex-${index}`} className="border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 bg-blue-50 dark:bg-blue-900/10">
+                    <div key={`plex-${index}`} className="border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 bg-primary-50 dark:bg-primary-900/10">
                       <div className="flex items-start gap-3">
                         {trailer.thumb && (
                           <img
@@ -1531,7 +1534,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             </p>
                           )}
                           <div className="flex items-center gap-2 text-xs text-secondary-500 dark:text-secondary-400">
-                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded flex items-center gap-1">
+                            <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded flex items-center gap-1">
                               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                               </svg>
@@ -1614,7 +1617,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                                 Local File
                               </span>
                               {resolution && (
-                                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded font-semibold">
+                                <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded font-semibold">
                                   {resolution}
                                 </span>
                               )}
@@ -1683,7 +1686,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-4 h-4 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                     </svg>
                     Embedded Subtitles
@@ -1745,7 +1748,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 </div>
                 <div className="space-y-3">
                   {plexSubtitles.map((subtitle, index) => (
-                    <div key={`plex-${index}`} className="border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 bg-blue-50 dark:bg-blue-900/10">
+                    <div key={`plex-${index}`} className="border border-secondary-200 dark:border-secondary-700 rounded-lg p-4 bg-primary-50 dark:bg-primary-900/10">
                       <div className="flex items-start gap-3">
                         <input
                           type="checkbox"
@@ -1761,8 +1764,8 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                           }}
                           className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
                         />
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded flex items-center justify-center flex-shrink-0">
-                          <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded flex items-center justify-center flex-shrink-0">
+                          <svg className="w-6 h-6 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
                           </svg>
                         </div>
@@ -1771,7 +1774,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             {subtitle.language}
                           </h5>
                           <div className="flex flex-wrap items-center gap-2 text-xs mb-2">
-                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                            <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded">
                               {subtitle.codec.toUpperCase()}
                             </span>
                             {subtitle.external && (
@@ -1888,7 +1891,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
                               {subtitle.language}
                             </span>
-                            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                            <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded">
                               {subtitle.format.toUpperCase()}
                             </span>
                             {subtitle.forced && (
@@ -2053,7 +2056,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             variant="icon"
                             size="medium"
                             onClick={async () => {
-                              if (video.file) {
+                              if (video.file && window.electron) {
                                 try {
                                   await window.electron.openFile(video.file);
                                 } catch (error) {
@@ -2077,6 +2080,11 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             onClick={async () => {
                               if (!video.file) {
                                 alert('Cannot delete: file path not available');
+                                return;
+                              }
+                              
+                              if (!window.electron) {
+                                alert('File deletion is only available in the desktop app');
                                 return;
                               }
                               
@@ -2377,6 +2385,10 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     }
                     
                     try {
+                      if (!window.electron) {
+                        alert('Opening folders is only available in the desktop app');
+                        return;
+                      }
                       await window.electron.openFolder(folderPath);
                     } catch (error) {
                       console.error('Failed to open folder:', error);
@@ -2847,7 +2859,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
           <select
             value={saveTarget}
             onChange={(e) => setSaveTarget(e.target.value as 'plex' | 'local' | 'both')}
-            className="flex-shrink min-w-0 px-2 py-1.5 text-xs font-medium bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-gray-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-shrink min-w-0 px-2 py-1.5 text-xs font-medium bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-gray-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             aria-label="Save target"
           >
             <option value="plex">Save to Plex</option>

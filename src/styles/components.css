@@ -79,14 +79,14 @@
   color: #1E293B;
 }
 
-/* Active state: blue pill background with white text */
+/* Active state: yellow pill background with white text */
 .sidebar-nav-item-active {
-  background: #3B82F6;
+  background: #E5A00D;
   color: white;
 }
 
 .sidebar-nav-item-active:hover {
-  background: #2563EB;
+  background: #CC8F0C;
   color: white;
 }
 

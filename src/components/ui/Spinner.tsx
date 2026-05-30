@@ -16,7 +16,7 @@ export interface SpinnerProps extends Omit<HTMLAttributes<HTMLDivElement>, 'chil
   size?: SpinnerSize;
   /**
    * Color variant
-   * - primary: Blue (#3B82F6)
+   * - primary: Blue (#E5A00D)
    * - white: White (for dark backgrounds)
    * - secondary: Gray (#64748B)
    */
@@ -66,7 +66,7 @@ export const Spinner: FC<SpinnerProps> = ({
   };
 
   const variantClasses = {
-    primary: 'text-primary-500', // Plex Pro blue
+    primary: 'text-primary-500', // Plex yellow
     white: 'text-white',
     secondary: 'text-text-tertiary', // Plex Pro tertiary text
   };

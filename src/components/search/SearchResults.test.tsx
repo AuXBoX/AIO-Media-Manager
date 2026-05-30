@@ -203,7 +203,7 @@ describe('SearchResults', () => {
     const cards = container.querySelectorAll('[role="button"]');
     cards.forEach((card) => {
       expect(card).toHaveClass('focus:ring-2');
-      expect(card).toHaveClass('focus:ring-blue-500');
+      expect(card).toHaveClass('focus:ring-primary-500');
     });
   });
 });

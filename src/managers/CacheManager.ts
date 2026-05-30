@@ -22,6 +22,8 @@ export interface QueryOptions {
   filters?: Record<string, any>;
   offset?: number;
   limit?: number;
+  titlesOnly?: boolean;
+  musicViewMode?: 'artists' | 'albums';
 }
 
 /**

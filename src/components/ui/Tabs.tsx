@@ -225,7 +225,7 @@ export function Tabs({
  * TabsList - Container for Tab buttons
  * 
  * Renders the segmented control container with the characteristic
- * light blue background and rounded corners.
+ * light yellow background and rounded corners.
  */
 export function TabsList({
   className,
@@ -297,7 +297,7 @@ export function TabsList({
       onKeyDown={handleKeyDown}
       className={clsx(
         // Segmented control container - adapts to context
-        // Light theme: bg-background-secondary (#EEF4FF)
+        // Light theme: bg-background-secondary (#FEF9E7)
         // Dark theme: bg-white/10 with backdrop blur
         // Container padding: 4px, radius: 12px
         'inline-flex p-1 rounded-xl gap-1',

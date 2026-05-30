@@ -239,7 +239,7 @@ export function BulkEditView({ client: providedClient }: BulkEditViewProps) {
                 <p className="text-sm font-medium text-primary-800">
                   Updating {state.selectedItems.length} items...
                 </p>
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                <p className="text-xs text-primary-700 dark:text-primary-300 mt-1">
                   This may take a few moments
                 </p>
               </div>
@@ -268,7 +268,7 @@ export function BulkEditView({ client: providedClient }: BulkEditViewProps) {
                 value={updates.studio || ''}
                 onChange={(e) => setUpdates({ ...updates, studio: e.target.value })}
                 placeholder="Leave empty to keep existing values"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
 
@@ -283,7 +283,7 @@ export function BulkEditView({ client: providedClient }: BulkEditViewProps) {
                 value={updates.contentRating || ''}
                 onChange={(e) => setUpdates({ ...updates, contentRating: e.target.value })}
                 placeholder="Leave empty to keep existing values"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
 
@@ -303,7 +303,7 @@ export function BulkEditView({ client: providedClient }: BulkEditViewProps) {
                   })
                 }
                 placeholder="Action, Drama, Thriller (comma-separated)"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Separate multiple genres with commas
@@ -323,7 +323,7 @@ export function BulkEditView({ client: providedClient }: BulkEditViewProps) {
                   setUpdates({ ...updates, year: e.target.value ? parseInt(e.target.value) : undefined })
                 }
                 placeholder="Leave empty to keep existing values"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
 
@@ -343,7 +343,7 @@ export function BulkEditView({ client: providedClient }: BulkEditViewProps) {
                   setUpdates({ ...updates, rating: e.target.value ? parseFloat(e.target.value) : undefined })
                 }
                 placeholder="Leave empty to keep existing values"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
           </div>

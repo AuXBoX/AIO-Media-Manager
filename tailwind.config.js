@@ -16,25 +16,25 @@ export default {
     },
     extend: {
       colors: {
-        // Primary brand colors (Modern Blue - Plex Pro aesthetic)
+        // Primary brand colors (Plex Yellow/Gold)
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',  // Light blue
-          500: '#3b82f6',  // Base blue
-          600: '#2563eb',  // Dark blue
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
-          subtle: 'rgba(59, 130, 246, 0.1)',  // Subtle blue background
+          50: '#fefdf5',
+          100: '#fef9e7',
+          200: '#fdf0c4',
+          300: '#fce69a',
+          400: '#f9d56b',   // Light yellow
+          500: '#e5a00d',   // Base Plex yellow
+          600: '#cc8f0c',   // Dark yellow
+          700: '#a8760a',
+          800: '#8a6108',
+          900: '#6f4e06',
+          950: '#3d2b03',
+          subtle: 'rgba(229, 160, 13, 0.1)',  // Subtle yellow background
         },
         // Background colors
         background: {
-          primary: '#F8FAFC',    // Light gray-blue
-          secondary: '#EEF4FF',  // Very light blue
+          primary: '#F8FAFC',    // Light gray
+          secondary: '#FEF9E7',  // Very light yellow
           glass: 'rgba(255, 255, 255, 0.75)',  // Translucent white for glass effects
           white: '#FFFFFF',
         },

@@ -271,7 +271,7 @@ describe('FilterPresetSelector', () => {
     await userEvent.click(button);
 
     // Check for highlight class on the container div
-    const presetContainer = container.querySelector('div.bg-blue-50');
+    const presetContainer = container.querySelector('div.bg-primary-50');
     expect(presetContainer).not.toBeNull();
   });
 });

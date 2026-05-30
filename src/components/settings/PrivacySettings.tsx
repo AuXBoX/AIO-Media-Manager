@@ -72,7 +72,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
             id="analyticsEnabled"
             checked={localSettings.analyticsEnabled}
             onChange={(e) => handleChange('analyticsEnabled', e.target.checked)}
-            className="mt-1 mr-3"
+            className="mt-1 mr-3 w-4 h-4 accent-primary-500"
           />
           <div className="flex-1">
             <label
@@ -100,7 +100,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
             id="errorReporting"
             checked={localSettings.errorReporting}
             onChange={(e) => handleChange('errorReporting', e.target.checked)}
-            className="mt-1 mr-3"
+            className="mt-1 mr-3 w-4 h-4 accent-primary-500"
           />
           <div className="flex-1">
             <label
@@ -128,7 +128,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
             id="usageStatistics"
             checked={localSettings.usageStatistics}
             onChange={(e) => handleChange('usageStatistics', e.target.checked)}
-            className="mt-1 mr-3"
+            className="mt-1 mr-3 w-4 h-4 accent-primary-500"
           />
           <div className="flex-1">
             <label
@@ -188,11 +188,11 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
       </div>
 
       {/* Recommended Settings */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
+      <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-primary-900 dark:text-primary-200 mb-2">
           💡 Recommended Settings
         </h3>
-        <p className="text-sm text-blue-800 dark:text-blue-300">
+        <p className="text-sm text-primary-800 dark:text-primary-300">
           We recommend enabling <strong>Error Reporting</strong> to help us identify and fix
           bugs that may affect your experience. Analytics and usage statistics are optional and
           help us prioritize features.

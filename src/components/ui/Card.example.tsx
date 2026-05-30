@@ -28,7 +28,7 @@ export function CardWithHeader() {
     <Card>
       <CardHeader>
         <h3 className="text-lg font-semibold text-slate-900">Card Title</h3>
-        <button className="text-sm text-blue-600 hover:text-blue-700">
+        <button className="text-sm text-primary-600 hover:text-primary-700">
           Edit
         </button>
       </CardHeader>
@@ -47,7 +47,7 @@ export function CompleteCard() {
     <Card>
       <CardHeader>
         <h3 className="text-lg font-semibold text-slate-900">Metadata</h3>
-        <button className="text-sm text-blue-600 hover:text-blue-700">
+        <button className="text-sm text-primary-600 hover:text-primary-700">
           Refresh
         </button>
       </CardHeader>
@@ -97,10 +97,10 @@ export function StaticCard() {
 export function CustomStyledCard() {
   return (
     <Card className="max-w-md mx-auto">
-      <CardHeader className="bg-blue-50">
-        <h3 className="text-lg font-semibold text-blue-900">Custom Styled</h3>
+      <CardHeader className="bg-primary-50">
+        <h3 className="text-lg font-semibold text-primary-900">Custom Styled</h3>
       </CardHeader>
-      <CardContent className="bg-gradient-to-b from-blue-50 to-white">
+      <CardContent className="bg-gradient-to-b from-primary-50 to-white">
         <p className="text-slate-700">
           You can add custom classes to any card section to override or extend
           the default styling.
@@ -119,7 +119,7 @@ export function CardGrid() {
           <h3 className="text-lg font-semibold">Movies</h3>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold text-blue-600">1,234</p>
+          <p className="text-3xl font-bold text-primary-600">1,234</p>
           <p className="text-sm text-slate-600">Total items</p>
         </CardContent>
       </Card>
@@ -129,7 +129,7 @@ export function CardGrid() {
           <h3 className="text-lg font-semibold">TV Shows</h3>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold text-blue-600">567</p>
+          <p className="text-3xl font-bold text-primary-600">567</p>
           <p className="text-sm text-slate-600">Total items</p>
         </CardContent>
       </Card>
@@ -139,7 +139,7 @@ export function CardGrid() {
           <h3 className="text-lg font-semibold">Music</h3>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold text-blue-600">8,901</p>
+          <p className="text-3xl font-bold text-primary-600">8,901</p>
           <p className="text-sm text-slate-600">Total tracks</p>
         </CardContent>
       </Card>
@@ -166,7 +166,7 @@ export function FormCard() {
             <input
               type="text"
               id="title"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               placeholder="Enter title..."
             />
           </div>
@@ -180,7 +180,7 @@ export function FormCard() {
             <textarea
               id="description"
               rows={4}
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               placeholder="Enter description..."
             />
           </div>
@@ -206,7 +206,7 @@ export function ListCard() {
     <Card>
       <CardHeader>
         <h3 className="text-lg font-semibold text-slate-900">Recent Items</h3>
-        <button className="text-sm text-blue-600 hover:text-blue-700">
+        <button className="text-sm text-primary-600 hover:text-primary-700">
           View All
         </button>
       </CardHeader>

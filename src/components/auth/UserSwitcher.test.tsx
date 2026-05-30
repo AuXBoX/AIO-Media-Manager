@@ -181,7 +181,7 @@ describe('UserSwitcher', () => {
 
       await waitFor(() => {
         const adminButton = screen.getByText('Admin User').closest('button');
-        expect(adminButton).toHaveClass('bg-blue-50');
+        expect(adminButton).toHaveClass('bg-primary-50');
       });
     });
   });

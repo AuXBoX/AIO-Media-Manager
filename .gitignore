@@ -1,5 +1,6 @@
 # Local-only folders
 .kiro/
+.qoder/
 tests/
 docs/
 scripts/

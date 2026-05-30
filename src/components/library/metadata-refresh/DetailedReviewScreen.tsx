@@ -370,8 +370,8 @@ export function DetailedReviewScreen({
 
         {/* Summary */}
         {hasChanges && (
-          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
+          <div className="mt-4 p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg">
+            <p className="text-sm text-primary-800 dark:text-primary-200">
               <strong>{selectedCount}</strong> items selected for update.
               {hasChanges && ' Some items have changes.'}
             </p>

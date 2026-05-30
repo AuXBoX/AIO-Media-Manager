@@ -184,7 +184,7 @@ export function AppLayout() {
   return (
     <AudioPlayerProvider>
       <ResponsiveLayout sidebar={sidebar}>
-        <div className="pb-20">
+        <div className="h-full flex flex-col min-h-0 pb-20">
           <Outlet />
         </div>
       </ResponsiveLayout>

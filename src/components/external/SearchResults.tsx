@@ -15,7 +15,7 @@ export function SearchResults({ results, isLoading, onResultSelect }: SearchResu
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4"></div>
         <p className="text-gray-600 dark:text-gray-400">Searching...</p>
       </div>
     );
@@ -83,7 +83,7 @@ export function SearchResults({ results, isLoading, onResultSelect }: SearchResu
                 </p>
               )}
               <div className="mt-2">
-                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200">
                   {result.provider.toUpperCase()}
                 </span>
               </div>

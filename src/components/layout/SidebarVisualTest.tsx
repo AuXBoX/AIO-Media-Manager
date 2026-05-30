@@ -14,7 +14,7 @@ import {
  * Visual test component for Sidebar with blue active state pill
  * 
  * This component demonstrates:
- * - Blue active state pill (#3B82F6 background with white text)
+ * - Blue active state pill (#E5A00D background with white text)
  * - Hover states (light gray #F8FAFC)
  * - Smooth transitions (150ms)
  * - Proper spacing and padding
@@ -138,10 +138,10 @@ export function SidebarVisualTest() {
 
             <div className="p-4 rounded-lg" style={{ background: 'white', border: '1px solid var(--color-border)' }}>
               <h3 className="font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Active State (Blue Pill)
+                Active State (yellow pill)
               </h3>
               <ul className="list-disc list-inside space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-                <li>Background: #3B82F6 (soft blue)</li>
+                <li>Background: #E5A00D (soft blue)</li>
                 <li>Text color: White</li>
                 <li>Border radius: 8px (pill shape)</li>
                 <li>Subtle shadow for depth</li>
@@ -179,7 +179,7 @@ export function SidebarVisualTest() {
               </h3>
               <p style={{ color: 'var(--color-text-secondary)' }}>
                 Click on different sidebar items to see the blue active state pill in action.
-                The active item will have a blue background with white text, while inactive items
+                The active item will have a yellow background with white text, while inactive items
                 show a light gray background on hover.
               </p>
             </div>

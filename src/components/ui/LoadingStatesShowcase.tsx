@@ -16,7 +16,7 @@ import { GridLoadingState } from './GridLoadingState';
  * - Table and grid loading states
  * - Overlay loading states
  * 
- * Updated for Task 24: All loading states now use the Plex Pro blue (#3B82F6)
+ * Updated for Task 24: All loading states now use the Plex yellow (#E5A00D)
  * and match the modern, clean design aesthetic.
  */
 export const LoadingStatesShowcase: FC = () => {
@@ -46,7 +46,7 @@ export const LoadingStatesShowcase: FC = () => {
           <div>
             <h2 className="text-2xl font-semibold text-text-primary mb-4">Spinners</h2>
             <p className="text-text-secondary mb-6">
-              Loading spinners in various sizes and color variants using Plex Pro blue (#3B82F6)
+              Loading spinners in various sizes and color variants using Plex yellow (#E5A00D)
             </p>
           </div>
 
@@ -100,8 +100,14 @@ export const LoadingStatesShowcase: FC = () => {
           <div className="bg-white rounded-lg border border-border p-6">
             <h3 className="text-lg font-medium text-text-primary mb-4">With Label</h3>
             <div className="flex items-center gap-8">
-              <Spinner size="md" label="Loading..." showLabel />
-              <Spinner size="lg" label="Please wait..." showLabel />
+              <div className="flex flex-col items-center gap-2">
+                <Spinner size="md" />
+                <span className="text-sm text-text-secondary">Loading...</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <Spinner size="lg" />
+                <span className="text-sm text-text-secondary">Please wait...</span>
+              </div>
             </div>
           </div>
         </section>
@@ -135,10 +141,10 @@ export const LoadingStatesShowcase: FC = () => {
           <div className="bg-white rounded-lg border border-border p-6">
             <h3 className="text-lg font-medium text-text-primary mb-4">Card Skeletons</h3>
             <div className="grid grid-cols-4 gap-6">
-              <SkeletonCard width="100%" height="300px" showText textLines={2} />
-              <SkeletonCard width="100%" height="300px" showText textLines={2} />
-              <SkeletonCard width="100%" height="300px" showText textLines={2} />
-              <SkeletonCard width="100%" height="300px" showText textLines={2} />
+              <SkeletonCard showTitle showSubtitle />
+              <SkeletonCard showTitle showSubtitle />
+              <SkeletonCard showTitle showSubtitle />
+              <SkeletonCard showTitle showSubtitle />
             </div>
           </div>
         </section>
@@ -182,16 +188,8 @@ export const LoadingStatesShowcase: FC = () => {
           <div className="bg-white rounded-lg border border-border overflow-hidden" style={{ height: '500px' }}>
             <TableLoadingState
               rows={8}
-              showPosters
-              rowHeightMode="comfortable"
-              showCheckbox
-              columns={[
-                { width: '40%', label: 'Title' },
-                { width: '15%', label: 'Year' },
-                { width: '15%', label: 'Rating' },
-                { width: '15%', label: 'Status' },
-                { width: '15%', label: 'Actions' },
-              ]}
+              showPoster
+              columns={5}
             />
           </div>
         </section>
@@ -207,10 +205,8 @@ export const LoadingStatesShowcase: FC = () => {
 
           <div className="bg-white rounded-lg border border-border overflow-hidden" style={{ height: '600px' }}>
             <GridLoadingState
-              count={20}
+              items={20}
               columns={5}
-              posterSize={180}
-              showText
             />
           </div>
         </section>
@@ -238,7 +234,7 @@ export const LoadingStatesShowcase: FC = () => {
               </p>
             </div>
             {showOverlay && (
-              <SpinnerOverlay message="Loading content..." opacity="medium" />
+              <SpinnerOverlay message="Loading content..." opacity={75} />
             )}
           </div>
         </section>
@@ -319,7 +315,7 @@ export const LoadingStatesShowcase: FC = () => {
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-primary-500 font-bold">•</span>
-                <span>Use the Plex Pro blue (#3B82F6) for all primary loading indicators</span>
+                <span>Use the Plex yellow (#E5A00D) for all primary loading indicators</span>
               </li>
             </ul>
           </div>

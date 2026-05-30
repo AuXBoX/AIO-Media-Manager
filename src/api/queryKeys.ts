@@ -4,11 +4,13 @@
  */
 
 export interface QueryOptions {
-  type?: string;
+  type?: string | number;
   sort?: string;
   filters?: Record<string, unknown>;
   offset?: number;
   limit?: number;
+  titlesOnly?: boolean;
+  musicViewMode?: 'artists' | 'albums';
 }
 
 export const queryKeys = {

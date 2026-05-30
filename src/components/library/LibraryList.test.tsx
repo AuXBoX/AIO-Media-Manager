@@ -200,7 +200,7 @@ describe('LibraryList', () => {
 
     const musicButton = screen.getByText('Music').closest('button');
     expect(musicButton).toHaveAttribute('aria-current', 'page');
-    expect(musicButton).toHaveClass('bg-blue-100');
+    expect(musicButton).toHaveClass('bg-primary-100');
   });
 
   it('should render error state', async () => {

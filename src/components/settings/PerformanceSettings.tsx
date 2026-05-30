@@ -109,7 +109,7 @@ export const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
           id="imageQuality"
           value={localSettings.imageQuality}
           onChange={(e) => handleChange('imageQuality', e.target.value as any)}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         >
           <option value="low">Low (Fastest, less bandwidth)</option>
           <option value="medium">Medium (Balanced)</option>
@@ -197,11 +197,11 @@ export const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
       </div>
 
       {/* Performance Tips */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
+      <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-primary-900 dark:text-primary-200 mb-2">
           💡 Performance Tips
         </h3>
-        <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-disc list-inside">
+        <ul className="text-sm text-primary-800 dark:text-primary-300 space-y-1 list-disc list-inside">
           <li>Lower page size for faster initial loads</li>
           <li>Enable lazy loading and virtual scrolling for large libraries</li>
           <li>Use lower image quality on slower connections</li>

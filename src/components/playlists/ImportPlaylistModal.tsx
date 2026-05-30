@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useAppStore } from '@/store/appStore';
 import { createPlexClient } from '@/api/plexClient';
 import { PlaylistManager, type LibraryTrack } from '@/managers/PlaylistManager';
+import { detectRegion, getPopularPlaylists, getCharts, type ChartItem } from '@/utils/chartData';
 
 interface ImportPlaylistModalProps {
   isOpen: boolean;
@@ -24,11 +25,94 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
   const { serverConnection, currentToken, selectedLibrary } = useAppStore();
   const [step, setStep] = useState<'input' | 'parsing' | 'matching' | 'results'>('input');
   const [playlistName, setPlaylistName] = useState('');
-  const [importSource, setImportSource] = useState<'csv' | 'text' | 'spotify'>('csv');
-  const [spotifyUrl, setSpotifyUrl] = useState('');
+  const [importSource, setImportSource] = useState<'csv' | 'text' | 'deezer' | 'billboard' | 'lastfm' | 'youtube' | 'aria'>('csv');
+  const [playlistUrl, setPlaylistUrl] = useState('');
   const [parsedTracks, setParsedTracks] = useState<MatchedTrack[]>([]);
   const [matchProgress, setMatchProgress] = useState({ current: 0, total: 0, matched: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Detect user's region and get suggestions
+  const region = useMemo(() => detectRegion(), []);
+  const suggestions = useMemo(() => {
+    if (importSource === 'aria' || importSource === 'billboard') {
+      return getCharts(importSource);
+    }
+    return getPopularPlaylists(importSource, region.code);
+  }, [importSource, region.code]);
+
+  const sourceOptions = [
+    { id: 'csv' as const, label: 'CSV File', icon: 'file', color: 'green' },
+    { id: 'text' as const, label: 'Text File', icon: 'text', color: 'blue' },
+    { id: 'deezer' as const, label: 'Deezer', icon: 'deezer', color: 'purple' },
+    { id: 'billboard' as const, label: 'Billboard', icon: 'chart', color: 'red' },
+    { id: 'lastfm' as const, label: 'Last.fm', icon: 'lastfm', color: 'red' },
+    { id: 'youtube' as const, label: 'YT Music', icon: 'youtube', color: 'red' },
+    { id: 'aria' as const, label: 'ARIA Charts', icon: 'chart', color: 'gold' },
+  ];
+
+  const getSourceLabel = (source: string): string => {
+    const labels: Record<string, string> = {
+      csv: 'CSV File', text: 'Text File', deezer: 'Deezer', billboard: 'Billboard',
+      lastfm: 'Last.fm', youtube: 'YouTube Music', aria: 'ARIA Charts',
+    };
+    return labels[source] || source;
+  };
+
+  const getSourcePlaceholder = (source: string): string => {
+    const placeholders: Record<string, string> = {
+      deezer: 'https://www.deezer.com/playlist/...',
+      billboard: 'https://www.billboard.com/charts/...',
+      lastfm: 'https://www.last.fm/user/.../playlists/...',
+      youtube: 'https://music.youtube.com/playlist?list=...',
+      aria: 'https://www.ariacharts.com.au/chart/...',
+    };
+    return placeholders[source] || 'Enter playlist URL...';
+  };
+
+  const SourceIcon = ({ type, color }: { type: string; color: string }) => {
+    const colorClass = {
+      green: 'text-green-500', blue: 'text-primary-500', purple: 'text-purple-500',
+      red: 'text-red-500', gold: 'text-yellow-500',
+    }[color] || 'text-gray-500';
+
+    const icons: Record<string, React.ReactNode> = {
+      file: (
+        <svg className={`w-6 h-6 mx-auto ${colorClass}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+      text: (
+        <svg className={`w-6 h-6 mx-auto ${colorClass}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h7" />
+        </svg>
+      ),
+      deezer: (
+        <svg className={`w-6 h-6 mx-auto ${colorClass}`} viewBox="0 0 24 24" fill="currentColor">
+          <rect x="2" y="18" width="4" height="3"/>
+          <rect x="7" y="14" width="4" height="7"/>
+          <rect x="12" y="10" width="4" height="11"/>
+          <rect x="17" y="6" width="4" height="15"/>
+        </svg>
+      ),
+      chart: (
+        <svg className={`w-6 h-6 mx-auto ${colorClass}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+      lastfm: (
+        <svg className={`w-6 h-6 mx-auto ${colorClass}`} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10.5 5.5c-2.5 0-4.5 2-4.5 4.5s2 4.5 4.5 4.5h3c.8 0 1.5.7 1.5 1.5s-.7 1.5-1.5 1.5h-3c-4.1 0-7.5-3.4-7.5-7.5S6.4 2.5 10.5 2.5h3c.8 0 1.5.7 1.5 1.5s-.7 1.5-1.5 1.5h-3zm3 4c2.5 0 4.5 2 4.5 4.5s-2 4.5-4.5 4.5h-3c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5h3c.8 0 1.5-.7 1.5-1.5s-.7-1.5-1.5-1.5h-3c-2.5 0-4.5-2-4.5-4.5s2-4.5 4.5-4.5h3c4.1 0 7.5 3.4 7.5 7.5s-3.4 7.5-7.5 7.5h-3c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5h3z"/>
+        </svg>
+      ),
+      youtube: (
+        <svg className={`w-6 h-6 mx-auto ${colorClass}`} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+        </svg>
+      ),
+    };
+
+    return <>{icons[type] || icons['chart']}</>;
+  };
 
   const parseCsv = (content: string): ParsedTrack[] => {
     const lines = content.split('\n').filter(l => l.trim());
@@ -129,25 +213,63 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
       setMatchProgress({ current: i + 1, total: tracks.length, matched: matchedCount });
 
       try {
-        // Search by title first
-        const results = await manager.searchLibraryTracks(selectedLibrary.key, track.title);
+        // Use artist-first search strategy
+        const query = track.artist ? `${track.artist} - ${track.title}` : track.title;
+        const results = await manager.searchLibraryTracks(
+          selectedLibrary.key, 
+          query,
+          track.artist,
+          track.title
+        );
         
         if (results.length > 0) {
-          // Try to find best match by artist
-          const bestMatch = results.find(r => 
-            r.artist.toLowerCase().includes(track.artist.toLowerCase()) ||
-            track.artist.toLowerCase().includes(r.artist.toLowerCase())
-          );
+          // Find best match with scoring
+          const cleanArtist = track.artist.toLowerCase().trim();
+          const cleanTitle = track.title.toLowerCase().trim();
           
-          if (bestMatch) {
+          let bestMatch = null;
+          let bestScore = 0;
+          
+          for (const r of results) {
+            const rArtist = r.artist.toLowerCase().trim();
+            const rTitle = r.title.toLowerCase().trim();
+            
+            // Calculate match score
+            let score = 0;
+            
+            // Title match
+            if (rTitle === cleanTitle) {
+              score += 70;
+            } else if (rTitle.includes(cleanTitle) || cleanTitle.includes(rTitle)) {
+              score += 60;
+            }
+            
+            // Artist match
+            if (rArtist === cleanArtist) {
+              score += 30;
+            } else if (rArtist.includes(cleanArtist) || cleanArtist.includes(rArtist)) {
+              score += 25;
+            }
+            
+            // Penalize Various Artists
+            const isVarious = rArtist.includes('various') || rArtist.includes('compilation');
+            if (isVarious && rArtist !== cleanArtist) {
+              score -= 40;
+            }
+            
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = r;
+            }
+          }
+          
+          // Only accept if score is reasonable
+          if (bestMatch && bestScore >= 40) {
             track.matched = bestMatch;
             track.status = 'matched';
             matchedCount++;
-          } else if (results.length > 0 && results[0]) {
-            // Use first result as fallback
-            track.matched = results[0];
-            track.status = 'matched';
-            matchedCount++;
+          } else {
+            track.status = 'not-found';
           }
         } else {
           track.status = 'not-found';
@@ -184,7 +306,7 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
     setPlaylistName('');
     setParsedTracks([]);
     setMatchProgress({ current: 0, total: 0, matched: 0 });
-    setSpotifyUrl('');
+    setPlaylistUrl('');
     onClose();
   };
 
@@ -200,7 +322,7 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={resetState}>
       <div 
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -232,7 +354,7 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
                   value={playlistName}
                   onChange={e => setPlaylistName(e.target.value)}
                   placeholder="My Imported Playlist"
-                  className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
 
@@ -241,46 +363,21 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Import From
                 </label>
-                <div className="grid grid-cols-3 gap-3">
-                  <button
-                    onClick={() => setImportSource('csv')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      importSource === 'csv'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <svg className="w-8 h-8 mx-auto mb-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">CSV File</span>
-                  </button>
-                  <button
-                    onClick={() => setImportSource('text')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      importSource === 'text'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <svg className="w-8 h-8 mx-auto mb-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h7" />
-                    </svg>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Text File</span>
-                  </button>
-                  <button
-                    onClick={() => setImportSource('spotify')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      importSource === 'spotify'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <svg className="w-8 h-8 mx-auto mb-2 text-green-500" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                    </svg>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Spotify</span>
-                  </button>
+                <div className="grid grid-cols-4 gap-2">
+                  {sourceOptions.map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setImportSource(opt.id)}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        importSource === opt.id
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <SourceIcon type={opt.icon} color={opt.color} />
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-1 block">{opt.label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -289,13 +386,13 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
                 <div>
                   <div
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                   >
                     <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <p className="text-gray-600 dark:text-gray-400">
-                      <span className="font-medium text-blue-500">Click to upload</span> your {importSource.toUpperCase()} file
+                      <span className="font-medium text-primary-500">Click to upload</span> your {importSource.toUpperCase()} file
                     </p>
                     <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
                       {importSource === 'csv' 
@@ -312,20 +409,89 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
                   />
                 </div>
               ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Spotify Playlist URL
-                  </label>
-                  <input
-                    type="text"
-                    value={spotifyUrl}
-                    onChange={e => setSpotifyUrl(e.target.value)}
-                    placeholder="https://open.spotify.com/playlist/..."
-                    className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    Note: Spotify import requires API configuration in Settings
-                  </p>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {getSourceLabel(importSource)} URL
+                      </label>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {region.flag} {region.name}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={playlistUrl}
+                      onChange={e => setPlaylistUrl(e.target.value)}
+                      placeholder={getSourcePlaceholder(importSource)}
+                      className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      Paste the playlist URL from {getSourceLabel(importSource)}
+                    </p>
+                  </div>
+
+                  {/* Suggested playlists/charts */}
+                  {suggestions.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {importSource === 'aria' || importSource === 'billboard' ? 'Available Charts' : 'Popular Playlists'}
+                      </label>
+                      <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+                        {suggestions.map((item: ChartItem) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setPlaylistUrl(item.url);
+                              if (!playlistName) {
+                                setPlaylistName(item.name);
+                              }
+                            }}
+                            className={`flex items-center justify-between p-3 rounded-lg border transition-all text-left ${
+                              playlistUrl === item.url
+                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {item.name}
+                              </p>
+                              {item.description && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
+                            <svg className="w-4 h-4 text-gray-400 ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Import button for URL sources */}
+                  <button
+                    onClick={() => {
+                      if (!playlistUrl.trim()) {
+                        alert('Please enter a URL or select a chart');
+                        return;
+                      }
+                      // For now, URL import creates a playlist from the URL metadata
+                      // In the future, this could scrape the actual playlist data
+                      const name = playlistName || getSourceLabel(importSource) + ' Import';
+                      onImport(name, []);
+                      resetState();
+                    }}
+                    className="w-full px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Import Playlist
+                  </button>
                 </div>
               )}
             </div>
@@ -333,20 +499,20 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
 
           {step === 'parsing' && (
             <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" />
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4" />
               <p className="text-gray-600 dark:text-gray-400">Parsing file...</p>
             </div>
           )}
 
           {step === 'matching' && (
             <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" />
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4" />
               <p className="text-gray-600 dark:text-gray-400">
                 Matching tracks... ({matchProgress.current}/{matchProgress.total})
               </p>
               <div className="w-full max-w-xs mt-4 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div 
-                  className="bg-blue-500 h-2 rounded-full transition-all"
+                  className="bg-primary-500 h-2 rounded-full transition-all"
                   style={{ width: `${(matchProgress.current / matchProgress.total) * 100}%` }}
                 />
               </div>
@@ -367,7 +533,7 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
                     {matchProgress.total - matchProgress.matched} not found
                   </p>
                 </div>
-                <div className="text-2xl font-bold text-blue-500">
+                <div className="text-2xl font-bold text-primary-500">
                   {Math.round((matchProgress.matched / matchProgress.total) * 100)}%
                 </div>
               </div>
@@ -423,7 +589,7 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
             <button
               onClick={handleImport}
               disabled={matchProgress.matched === 0}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-full font-medium transition-colors"
+              className="px-5 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-full font-medium transition-colors"
             >
               Import {matchProgress.matched} Tracks
             </button>

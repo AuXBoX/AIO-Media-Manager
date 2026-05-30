@@ -146,15 +146,15 @@ export function CoverArtModal({
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
               dragOver 
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+                : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
             }`}
           >
             <svg className="w-10 h-10 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <p className="text-gray-600 dark:text-gray-400">
-              <span className="font-medium text-blue-500">Click to upload</span> or drag and drop
+              <span className="font-medium text-primary-500">Click to upload</span> or drag and drop
             </p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">PNG, JPG, GIF up to 10MB</p>
           </div>
@@ -180,7 +180,7 @@ export function CoverArtModal({
                     onClick={() => handleSelectAlbumArt(url)}
                     className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                       previewUrl === url 
-                        ? 'border-blue-500 ring-2 ring-blue-500/30' 
+                        ? 'border-primary-500 ring-2 ring-primary-500/30' 
                         : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
@@ -207,7 +207,7 @@ export function CoverArtModal({
           <button
             onClick={handleUpload}
             disabled={!selectedBlob || uploading}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-full font-medium transition-colors flex items-center gap-2"
+            className="px-5 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-full font-medium transition-colors flex items-center gap-2"
           >
             {uploading && (
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />

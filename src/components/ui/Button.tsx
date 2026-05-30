@@ -81,7 +81,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           // Base styles
           'inline-flex items-center justify-center gap-2',
           'font-medium transition-all duration-150',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
           
           // Size variants
           {
@@ -104,8 +104,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           // Variant styles
           {
             // Primary - Solid blue
-            'bg-blue-600 text-white shadow-sm': variant === 'primary' && !isDisabled,
-            'hover:bg-blue-700 active:bg-blue-800': 
+            'bg-primary-600 text-white shadow-sm': variant === 'primary' && !isDisabled,
+            'hover:bg-primary-700 active:bg-primary-800': 
               variant === 'primary' && !isDisabled,
             
             // Secondary - Light gray background with subtle border

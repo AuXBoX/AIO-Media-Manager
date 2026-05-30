@@ -66,7 +66,7 @@ export interface IPlaylistManager {
   removeCoverArt(playlistId: string): Promise<void>;
 
   // Search
-  searchLibraryTracks(sectionKey: string, query: string): Promise<LibraryTrack[]>;
+  searchLibraryTracks(sectionKey: string, query: string, artistHint?: string, titleHint?: string): Promise<LibraryTrack[]>;
 }
 
 /**
@@ -223,27 +223,174 @@ export class PlaylistManager implements IPlaylistManager {
 
   /**
    * Search library for tracks matching a query
+   * Uses artist-first strategy ported from Playlist Lab for better results
    */
-  async searchLibraryTracks(sectionKey: string, query: string): Promise<LibraryTrack[]> {
-    const response = await this.client.get<any>(`/library/sections/${sectionKey}/all`, {
-      params: {
-        type: 10, // Track type
-        title: query,
-      },
-    });
+  async searchLibraryTracks(sectionKey: string, query: string, artistHint?: string, titleHint?: string): Promise<LibraryTrack[]> {
+    console.log('[PlaylistManager] Searching for:', query, 'in library:', sectionKey, { artistHint, titleHint });
+    
+    const allResults: LibraryTrack[] = [];
+    const seenKeys = new Set<string>();
 
-    const items = response.MediaContainer?.Metadata || [];
-    return items.map((item: any) => ({
-      ratingKey: item.ratingKey,
-      key: item.key,
-      title: item.title,
-      artist: item.grandparentTitle || item.originalTitle || '',
-      album: item.parentTitle || '',
-      duration: item.duration || 0,
-      thumb: item.thumb,
-      parentThumb: item.parentThumb,
-      grandparentThumb: item.grandparentThumb,
-    }));
+    // Helper to add results without duplicates
+    const addResults = (items: any[]) => {
+      for (const item of items) {
+        if (!seenKeys.has(item.ratingKey)) {
+          seenKeys.add(item.ratingKey);
+          allResults.push({
+            ratingKey: item.ratingKey,
+            key: item.key,
+            title: item.title,
+            artist: item.grandparentTitle || item.originalTitle || '',
+            album: item.parentTitle || '',
+            duration: item.duration || 0,
+            thumb: item.thumb,
+            parentThumb: item.parentThumb,
+            grandparentThumb: item.grandparentThumb,
+          });
+        }
+      }
+    };
+
+    // Normalize function for comparison
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // Parse query into artist and title if no hints provided
+    let searchArtist = artistHint || '';
+    let searchTitle = titleHint || '';
+    
+    if (!searchArtist && !searchTitle) {
+      // Try to parse "Artist - Title" format
+      if (query.includes(' - ')) {
+        const parts = query.split(' - ');
+        searchArtist = parts[0]?.trim() || '';
+        searchTitle = parts.slice(1).join(' - ').trim();
+      } else {
+        // Assume it's just a title or artist + title
+        searchTitle = query;
+      }
+    }
+
+    // Clean up search terms
+    const cleanSearch = (s: string) => s
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\u2018\u2019\u201A\u201B\u0027\u0060\u00B4']/g, '')
+      .replace(/[^\w\s\-]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    searchArtist = cleanSearch(searchArtist);
+    searchTitle = cleanSearch(searchTitle);
+
+    console.log('[PlaylistManager] Parsed search:', { searchArtist, searchTitle });
+
+    // Strategy 1: Artist-first search (most efficient when artist exists)
+    if (searchArtist && searchTitle) {
+      try {
+        console.log('[PlaylistManager] Strategy 1: Artist-first search');
+        const artistResponse = await this.client.get<any>(
+          `/library/sections/${sectionKey}/all`,
+          { params: { type: 8, 'artist.title': searchArtist } }
+        );
+        
+        const artists = artistResponse.MediaContainer?.Metadata || [];
+        console.log('[PlaylistManager] Found', artists.length, 'artists matching:', searchArtist);
+        
+        if (artists.length > 0) {
+          // Get tracks from the first matching artist
+          const artistKey = artists[0].ratingKey;
+          const tracksResponse = await this.client.get<any>(
+            `/library/metadata/${artistKey}/allLeaves`,
+            { params: { type: 10 } }
+          );
+          
+          const artistTracks = tracksResponse.MediaContainer?.Metadata || [];
+          console.log('[PlaylistManager] Artist has', artistTracks.length, 'tracks');
+          
+          // Filter tracks by title
+          const normalizedSearchTitle = normalize(searchTitle);
+          const matchingTracks = artistTracks.filter((track: any) => {
+            const trackTitle = track.title || '';
+            const normalizedTrackTitle = normalize(trackTitle);
+            return normalizedTrackTitle.includes(normalizedSearchTitle) || 
+                   normalizedSearchTitle.includes(normalizedTrackTitle);
+          });
+          
+          console.log('[PlaylistManager] Filtered to', matchingTracks.length, 'matching tracks');
+          addResults(matchingTracks);
+        }
+      } catch (error) {
+        console.error('[PlaylistManager] Artist-first search failed:', error);
+      }
+    }
+
+    // Strategy 2: Direct filter with artist.title and track.title
+    if (allResults.length === 0 && searchArtist && searchTitle) {
+      try {
+        console.log('[PlaylistManager] Strategy 2: Direct filter search');
+        const response = await this.client.get<any>(
+          `/library/sections/${sectionKey}/all`,
+          { params: { type: 10, 'artist.title': searchArtist, 'track.title': searchTitle } }
+        );
+        const items = response.MediaContainer?.Metadata || [];
+        console.log('[PlaylistManager] Direct filter found', items.length, 'results');
+        addResults(items);
+      } catch (error) {
+        console.error('[PlaylistManager] Direct filter search failed:', error);
+      }
+    }
+
+    // Strategy 3: Track title only search
+    if (allResults.length === 0 && searchTitle) {
+      try {
+        console.log('[PlaylistManager] Strategy 3: Title-only search');
+        const response = await this.client.get<any>(
+          `/library/sections/${sectionKey}/all`,
+          { params: { type: 10, 'track.title': searchTitle } }
+        );
+        const items = response.MediaContainer?.Metadata || [];
+        console.log('[PlaylistManager] Title-only search found', items.length, 'results');
+        addResults(items);
+      } catch (error) {
+        console.error('[PlaylistManager] Title-only search failed:', error);
+      }
+    }
+
+    // Strategy 4: Hub search (free-text across all fields)
+    if (allResults.length === 0) {
+      try {
+        console.log('[PlaylistManager] Strategy 4: Hub search fallback');
+        const hubQuery = [searchArtist, searchTitle].filter(Boolean).join(' ');
+        const response = await this.client.get<any>(
+          `/library/sections/${sectionKey}/all`,
+          { params: { type: 10, title: hubQuery } }
+        );
+        const items = response.MediaContainer?.Metadata || [];
+        console.log('[PlaylistManager] Hub search found', items.length, 'results');
+        addResults(items);
+      } catch (error) {
+        console.error('[PlaylistManager] Hub search failed:', error);
+      }
+    }
+
+    // Strategy 5: Try artist with hyphen replaced by space
+    if (allResults.length === 0 && searchArtist && searchArtist.includes('-')) {
+      const artistVariant = searchArtist.replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+      if (artistVariant !== searchArtist) {
+        try {
+          console.log('[PlaylistManager] Strategy 5: Artist variant search:', artistVariant);
+          const response = await this.client.get<any>(
+            `/library/sections/${sectionKey}/all`,
+            { params: { type: 10, 'artist.title': artistVariant, 'track.title': searchTitle } }
+          );
+          const items = response.MediaContainer?.Metadata || [];
+          console.log('[PlaylistManager] Artist variant search found', items.length, 'results');
+          addResults(items);
+        } catch (error) {
+          console.error('[PlaylistManager] Artist variant search failed:', error);
+        }
+      }
+    }
+
+    console.log('[PlaylistManager] Total unique results:', allResults.length);
+    return allResults;
   }
 
   /**

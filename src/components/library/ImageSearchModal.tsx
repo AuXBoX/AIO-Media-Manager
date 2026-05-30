@@ -620,7 +620,7 @@ export function ImageSearchModal({
             {isSearching ? (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
                   <p className="text-slate-600">Searching {isTVShow ? 'TVDB and TMDB' : 'TMDB'}...</p>
                 </div>
               </div>
@@ -632,8 +632,8 @@ export function ImageSearchModal({
                     onClick={() => setSelectedMatch(result)}
                     className={`flex gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                       selectedMatch?.externalId === result.externalId
-                        ? 'border-blue-500 bg-blue-50 shadow-md'
-                        : 'border-slate-200 hover:border-blue-300 hover:shadow-sm'
+                        ? 'border-primary-500 bg-primary-50 shadow-md'
+                        : 'border-slate-200 hover:border-primary-300 hover:shadow-sm'
                     }`}
                   >
                     {result.thumb && (
@@ -661,7 +661,7 @@ export function ImageSearchModal({
                     </div>
                     {selectedMatch?.externalId === result.externalId && (
                       <div className="flex items-center">
-                        <div className="bg-blue-500 text-white rounded-full p-2">
+                        <div className="bg-primary-500 text-white rounded-full p-2">
                           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
@@ -743,7 +743,7 @@ export function ImageSearchModal({
               {isLoadingImages ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
                     <p className="text-slate-600">Loading images from {isTVShow ? 'TVDB, TMDB, Fanart.tv' : 'TMDB, Fanart.tv'}...</p>
                   </div>
                 </div>
@@ -757,7 +757,7 @@ export function ImageSearchModal({
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
-                        className="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
                         <option value="size-desc">Largest first</option>
                         <option value="size-asc">Smallest first</option>
@@ -778,8 +778,8 @@ export function ImageSearchModal({
                             key={`poster-${index}`}
                             className={`relative cursor-pointer rounded-xl overflow-hidden border-2 transition-all group ${
                               selectedPoster?.url === image.url
-                                ? 'border-blue-500 shadow-lg ring-2 ring-blue-500 scale-105'
-                                : 'border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105'
+                                ? 'border-primary-500 shadow-lg ring-2 ring-primary-500 scale-105'
+                                : 'border-slate-200 hover:border-primary-300 hover:shadow-md hover:scale-105'
                             }`}
                             onClick={() => setSelectedPoster(image)}
                           >
@@ -802,7 +802,7 @@ export function ImageSearchModal({
                               {image.provider && <div className="font-semibold mt-1">{image.provider}</div>}
                             </div>
                             {selectedPoster?.url === image.url && (
-                              <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1.5 shadow-lg">
+                              <div className="absolute top-2 right-2 bg-primary-500 text-white rounded-full p-1.5 shadow-lg">
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
@@ -826,8 +826,8 @@ export function ImageSearchModal({
                             key={`background-${index}`}
                             className={`relative cursor-pointer rounded-xl overflow-hidden border-2 transition-all group ${
                               selectedBackground?.url === image.url
-                                ? 'border-blue-500 shadow-lg ring-2 ring-blue-500 scale-105'
-                                : 'border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105'
+                                ? 'border-primary-500 shadow-lg ring-2 ring-primary-500 scale-105'
+                                : 'border-slate-200 hover:border-primary-300 hover:shadow-md hover:scale-105'
                             }`}
                             onClick={() => setSelectedBackground(image)}
                           >
@@ -850,7 +850,7 @@ export function ImageSearchModal({
                               {image.provider && <div className="font-semibold mt-1">{image.provider}</div>}
                             </div>
                             {selectedBackground?.url === image.url && (
-                              <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1.5 shadow-lg">
+                              <div className="absolute top-2 right-2 bg-primary-500 text-white rounded-full p-1.5 shadow-lg">
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
@@ -912,7 +912,7 @@ export function ImageSearchModal({
               <select
                 value={saveTarget}
                 onChange={(e) => setSaveTarget(e.target.value as 'plex' | 'local' | 'both')}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
                 <option value="plex">Save to Plex</option>
                 <option value="local">Save Locally</option>

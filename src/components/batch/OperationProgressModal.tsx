@@ -92,7 +92,7 @@ export function OperationProgressModal({
   const getStatusColor = (statusType: string): string => {
     switch (statusType) {
       case 'running':
-        return 'text-blue-600 dark:text-blue-400';
+        return 'text-primary-600 dark:text-primary-400';
       case 'completed':
         return 'text-green-600 dark:text-green-400';
       case 'cancelled':
@@ -259,7 +259,7 @@ export function OperationProgressModal({
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                     <div
-                      className="bg-blue-500 h-full transition-all duration-300 ease-out"
+                      className="bg-primary-500 h-full transition-all duration-300 ease-out"
                       style={{ width: `${status.progress}%` }}
                     />
                   </div>
@@ -285,11 +285,11 @@ export function OperationProgressModal({
 
                 {/* Estimated Time Remaining */}
                 {status.status === 'running' && status.estimatedTimeRemaining !== undefined && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                    <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">
+                  <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-4">
+                    <p className="text-sm text-primary-600 dark:text-primary-400 mb-1">
                       Estimated Time Remaining
                     </p>
-                    <p className="text-xl font-semibold text-blue-700 dark:text-blue-300">
+                    <p className="text-xl font-semibold text-primary-700 dark:text-primary-300">
                       {formatTime(status.estimatedTimeRemaining)}
                     </p>
                   </div>
@@ -330,7 +330,7 @@ export function OperationProgressModal({
             {status && status.status !== 'running' && (
               <button
                 onClick={handleClose}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                className="px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition-colors"
               >
                 Close
               </button>

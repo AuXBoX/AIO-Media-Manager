@@ -52,7 +52,7 @@ export function SearchBar({
       <div
         className={`flex items-center border rounded-lg transition-colors ${
           isFocused
-            ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800'
+            ? 'border-primary-500 ring-2 ring-primary-200 dark:ring-primary-800'
             : 'border-gray-300 dark:border-gray-600'
         } bg-white dark:bg-gray-800`}
       >

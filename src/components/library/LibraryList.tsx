@@ -105,7 +105,7 @@ export function LibraryList() {
                 transition-colors duration-150
                 ${
                   selectedLibrary?.key === section.key
-                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
+                    ? 'bg-primary-100 dark:bg-primary-900 text-primary-900 dark:text-primary-100'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                 }
               `}

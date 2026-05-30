@@ -242,7 +242,7 @@ describe('MatchCandidateCard', () => {
     );
 
     const card = container.firstChild;
-    expect(card).toHaveClass('border-blue-500');
+    expect(card).toHaveClass('border-primary-500');
   });
 
   it('applies default styling when isBestMatch is false', () => {

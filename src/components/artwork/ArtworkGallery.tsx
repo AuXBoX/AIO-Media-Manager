@@ -61,7 +61,7 @@ export const ArtworkGallery: React.FC<ArtworkGalleryProps> = ({
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-2"></div>
           <p className="text-sm text-gray-600 dark:text-gray-400">Loading artwork...</p>
         </div>
       </div>
@@ -87,7 +87,7 @@ export const ArtworkGallery: React.FC<ArtworkGalleryProps> = ({
         {onUpload && (
           <button
             onClick={() => onUpload('poster')}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+            className="px-4 py-2 bg-primary-500 text-white rounded hover:bg-primary-600 transition-colors text-sm"
           >
             Upload Artwork
           </button>
@@ -105,7 +105,7 @@ export const ArtworkGallery: React.FC<ArtworkGalleryProps> = ({
             key={`${asset.type}-${index}`}
             className={`relative bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden border-2 transition-all ${
               asset.selected
-                ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50'
+                ? 'border-primary-500 ring-2 ring-primary-500 ring-opacity-50'
                 : 'border-gray-200 dark:border-gray-700'
             }`}
           >
@@ -119,7 +119,7 @@ export const ArtworkGallery: React.FC<ArtworkGalleryProps> = ({
             {/* Selected Badge */}
             {asset.selected && (
               <div className="absolute top-2 right-2 z-10">
-                <span className="px-2 py-1 bg-blue-500 text-white text-xs rounded flex items-center">
+                <span className="px-2 py-1 bg-primary-500 text-white text-xs rounded flex items-center">
                   <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
@@ -159,7 +159,7 @@ export const ArtworkGallery: React.FC<ArtworkGalleryProps> = ({
                 {onSelect && !asset.selected && (
                   <button
                     onClick={() => onSelect(asset.url, asset.type)}
-                    className="flex-1 px-3 py-1.5 text-sm text-white bg-blue-500 rounded hover:bg-blue-600 transition-colors"
+                    className="flex-1 px-3 py-1.5 text-sm text-white bg-primary-500 rounded hover:bg-primary-600 transition-colors"
                   >
                     Select
                   </button>
@@ -191,7 +191,7 @@ export const ArtworkGallery: React.FC<ArtworkGalleryProps> = ({
         <div className="flex justify-center pt-4">
           <button
             onClick={() => onUpload('poster')}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2"
+            className="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center space-x-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
