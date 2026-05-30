@@ -44,8 +44,9 @@ export function UpdateNotification() {
     });
 
     const unsubError = electron.updater.onError((err: { message: string }) => {
-      setError(err.message);
-      setStatus('error');
+      // Silently ignore update errors - don't show to user
+      console.warn('[Update] Error (suppressed):', err.message);
+      setStatus('idle');
     });
 
     // Check for updates on mount

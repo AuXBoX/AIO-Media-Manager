@@ -241,12 +241,8 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (error) => {
-    console.error('[AutoUpdater] Error:', error);
-    if (mainWindow) {
-      mainWindow.webContents.send('update:error', {
-        message: error.message,
-      });
-    }
+    console.error('[AutoUpdater] Error:', error.message);
+    // Don't send update errors to renderer - silently fail
   });
 
   // Check for updates after a short delay (only in packaged app)
