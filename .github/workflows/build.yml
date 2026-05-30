@@ -6,6 +6,9 @@ on:
       - 'v*'  # Only build when a version tag is pushed
   workflow_dispatch:  # Allow manual trigger
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     strategy:
