@@ -1,158 +1,158 @@
 {
-  "name": "aio-media-manager",
-  "version": "1.0.0",
-  "description": "A desktop and web application for viewing and editing metadata for movies, TV shows, and music in Plex Media Server libraries",
-  "main": "electron/main.js",
-  "scripts": {
-    "dev": "vite",
-    "dev:electron": "concurrently \"vite --mode development\" \"wait-on http://localhost:5173 && cross-env ELECTRON_IS_DEV=1 VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
-    "build": "tsc --project tsconfig.build.json && vite build",
-    "build:electron": "tsc --project tsconfig.build.json && vite build && node -e \"require('fs').copyFileSync('electron/binaryManager.js', 'dist-electron/binaryManager.js')\" && electron-builder && node scripts/cleanup-build.js",
-    "download-binaries": "node scripts/download-binaries.js",
-    "preview": "vite preview",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage",
-    "test:e2e": "playwright test",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "type-check": "tsc --noEmit"
-  },
-  "keywords": [
-    "aio",
-    "media",
-    "metadata",
-    "manager",
-    "plex",
-    "electron",
-    "desktop"
-  ],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "@tanstack/react-query": "^5.56.2",
-    "@tanstack/react-virtual": "^3.13.24",
-    "@types/fluent-ffmpeg": "^2.1.28",
-    "adm-zip": "^0.5.17",
-    "axios": "^1.7.7",
-    "clsx": "^2.1.1",
-    "date-fns": "^3.6.0",
-    "dexie": "^4.0.8",
-    "dexie-react-hooks": "^1.1.7",
-    "fast-xml-parser": "^4.5.0",
-    "ffmetadata": "^1.7.0",
-    "fluent-ffmpeg": "^2.1.3",
-    "music-metadata": "^11.12.3",
-    "node-id3": "^0.2.9",
-    "pako": "^2.1.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
-    "ytdl-core": "^4.11.5",
-    "zustand": "^4.5.5"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.47.2",
-    "@testing-library/jest-dom": "^6.5.0",
-    "@testing-library/react": "^16.0.1",
-    "@testing-library/user-event": "^14.5.2",
-    "@types/node": "^22.5.5",
-    "@types/pako": "^2.0.4",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.5.0",
-    "@typescript-eslint/parser": "^8.5.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "@vitest/coverage-v8": "^2.1.1",
-    "@vitest/ui": "^2.1.1",
-    "autoprefixer": "^10.4.20",
-    "axios-mock-adapter": "^2.1.0",
-    "concurrently": "^9.0.1",
-    "cross-env": "^10.1.0",
-    "electron": "^32.1.0",
-    "electron-builder": "^25.0.5",
-    "electron-store": "^10.0.0",
-    "electron-updater": "^6.8.3",
-    "eslint": "^8.57.0",
-    "eslint-plugin-react": "^7.35.0",
-    "eslint-plugin-react-hooks": "^4.6.2",
-    "eslint-plugin-react-refresh": "^0.4.12",
-    "jsdom": "^25.0.0",
-    "png-to-ico": "^3.0.1",
-    "postcss": "^8.4.47",
-    "prettier": "^3.3.3",
-    "tailwindcss": "^3.4.11",
-    "terser": "^5.46.2",
-    "typescript": "^5.6.2",
-    "uuid": "^14.0.0",
-    "vite": "^5.4.5",
-    "vite-plugin-electron": "^0.28.7",
-    "vite-plugin-electron-renderer": "^0.14.5",
-    "vite-plugin-pwa": "^1.2.0",
-    "vitest": "^2.1.1",
-    "wait-on": "^8.0.1",
-    "workbox-window": "^7.4.0"
-  },
-  "build": {
-    "appId": "com.aiomediamanager.app",
-    "productName": "AIO Media Manager",
-    "publish": {
-      "provider": "github",
-      "owner": "AuxBox",
-      "repo": "AIO-Media-Manager"
-    },
-    "asar": true,
-    "asarUnpack": [
-      "node_modules/music-metadata/**/*",
-      "node_modules/node-id3/**/*",
-      "node_modules/ffmetadata/**/*",
-      "node_modules/ytdl-core/**/*",
-      "node_modules/**/*.node",
-      "node_modules/**/build/**/*"
-    ],
-    "directories": {
-      "output": "dist-electron",
-      "buildResources": "build-resources"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "package.json",
-      "node_modules/**/*"
-    ],
-    "mac": {
-      "category": "public.app-category.utilities",
-      "icon": "build-resources/icon.png",
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    },
-    "win": {
-      "icon": "build-resources/icon.ico",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "linux": {
-      "icon": "build-resources/icon.png",
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "Utility"
-    }
-  }
+    "name":  "aio-media-manager",
+    "version":  "1.0.0",
+    "description":  "A desktop and web application for viewing and editing metadata for movies, TV shows, and music in Plex Media Server libraries",
+    "main":  "electron/main.js",
+    "scripts":  {
+                    "dev":  "vite",
+                    "dev:electron":  "concurrently \"vite --mode development\" \"wait-on http://localhost:5173 \u0026\u0026 cross-env ELECTRON_IS_DEV=1 VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+                    "build":  "tsc --project tsconfig.build.json \u0026\u0026 vite build",
+                    "build:electron":  "tsc --project tsconfig.build.json \u0026\u0026 vite build \u0026\u0026 node -e \"require(\u0027fs\u0027).copyFileSync(\u0027electron/binaryManager.js\u0027, \u0027dist-electron/binaryManager.js\u0027)\" \u0026\u0026 electron-builder \u0026\u0026 node scripts/cleanup-build.js",
+                    "download-binaries":  "node scripts/download-binaries.js",
+                    "preview":  "vite preview",
+                    "test":  "vitest",
+                    "test:ui":  "vitest --ui",
+                    "test:coverage":  "vitest --coverage",
+                    "test:e2e":  "playwright test",
+                    "lint":  "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+                    "format":  "prettier --write \"src/**/*.{ts,tsx,css}\"",
+                    "type-check":  "tsc --noEmit"
+                },
+    "keywords":  [
+                     "aio",
+                     "media",
+                     "metadata",
+                     "manager",
+                     "plex",
+                     "electron",
+                     "desktop"
+                 ],
+    "author":  "",
+    "license":  "MIT",
+    "dependencies":  {
+                         "@tanstack/react-query":  "^5.56.2",
+                         "@tanstack/react-virtual":  "^3.13.24",
+                         "@types/fluent-ffmpeg":  "^2.1.28",
+                         "adm-zip":  "^0.5.17",
+                         "axios":  "^1.7.7",
+                         "clsx":  "^2.1.1",
+                         "date-fns":  "^3.6.0",
+                         "dexie":  "^4.0.8",
+                         "dexie-react-hooks":  "^1.1.7",
+                         "fast-xml-parser":  "^4.5.0",
+                         "ffmetadata":  "^1.7.0",
+                         "fluent-ffmpeg":  "^2.1.3",
+                         "music-metadata":  "^11.12.3",
+                         "node-id3":  "^0.2.9",
+                         "pako":  "^2.1.0",
+                         "react":  "^18.3.1",
+                         "react-dom":  "^18.3.1",
+                         "react-router-dom":  "^6.26.2",
+                         "ytdl-core":  "^4.11.5",
+                         "zustand":  "^4.5.5"
+                     },
+    "devDependencies":  {
+                            "@playwright/test":  "^1.47.2",
+                            "@testing-library/jest-dom":  "^6.5.0",
+                            "@testing-library/react":  "^16.0.1",
+                            "@testing-library/user-event":  "^14.5.2",
+                            "@types/node":  "^22.5.5",
+                            "@types/pako":  "^2.0.4",
+                            "@types/react":  "^18.3.5",
+                            "@types/react-dom":  "^18.3.0",
+                            "@types/uuid":  "^10.0.0",
+                            "@typescript-eslint/eslint-plugin":  "^8.5.0",
+                            "@typescript-eslint/parser":  "^8.5.0",
+                            "@vitejs/plugin-react":  "^4.3.1",
+                            "@vitest/coverage-v8":  "^2.1.1",
+                            "@vitest/ui":  "^2.1.1",
+                            "autoprefixer":  "^10.4.20",
+                            "axios-mock-adapter":  "^2.1.0",
+                            "concurrently":  "^9.0.1",
+                            "cross-env":  "^10.1.0",
+                            "electron":  "^32.1.0",
+                            "electron-builder":  "^25.0.5",
+                            "electron-store":  "^10.0.0",
+                            "electron-updater":  "^6.8.3",
+                            "eslint":  "^8.57.0",
+                            "eslint-plugin-react":  "^7.35.0",
+                            "eslint-plugin-react-hooks":  "^4.6.2",
+                            "eslint-plugin-react-refresh":  "^0.4.12",
+                            "jsdom":  "^25.0.0",
+                            "png-to-ico":  "^3.0.1",
+                            "postcss":  "^8.4.47",
+                            "prettier":  "^3.3.3",
+                            "tailwindcss":  "^3.4.11",
+                            "terser":  "^5.46.2",
+                            "typescript":  "^5.6.2",
+                            "uuid":  "^14.0.0",
+                            "vite":  "^5.4.5",
+                            "vite-plugin-electron":  "^0.28.7",
+                            "vite-plugin-electron-renderer":  "^0.14.5",
+                            "vite-plugin-pwa":  "^1.2.0",
+                            "vitest":  "^2.1.1",
+                            "wait-on":  "^8.0.1",
+                            "workbox-window":  "^7.4.0"
+                        },
+    "build":  {
+                  "appId":  "com.aiomediamanager.app",
+                  "productName":  "AIO Media Manager",
+                  "publish":  {
+                                  "provider":  "github",
+                                  "owner":  "AuxBox",
+                                  "repo":  "AIO-Media-Manager"
+                              },
+                  "asar":  true,
+                  "asarUnpack":  [
+                                     "node_modules/music-metadata/**/*",
+                                     "node_modules/node-id3/**/*",
+                                     "node_modules/ffmetadata/**/*",
+                                     "node_modules/ytdl-core/**/*",
+                                     "node_modules/**/*.node",
+                                     "node_modules/**/build/**/*"
+                                 ],
+                  "directories":  {
+                                      "output":  "dist-electron",
+                                      "buildResources":  "build-resources"
+                                  },
+                  "files":  [
+                                "dist/**/*",
+                                "electron/**/*",
+                                "package.json",
+                                "node_modules/**/*"
+                            ],
+                  "mac":  {
+                              "category":  "public.app-category.utilities",
+                              "icon":  "build-resources/icon.png",
+                              "target":  [
+                                             "dmg",
+                                             "zip"
+                                         ]
+                          },
+                  "win":  {
+                              "icon":  "build-resources/icon.ico",
+                              "target":  [
+                                             {
+                                                 "target":  "nsis",
+                                                 "arch":  [
+                                                              "x64"
+                                                          ]
+                                             },
+                                             {
+                                                 "target":  "zip",
+                                                 "arch":  [
+                                                              "x64"
+                                                          ]
+                                             }
+                                         ]
+                          },
+                  "linux":  {
+                                "icon":  "build-resources/icon.png",
+                                "target":  [
+                                               "AppImage",
+                                               "deb"
+                                           ],
+                                "category":  "Utility"
+                            }
+              }
 }
