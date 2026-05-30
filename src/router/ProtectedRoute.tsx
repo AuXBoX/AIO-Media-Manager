@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAppStore } from '@/store/appStore';
+import { PageLoadingState } from '@/components/ui/LoadingState';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,18 +12,7 @@ export function ProtectedRoute({ children, requireServer = true }: ProtectedRout
 
   // Wait for hydration to complete before checking auth
   if (!isHydrated) {
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        backgroundColor: '#1a1a1a',
-        color: '#ffffff',
-      }}>
-        Loading...
-      </div>
-    );
+    return <PageLoadingState message="Loading..." />;
   }
 
   // If no token, redirect to authentication

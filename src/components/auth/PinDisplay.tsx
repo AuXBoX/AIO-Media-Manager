@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/Button';
 import type { PinResponse } from '@/managers/AuthenticationManager';
 
 export interface PinDisplayProps {
@@ -69,12 +70,9 @@ export function PinDisplay({ pin, loading, error, onRefresh }: PinDisplayProps) 
         </div>
         <p className="text-red-600 dark:text-red-400 text-center mb-4">{error}</p>
         {onRefresh && (
-          <button
-            onClick={onRefresh}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-          >
+          <Button onClick={onRefresh} variant="primary">
             Try Again
-          </button>
+          </Button>
         )}
       </div>
     );
@@ -85,12 +83,9 @@ export function PinDisplay({ pin, loading, error, onRefresh }: PinDisplayProps) 
       <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
         <p className="text-gray-600 dark:text-gray-300">No PIN available</p>
         {onRefresh && (
-          <button
-            onClick={onRefresh}
-            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-          >
+          <Button onClick={onRefresh} variant="primary" className="mt-4">
             Generate PIN
-          </button>
+          </Button>
         )}
       </div>
     );
@@ -159,12 +154,9 @@ export function PinDisplay({ pin, loading, error, onRefresh }: PinDisplayProps) 
 
       {/* Refresh Button */}
       {isExpired && onRefresh && (
-        <button
-          onClick={onRefresh}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium"
-        >
+        <Button onClick={onRefresh} variant="primary">
           Refresh PIN
-        </button>
+        </Button>
       )}
 
       {/* Additional Instructions */}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AppSettings } from '@/managers/SettingsManager';
+import { Button } from '@/components/ui/Button';
 
 interface APIKeysSettingsProps {
   settings: AppSettings;
@@ -309,28 +310,21 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
 
       {/* Save Button */}
       <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
-        <button
+        <Button
+          variant="primary"
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-        >
-          {saving ? (
-            <>
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Saving...
-            </>
-          ) : (
-            <>
+          loading={saving}
+          icon={
+            !saving && (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              Save API Keys
-            </>
-          )}
-        </button>
+            )
+          }
+        >
+          {saving ? 'Saving...' : 'Save API Keys'}
+        </Button>
       </div>
 
       {/* Security Note */}

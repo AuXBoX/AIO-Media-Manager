@@ -18,6 +18,8 @@ import type {
   SelectableCastMember,
 } from '@/types/metadata-refresh';
 import { SearchMatchScreen, DetailedReviewScreen } from './metadata-refresh';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 
 interface MetadataRefreshModalProps {
   items: LibraryItem[];
@@ -86,16 +88,20 @@ export function MetadataRefreshModal({
       
       // Initialize provider registry - it will use fallback keys if no env keys provided
       const tmdbApiKey = import.meta.env.VITE_TMDB_API_KEY;
+      const lastfmApiKey = import.meta.env.VITE_LASTFM_API_KEY;
       console.log('[MetadataRefresh] Initializing provider registry:', {
         hasEnvKey: !!tmdbApiKey,
         envKeyLength: tmdbApiKey?.length,
         willUseFallback: !tmdbApiKey,
+        hasLastFm: !!lastfmApiKey,
       });
       
       // Don't pass undefined config - let ProviderRegistry use fallback keys
-      const providerRegistry = createProviderRegistry(client, tmdbApiKey ? {
-        tmdb: { apiKey: tmdbApiKey },
-      } : {});
+      const config: any = {};
+      if (tmdbApiKey) config.tmdb = { apiKey: tmdbApiKey };
+      if (lastfmApiKey) config.lastfm = { apiKey: lastfmApiKey };
+      
+      const providerRegistry = createProviderRegistry(client, config);
 
       console.log('[MetadataRefresh] Available providers:', providerRegistry.getAvailableProviders());
       console.log('[MetadataRefresh] Has TMDB:', providerRegistry.hasProvider('tmdb'));
@@ -138,9 +144,14 @@ export function MetadataRefreshModal({
           let fallbackProvider: string | null = null;
           
           if (isMusicContent) {
-            // For music: Use MusicBrainz first, Discogs as fallback
-            primaryProvider = 'musicbrainz';
-            fallbackProvider = 'discogs';
+            // For music: Use Last.fm first (has images + genres), MusicBrainz as fallback
+            if (providerRegistry.hasProvider('lastfm')) {
+              primaryProvider = 'lastfm';
+              fallbackProvider = 'musicbrainz';
+            } else {
+              primaryProvider = 'musicbrainz';
+              fallbackProvider = 'discogs';
+            }
           } else if (isTVContent) {
             // For TV: Use TVDB first, TMDB as fallback
             primaryProvider = 'tvdb';
@@ -536,6 +547,46 @@ export function MetadataRefreshModal({
             } catch (error) {
               console.warn('[MetadataRefresh] Failed to fetch Fanart.tv images:', error);
               // Continue without Fanart.tv images
+            }
+          }
+
+          // For music items, fetch images from Last.fm and AlbumArtExchange
+          const isMusicItem = reviewItem.item.type === 'artist' || reviewItem.item.type === 'album' || reviewItem.item.type === 'track';
+          if (isMusicItem) {
+            // Fetch from Last.fm if available (and not already used as primary provider)
+            if (providerRegistry.hasProvider('lastfm') && selectedResult.provider !== 'lastfm') {
+              try {
+                console.log('[MetadataRefresh] Fetching Last.fm images for:', reviewItem.item.title);
+                const lastfmSearchQuery = reviewItem.item.type === 'album' 
+                  ? `${reviewItem.item.parentTitle || ''} ${reviewItem.item.title}`.trim()
+                  : reviewItem.item.title;
+                const lastfmResults = await providerRegistry.search('lastfm' as any, lastfmSearchQuery, mediaType);
+                if (lastfmResults.length > 0 && lastfmResults[0]) {
+                  const lastfmMeta = await providerRegistry.getDetails('lastfm' as any, lastfmResults[0].externalId);
+                  if (lastfmMeta.posters) allPosters.push(...lastfmMeta.posters);
+                  console.log('[MetadataRefresh] Last.fm images fetched:', lastfmMeta.posters?.length || 0);
+                }
+              } catch (error) {
+                console.warn('[MetadataRefresh] Failed to fetch Last.fm images:', error);
+              }
+            }
+
+            // Fetch from AlbumArtExchange for album artwork
+            if (providerRegistry.hasProvider('albumartexchange')) {
+              try {
+                console.log('[MetadataRefresh] Fetching AlbumArtExchange for:', reviewItem.item.title);
+                const aaeQuery = reviewItem.item.type === 'album'
+                  ? `${reviewItem.item.parentTitle || ''} ${reviewItem.item.title}`.trim()
+                  : reviewItem.item.title;
+                const aaeResults = await providerRegistry.search('albumartexchange' as any, aaeQuery, mediaType);
+                if (aaeResults.length > 0 && aaeResults[0]) {
+                  const aaeMeta = await providerRegistry.getDetails('albumartexchange' as any, aaeResults[0].externalId);
+                  if (aaeMeta.posters) allPosters.push(...aaeMeta.posters);
+                  console.log('[MetadataRefresh] AlbumArtExchange images fetched:', aaeMeta.posters?.length || 0);
+                }
+              } catch (error) {
+                console.warn('[MetadataRefresh] Failed to fetch AlbumArtExchange images:', error);
+              }
             }
           }
 
@@ -971,52 +1022,39 @@ export function MetadataRefreshModal({
     onClose();
   };
   
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-secondary-900 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-secondary-200 dark:border-secondary-700 flex-shrink-0">
-          <h2 className="text-xl font-semibold text-secondary-900 dark:text-secondary-50">
-            Enhanced Metadata Refresh
-          </h2>
-          <button
-            onClick={handleClose}
-            disabled={workflowStatus === 'searching' || workflowStatus === 'fetching-details' || workflowStatus === 'applying'}
-            className="p-2 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+  const isProcessing = workflowStatus === 'searching' || workflowStatus === 'fetching-details' || workflowStatus === 'applying';
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+  return (
+    <Modal
+      isOpen={true}
+      onClose={handleClose}
+      title="Enhanced Metadata Refresh"
+      subtitle={`Refresh metadata for ${items.length} selected ${items.length === 1 ? 'item' : 'items'}`}
+      maxWidth="4xl"
+      showCloseButton={!isProcessing}
+      closeOnBackdropClick={!isProcessing}
+      className="max-h-[90vh]"
+    >
+      <div className="space-y-6">
           {/* Options Screen */}
           {workflowStatus === 'options' && (
-            <div className="p-6 space-y-6">
-              <div>
-                <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-4">
-                  Refresh metadata for <strong>{items.length}</strong> selected {items.length === 1 ? 'item' : 'items'} from online sources.
-                </p>
-              </div>
-
+            <div className="space-y-6">
               {/* Error Display */}
               {searchMutation.isError && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <div className="flex gap-3">
-                    <svg className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                     </svg>
                     <div className="flex-1">
-                      <p className="font-medium text-sm text-red-800 dark:text-red-200 mb-1">
+                      <p className="font-semibold text-sm text-red-800 mb-1">
                         Metadata Refresh Failed
                       </p>
-                      <p className="text-sm text-red-700 dark:text-red-300 mb-2">
+                      <p className="text-sm text-red-700 mb-2">
                         {searchMutation.error instanceof Error ? searchMutation.error.message : 'Unknown error occurred'}
                       </p>
                       {searchMutation.error instanceof Error && searchMutation.error.message.includes('429') && (
-                        <p className="text-xs text-red-600 dark:text-red-400">
+                        <p className="text-xs text-red-600">
                           Rate limit exceeded. The shared API key has reached its limit. Please wait a few seconds and try again, or get your own API key for unlimited requests.
                         </p>
                       )}
@@ -1026,133 +1064,140 @@ export function MetadataRefreshModal({
               )}
 
               {/* Options */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50">
-                  What to Change
-                </h3>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-base font-semibold text-text-primary mb-4">
+                    What to Change
+                  </h3>
 
-                {/* Change All / Select Changes Toggle */}
-                <div className="bg-secondary-50 dark:bg-secondary-800 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
-                      Change Mode
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setOptions({
-                          ...options,
-                          refreshMetadata: true,
-                          refreshImages: true,
-                          refreshTrailers: true,
-                          refreshCast: true,
-                          refreshCrew: true,
-                        })}
-                        className="px-3 py-1.5 text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white rounded transition-colors"
-                      >
-                        Change All
-                      </button>
-                      <button
-                        onClick={() => setOptions({
-                          ...options,
-                          refreshMetadata: false,
-                          refreshImages: false,
-                          refreshTrailers: false,
-                          refreshCast: false,
-                          refreshCrew: false,
-                        })}
-                        className="px-3 py-1.5 text-xs font-medium bg-secondary-600 hover:bg-secondary-700 text-white rounded transition-colors"
-                      >
-                        Select Changes
-                      </button>
+                  {/* Change All / Select Changes Toggle */}
+                  <div className="bg-blue-50 rounded-xl p-4 space-y-3 mb-6">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-text-primary">
+                        Change Mode
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="small"
+                          variant="primary"
+                          onClick={() => setOptions({
+                            ...options,
+                            refreshMetadata: true,
+                            refreshImages: true,
+                            refreshTrailers: true,
+                            refreshCast: true,
+                            refreshCrew: true,
+                          })}
+                        >
+                          Change All
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="secondary"
+                          onClick={() => setOptions({
+                            ...options,
+                            refreshMetadata: false,
+                            refreshImages: false,
+                            refreshTrailers: false,
+                            refreshCast: false,
+                            refreshCrew: false,
+                          })}
+                        >
+                          Select Changes
+                        </Button>
+                      </div>
                     </div>
+                    <p className="text-xs text-text-tertiary">
+                      Choose "Change All" to refresh everything, or "Select Changes" to pick specific items below.
+                    </p>
                   </div>
-                  <p className="text-xs text-secondary-600 dark:text-secondary-400">
-                    Choose "Change All" to refresh everything, or "Select Changes" to pick specific items below.
-                  </p>
                 </div>
 
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={options.refreshMetadata}
-                    onChange={(e) => setOptions({ ...options, refreshMetadata: e.target.checked })}
-                    className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
-                      Refresh Metadata
-                    </div>
-                    <div className="text-xs text-secondary-600 dark:text-secondary-400">
-                      Update titles, descriptions, ratings, release dates, genres, etc.
-                    </div>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={options.refreshImages}
-                    onChange={(e) => setOptions({ ...options, refreshImages: e.target.checked })}
-                    className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
-                      Refresh Images
-                    </div>
-                    <div className="text-xs text-secondary-600 dark:text-secondary-400">
-                      Download latest posters and background artwork
-                    </div>
-                  </div>
-                </label>
-
-                {/* Hide trailers and cast for music items */}
-                {!items.every(item => item.type === 'artist' || item.type === 'album' || item.type === 'track') && (
-                  <>
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={options.refreshTrailers}
-                        onChange={(e) => setOptions({ ...options, refreshTrailers: e.target.checked })}
-                        className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-                      />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
-                          Refresh Trailers
-                        </div>
-                        <div className="text-xs text-secondary-600 dark:text-secondary-400">
-                          Fetch available trailers from YouTube (no API key required)
-                        </div>
+                {/* Checkbox Options */}
+                <div className="space-y-4">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={options.refreshMetadata}
+                      onChange={(e) => setOptions({ ...options, refreshMetadata: e.target.checked })}
+                      className="mt-1 w-4 h-4 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-text-primary group-hover:text-blue-600 transition-colors">
+                        Refresh Metadata
                       </div>
-                    </label>
-
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={options.refreshCast}
-                        onChange={(e) => setOptions({ ...options, refreshCast: e.target.checked })}
-                        className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-                      />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
-                          Refresh Cast & Crew
-                        </div>
-                        <div className="text-xs text-secondary-600 dark:text-secondary-400">
-                          Update actor information and download actor photos
-                        </div>
+                      <div className="text-xs text-text-tertiary mt-0.5">
+                        Update titles, descriptions, ratings, release dates, genres, etc.
                       </div>
-                    </label>
-                  </>
-                )}
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={options.refreshImages}
+                      onChange={(e) => setOptions({ ...options, refreshImages: e.target.checked })}
+                      className="mt-1 w-4 h-4 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-text-primary group-hover:text-blue-600 transition-colors">
+                        Refresh Images
+                      </div>
+                      <div className="text-xs text-text-tertiary mt-0.5">
+                        Download latest posters and background artwork
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* Hide trailers and cast for music items */}
+                  {!items.every(item => item.type === 'artist' || item.type === 'album' || item.type === 'track') && (
+                    <>
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={options.refreshTrailers}
+                          onChange={(e) => setOptions({ ...options, refreshTrailers: e.target.checked })}
+                          className="mt-1 w-4 h-4 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-text-primary group-hover:text-blue-600 transition-colors">
+                            Refresh Trailers
+                          </div>
+                          <div className="text-xs text-text-tertiary mt-0.5">
+                            Fetch available trailers from YouTube (no API key required)
+                          </div>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={options.refreshCast}
+                          onChange={(e) => setOptions({ ...options, refreshCast: e.target.checked })}
+                          className="mt-1 w-4 h-4 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-text-primary group-hover:text-blue-600 transition-colors">
+                            Refresh Cast & Crew
+                          </div>
+                          <div className="text-xs text-text-tertiary mt-0.5">
+                            Update actor information and download actor photos
+                          </div>
+                        </div>
+                      </label>
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* Save Locally Section - At Bottom */}
-              <div className="border-t border-secondary-200 dark:border-secondary-700 pt-6 mt-6">
-                <h3 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-4">
+              {/* Save Locally Section */}
+              <div className="border-t border-slate-200 pt-6">
+                <h3 className="text-base font-semibold text-text-primary mb-4">
                   Save to Local Folder
                 </h3>
                 
-                <div className="bg-secondary-50 dark:bg-secondary-800 rounded-lg p-4 space-y-4">
-                  <label className="flex items-start gap-3 cursor-pointer">
+                <div className="bg-slate-50 rounded-xl p-5 space-y-4 border border-slate-200">
+                  <label className="flex items-start gap-3 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={options.saveLocally}
@@ -1162,21 +1207,21 @@ export function MetadataRefreshModal({
                         downloadImages: e.target.checked,
                         downloadTrailers: e.target.checked,
                       })}
-                      className="mt-1 w-5 h-5 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+                      className="mt-1 w-5 h-5 text-blue-500 border-slate-300 rounded focus:ring-blue-500 focus:ring-offset-0 transition-colors"
                     />
                     <div className="flex-1">
-                      <div className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-1">
+                      <div className="text-sm font-semibold text-text-primary mb-2 group-hover:text-blue-600 transition-colors">
                         Save All to Local Folder
                       </div>
-                      <div className="text-xs text-secondary-600 dark:text-secondary-400 space-y-1">
+                      <div className="text-xs text-text-tertiary space-y-2">
                         <p>Save everything to the movie/show folder alongside the media file:</p>
-                        <ul className="list-disc list-inside ml-2 space-y-0.5">
-                          <li><strong>NFO file</strong> - Metadata (title, year, summary, genres, cast, etc.)</li>
-                          <li><strong>Images</strong> - poster.jpg, fanart.jpg (selected images)</li>
-                          <li><strong>Trailers</strong> - trailer.mp4, trailer2.mp4 (selected trailers with chosen quality)</li>
-                          <li><strong>Cast photos</strong> - Saved in NFO file references</li>
+                        <ul className="list-disc list-inside ml-2 space-y-1">
+                          <li><strong className="font-medium text-text-secondary">NFO file</strong> - Metadata (title, year, summary, genres, cast, etc.)</li>
+                          <li><strong className="font-medium text-text-secondary">Images</strong> - poster.jpg, fanart.jpg (selected images)</li>
+                          <li><strong className="font-medium text-text-secondary">Trailers</strong> - trailer.mp4, trailer2.mp4 (selected trailers with chosen quality)</li>
+                          <li><strong className="font-medium text-text-secondary">Cast photos</strong> - Saved in NFO file references</li>
                         </ul>
-                        <p className="mt-2 text-secondary-500 dark:text-secondary-400 italic">
+                        <p className="mt-3 text-text-tertiary italic pt-2 border-t border-slate-200">
                           Compatible with Plex, Kodi, Emby, and Jellyfin
                         </p>
                       </div>
@@ -1186,34 +1231,35 @@ export function MetadataRefreshModal({
               </div>
 
               {/* Start Button */}
-              <div className="flex justify-end pt-4 border-t border-secondary-200 dark:border-secondary-700">
-                <button
+              <div className="flex justify-end pt-6 border-t border-slate-200">
+                <Button
+                  variant="primary"
+                  size="medium"
                   onClick={handleStart}
-                  className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors font-medium"
                 >
                   Start Refresh
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
           {/* Progress Screen - Searching */}
           {workflowStatus === 'searching' && (
-            <div className="p-6 space-y-4">
+            <div className="space-y-6 py-8">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 dark:bg-primary-900/20 rounded-full mb-4">
-                  <svg className="w-8 h-8 text-primary-600 dark:text-primary-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-50 rounded-full mb-6">
+                  <svg className="w-10 h-10 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
+                <h3 className="text-xl font-semibold text-text-primary mb-3">
                   Searching for Matches
                 </h3>
-                <p className="text-sm text-secondary-600 dark:text-secondary-400">
+                <p className="text-sm text-text-secondary mb-2">
                   {progress.currentItem}
                 </p>
-                <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">
+                <p className="text-xs text-text-tertiary">
                   {progress.currentStep} of {progress.totalItems}
                 </p>
               </div>
@@ -1222,7 +1268,7 @@ export function MetadataRefreshModal({
 
           {/* Match Review Screen */}
           {workflowStatus === 'match-review' && items[currentItemIndex] && reviewItems[currentItemIndex] && (
-            <div className="p-6">
+            <div>
               <SearchMatchScreen
                 item={items[currentItemIndex]!}
                 itemIndex={currentItemIndex}
@@ -1237,21 +1283,21 @@ export function MetadataRefreshModal({
 
           {/* Progress Screen - Fetching Details */}
           {workflowStatus === 'fetching-details' && (
-            <div className="p-6 space-y-4">
+            <div className="space-y-6 py-8">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 dark:bg-primary-900/20 rounded-full mb-4">
-                  <svg className="w-8 h-8 text-primary-600 dark:text-primary-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-50 rounded-full mb-6">
+                  <svg className="w-10 h-10 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
+                <h3 className="text-xl font-semibold text-text-primary mb-3">
                   Fetching Details
                 </h3>
-                <p className="text-sm text-secondary-600 dark:text-secondary-400">
+                <p className="text-sm text-text-secondary mb-2">
                   Getting metadata, images, trailers, and cast information...
                 </p>
-                <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">
+                <p className="text-xs text-text-tertiary">
                   {progress.currentItem}
                 </p>
               </div>
@@ -1274,21 +1320,21 @@ export function MetadataRefreshModal({
 
           {/* Progress Screen - Applying */}
           {workflowStatus === 'applying' && (
-            <div className="p-6 space-y-4">
+            <div className="space-y-6 py-8">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 dark:bg-primary-900/20 rounded-full mb-4">
-                  <svg className="w-8 h-8 text-primary-600 dark:text-primary-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-50 rounded-full mb-6">
+                  <svg className="w-10 h-10 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
+                <h3 className="text-xl font-semibold text-text-primary mb-3">
                   Applying Changes
                 </h3>
-                <p className="text-sm text-secondary-600 dark:text-secondary-400">
+                <p className="text-sm text-text-secondary mb-2">
                   {progress.currentItem}
                 </p>
-                <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">
+                <p className="text-xs text-text-tertiary">
                   {progress.currentStep} of {progress.totalSteps}
                 </p>
               </div>
@@ -1297,31 +1343,32 @@ export function MetadataRefreshModal({
 
           {/* Completion Screen */}
           {workflowStatus === 'completed' && (
-            <div className="p-6 space-y-6">
-              <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full mb-4">
-                  <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <div className="space-y-6">
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-green-50 rounded-full mb-6">
+                  <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
+                <h3 className="text-xl font-semibold text-text-primary mb-3">
                   Refresh Complete!
                 </h3>
-                <p className="text-sm text-secondary-600 dark:text-secondary-400">
+                <p className="text-sm text-text-secondary">
                   Successfully updated {reviewItems.filter((r) => r.selected && r.hasChanges).length} items
                 </p>
               </div>
 
               {/* Errors */}
               {progress.errors.length > 0 && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-red-800 dark:text-red-200 mb-2">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-5">
+                  <h4 className="text-sm font-semibold text-red-800 mb-3">
                     Errors ({progress.errors.length})
                   </h4>
-                  <ul className="space-y-1 text-xs text-red-700 dark:text-red-300">
+                  <ul className="space-y-2 text-xs text-red-700">
                     {progress.errors.map((error, idx) => (
-                      <li key={idx}>
-                        <strong>{error.item}:</strong> {error.error}
+                      <li key={idx} className="flex gap-2">
+                        <span className="font-medium">{error.item}:</span>
+                        <span>{error.error}</span>
                       </li>
                     ))}
                   </ul>
@@ -1330,14 +1377,15 @@ export function MetadataRefreshModal({
 
               {/* Warnings */}
               {progress.warnings.length > 0 && (
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5">
+                  <h4 className="text-sm font-semibold text-yellow-800 mb-3">
                     Warnings ({progress.warnings.length})
                   </h4>
-                  <ul className="space-y-1 text-xs text-yellow-700 dark:text-yellow-300">
+                  <ul className="space-y-2 text-xs text-yellow-700">
                     {progress.warnings.map((warning, idx) => (
-                      <li key={idx}>
-                        <strong>{warning.item}:</strong> {warning.warning}
+                      <li key={idx} className="flex gap-2">
+                        <span className="font-medium">{warning.item}:</span>
+                        <span>{warning.warning}</span>
                       </li>
                     ))}
                   </ul>
@@ -1345,18 +1393,18 @@ export function MetadataRefreshModal({
               )}
 
               {/* Done Button */}
-              <div className="flex justify-end pt-4 border-t border-secondary-200 dark:border-secondary-700">
-                <button
+              <div className="flex justify-end pt-6 border-t border-slate-200">
+                <Button
+                  variant="primary"
+                  size="medium"
                   onClick={handleComplete}
-                  className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors font-medium"
                 >
                   Done
-                </button>
+                </Button>
               </div>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </Modal>
   );
 }

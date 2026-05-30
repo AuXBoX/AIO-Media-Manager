@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
 import { useAppStore } from '@/store/appStore';
 import { useEffect } from 'react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
@@ -53,20 +54,20 @@ export function WelcomePage() {
             Server libraries
           </p>
           <div className="flex gap-4 justify-center">
-            <button 
+            <Button
               onClick={handleGetStarted}
-              className="px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-medium transition-all duration-200 hover:shadow-hard focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2"
-              aria-label="Get started with AIO Media Manager"
+              variant="primary"
+              size="large"
             >
               Get Started
-            </button>
-            <button 
+            </Button>
+            <Button
               onClick={handleLearnMore}
-              className="px-6 py-3 bg-secondary-200 dark:bg-secondary-700 hover:bg-secondary-300 dark:hover:bg-secondary-600 text-secondary-900 dark:text-secondary-50 rounded-lg shadow-soft transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-secondary-600 focus:ring-offset-2"
-              aria-label="Learn more about AIO Media Manager"
+              variant="secondary"
+              size="large"
             >
               Learn More
-            </button>
+            </Button>
           </div>
 
           {/* Features list */}

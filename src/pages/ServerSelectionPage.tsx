@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
 import { serverManager } from '@/managers/ServerManager';
 import { useAppStore } from '@/store/appStore';
 import type { PlexServer, ServerConnection } from '@/types';
+import { PageLoadingState } from '@/components/ui/LoadingState';
+import { Spinner } from '@/components/ui/Spinner';
 
 interface ServerWithStatus extends PlexServer {
   testing?: boolean;
@@ -49,10 +52,10 @@ export function ServerSelectionPage() {
           
           // Auto-select and connect immediately if only one server found
           if (discoveredServers.length === 1) {
-            console.log('[ServerSelection] Only one server found, auto-connecting:', discoveredServers[0].name);
+            console.log('[ServerSelection] Only one server found, auto-connecting:', discoveredServers[0]!.name);
             setAutoConnecting(true);
             // Connect immediately without showing the selection page
-            handleServerSelect(discoveredServers[0]);
+            handleServerSelect(discoveredServers[0]!);
           }
         }
       } catch (err) {
@@ -162,14 +165,9 @@ export function ServerSelectionPage() {
 
   if (loading || autoConnecting) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">
-            {autoConnecting ? 'Connecting to server...' : 'Discovering servers...'}
-          </p>
-        </div>
-      </div>
+      <PageLoadingState 
+        message={autoConnecting ? 'Connecting to server...' : 'Discovering servers...'}
+      />
     );
   }
 
@@ -186,12 +184,13 @@ export function ServerSelectionPage() {
             No Servers Found
           </h2>
           <p className="text-gray-600 dark:text-gray-300 text-center mb-6">{error}</p>
-          <button
+          <Button
             onClick={() => navigate('/auth')}
-            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+            variant="primary"
+            className="w-full"
           >
             Back to Sign In
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -252,8 +251,8 @@ export function ServerSelectionPage() {
 
               {/* Status */}
               {connecting && selectedServerId === server.machineIdentifier && (
-                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 dark:border-blue-400"></div>
+                <div className="flex items-center gap-2 text-primary-600">
+                  <Spinner size="sm" variant="primary" />
                   <span className="text-sm">Connecting...</span>
                 </div>
               )}
@@ -278,12 +277,12 @@ export function ServerSelectionPage() {
 
         {/* Back Button */}
         <div className="mt-8 text-center">
-          <button
+          <Button
             onClick={() => navigate('/auth')}
-            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+            variant="ghost"
           >
             ← Back to Sign In
-          </button>
+          </Button>
         </div>
       </div>
     </div>

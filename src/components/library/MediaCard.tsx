@@ -1,6 +1,7 @@
 import { LibraryItem } from '@/managers/LibraryManager';
 import { CachedDataBadge } from '@/components/offline/CachedDataBadge';
 import { useState, useEffect, useRef } from 'react';
+import { Spinner } from '@/components/ui/Spinner';
 
 interface MediaCardProps {
   item: LibraryItem;
@@ -11,13 +12,14 @@ interface MediaCardProps {
   isCached?: boolean;
   isDirty?: boolean;
   posterSize?: number;
+  squarePosters?: boolean;
 }
 
 /**
  * MediaCard Component
  * Displays a media item in either grid or list view with lazy loading
  */
-export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached = false, isDirty = false, posterSize = 180 }: MediaCardProps) {
+export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached = false, isDirty = false, posterSize = 180, squarePosters = false }: MediaCardProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -36,8 +38,8 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
   };
 
   const imageUrl = viewMode === 'grid'
-    ? getTranscodedImageUrl(item.thumb, Math.round(posterSize * 1.5), Math.round(posterSize * 2.25)) // Request 1.5x size for retina
-    : getTranscodedImageUrl(item.thumb, 128, 192); // Small size for list view
+    ? getTranscodedImageUrl(item.thumb, Math.round(posterSize * 1.5), squarePosters ? Math.round(posterSize * 1.5) : Math.round(posterSize * 2.25)) // Square for music, 2:3 for video
+    : getTranscodedImageUrl(item.thumb, squarePosters ? 128 : 128, squarePosters ? 128 : 192); // Square for music list view
 
   // Intersection Observer for lazy loading
   useEffect(() => {
@@ -83,25 +85,28 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
           width: `${posterSize}px`,
         }}
       >
+        {/* Card with hover elevation - Modern Plex Pro styling */}
         <div 
-          className="relative bg-gray-200 dark:bg-gray-700 rounded overflow-hidden shadow-md flex-shrink-0"
+          className="relative bg-white rounded-xl overflow-hidden border border-border shadow-soft group-hover:shadow-medium transition-all duration-200 group-hover:-translate-y-1 flex-shrink-0"
           style={{
             width: `${posterSize}px`,
-            height: `${Math.round(posterSize * 1.5)}px`,
+            height: `${squarePosters ? posterSize : Math.round(posterSize * 1.5)}px`, // Square for music, 2:3 for video posters
+            borderRadius: '12px', // Explicit 12px border radius per spec
           }}
         >
+          {/* Poster Image */}
           <div className="absolute inset-0">
             {imageUrl && isVisible ? (
               <>
                 {!imageLoaded && (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                  <div className="w-full h-full flex items-center justify-center bg-background-secondary">
+                    <Spinner size="md" variant="primary" />
                   </div>
                 )}
                 <img
                   src={imageUrl}
                   alt={item.title}
-                  className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 ${
+                  className={`w-full h-full object-cover transition-opacity duration-300 ${
                     imageLoaded ? 'opacity-100' : 'opacity-0'
                   }`}
                   onLoad={() => setImageLoaded(true)}
@@ -109,9 +114,9 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
                 />
               </>
             ) : !imageUrl ? (
-              <div className="w-full h-full flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center bg-background-secondary">
                 <svg
-                  className="h-12 w-12 text-gray-400"
+                  className="h-12 w-12 text-text-tertiary"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -125,8 +130,37 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
                 </svg>
               </div>
             ) : (
-              <div className="w-full h-full bg-gray-300 dark:bg-gray-600"></div>
+              <div className="w-full h-full bg-background-secondary"></div>
             )}
+            
+            {/* Metadata overlay on hover - appears smoothly */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3">
+              <h3 className="text-white text-sm font-semibold leading-tight mb-1 line-clamp-2">
+                {item.title}
+              </h3>
+              <div className="flex flex-col gap-0.5">
+                {item.parentTitle && (
+                  <p className="text-white/90 text-xs truncate">
+                    {item.parentTitle}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 text-white/80 text-xs">
+                  {item.year && <span>{item.year}</span>}
+                  {item.duration && (
+                    <>
+                      {item.year && <span>•</span>}
+                      <span>{formatDuration(item.duration)}</span>
+                    </>
+                  )}
+                </div>
+                {item.viewCount !== undefined && item.viewCount > 0 && (
+                  <p className="text-white/70 text-xs">
+                    Played {item.viewCount}×
+                  </p>
+                )}
+              </div>
+            </div>
+            
             {/* Cached data badge */}
             <CachedDataBadge
               isCached={isCached}
@@ -136,17 +170,19 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
             />
           </div>
         </div>
-        <div className="mt-2 min-h-0" style={{ width: `${posterSize}px` }}>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+        
+        {/* Title below card (visible when not hovering) */}
+        <div className="mt-3 min-h-0 group-hover:opacity-0 transition-opacity duration-200" style={{ width: `${posterSize}px` }}>
+          <h3 className="text-sm font-medium text-text-primary truncate">
             {item.title}
           </h3>
           {item.parentTitle && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+            <p className="text-xs text-text-tertiary truncate mt-0.5">
               {item.parentTitle}
             </p>
           )}
           {item.year && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">{item.year}</p>
+            <p className="text-xs text-text-tertiary mt-0.5">{item.year}</p>
           )}
         </div>
       </div>
@@ -157,7 +193,7 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
   return (
     <div
       ref={cardRef}
-      className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+      className="flex items-center space-x-4 p-3 rounded-lg hover:bg-background-secondary cursor-pointer transition-colors"
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -168,12 +204,12 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
         }
       }}
     >
-      <div className="flex-shrink-0 w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+      <div className="flex-shrink-0 w-16 h-16 bg-secondary-100 rounded overflow-hidden">
         {imageUrl && isVisible ? (
           <>
             {!imageLoaded && (
               <div className="w-full h-full flex items-center justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500"></div>
+                <Spinner size="sm" variant="primary" />
               </div>
             )}
             <img
@@ -187,7 +223,7 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
         ) : !imageUrl ? (
           <div className="w-full h-full flex items-center justify-center">
             <svg
-              className="h-6 w-6 text-gray-400"
+              className="h-6 w-6 text-text-tertiary"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -201,12 +237,12 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
             </svg>
           </div>
         ) : (
-          <div className="w-full h-full bg-gray-300 dark:bg-gray-600"></div>
+          <div className="w-full h-full bg-secondary-200"></div>
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+          <h3 className="text-sm font-medium text-text-primary truncate">
             {item.title}
           </h3>
           {/* Cached data badge inline */}
@@ -218,26 +254,26 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
           />
         </div>
         {item.parentTitle && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+          <p className="text-xs text-text-tertiary truncate">
             {item.parentTitle}
           </p>
         )}
         <div className="flex items-center space-x-2 mt-1">
           {item.year && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">{item.year}</span>
+            <span className="text-xs text-text-tertiary">{item.year}</span>
           )}
           {item.duration && (
             <>
-              <span className="text-xs text-gray-500 dark:text-gray-400">•</span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-text-tertiary">•</span>
+              <span className="text-xs text-text-tertiary">
                 {formatDuration(item.duration)}
               </span>
             </>
           )}
           {item.viewCount !== undefined && item.viewCount > 0 && (
             <>
-              <span className="text-xs text-gray-500 dark:text-gray-400">•</span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-text-tertiary">•</span>
+              <span className="text-xs text-text-tertiary">
                 Played {item.viewCount} {item.viewCount === 1 ? 'time' : 'times'}
               </span>
             </>

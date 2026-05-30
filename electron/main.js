@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const { constants } = require('fs');
@@ -7,6 +7,11 @@ const { binaryManager } = require('./binaryManager');
 // Force consistent app name for userData path
 // This ensures settings persist between dev and production builds
 app.setPath('userData', path.join(app.getPath('appData'), 'aio-media-manager'));
+
+// Set app user model ID for Windows taskbar icon
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.aiomedia.manager');
+}
 
 let mainWindow;
 let binaryPaths = null;
@@ -104,13 +109,16 @@ function createWindow() {
     ? path.join(__dirname, '../build-resources/icon.ico')
     : path.join(__dirname, '../build-resources/icon.png');
   
+  // Create native image for the icon
+  const icon = nativeImage.createFromPath(iconPath);
+  
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
     minWidth: 1024,
     minHeight: 600,
     frame: false, // Remove the default window frame and menu
-    icon: iconPath, // Set window icon (ICO for Windows, PNG for others)
+    icon: icon, // Set window icon using nativeImage
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

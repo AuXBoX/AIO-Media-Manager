@@ -102,7 +102,7 @@ export function ResizablePanes({
     <div ref={containerRef} className="flex h-full w-full min-h-0">
       {/* Left Pane */}
       <div
-        className="flex flex-col min-h-0 overflow-hidden"
+        className="flex flex-col min-h-0 h-full overflow-hidden"
         style={{ width: `${leftWidth}%` }}
       >
         {leftPane}
@@ -121,7 +121,7 @@ export function ResizablePanes({
 
       {/* Right Pane */}
       <div
-        className="flex flex-col min-h-0 overflow-hidden"
+        className="flex flex-col min-h-0 h-full overflow-hidden"
         style={{ width: `${100 - leftWidth}%` }}
       >
         {rightPane}

@@ -6,11 +6,18 @@ import { createMetadataManager, type MetadataUpdate } from '@/managers/MetadataM
 import { createLocalMetadataManager, type MetadataSaveMode } from '@/managers/LocalMetadataManager';
 import { createSubtitleManager } from '@/managers/SubtitleManager';
 import { createFFmpegManager } from '@/managers/FFmpegManager';
+import { createProviderRegistry } from '@/providers/ProviderRegistry';
 import { MetadataRefreshModal } from '@/components/library/MetadataRefreshModal';
 import { SubtitleSearchModal } from '@/components/library/SubtitleSearchModal';
 import { TrailerSearchModal } from '@/components/library/TrailerSearchModal';
 import { ImageSearchModal } from '@/components/library/ImageSearchModal';
 import { MusicVideoSearchModal } from '@/components/library/MusicVideoSearchModal';
+import { Tabs, TabsList, Tab, TabPanel } from '@/components/ui/Tabs';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { DetailPanelEmptyState } from '@/components/ui/EmptyState';
 import { queryKeys } from '@/api/queryKeys';
 import { db } from '@/db/database';
 import { useAppStore } from '@/store/appStore';
@@ -54,6 +61,15 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
   const [showImageSearchModal, setShowImageSearchModal] = useState(false);
   const [showMusicVideoSearch, setShowMusicVideoSearch] = useState(false);
   const [selectedSubtitlesForRemoval, setSelectedSubtitlesForRemoval] = useState<Set<string>>(new Set());
+  const [isFetchingCast, setIsFetchingCast] = useState(false);
+  const [castFetchResult, setCastFetchResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showCastReviewModal, setShowCastReviewModal] = useState(false);
+  const [fetchedCastData, setFetchedCastData] = useState<{
+    cast: Array<{ name: string; character?: string; profilePath?: string }>;
+    directors: string[];
+    writers: string[];
+    provider: string;
+  } | null>(null);
   const queryClient = useQueryClient();
 
   // Editable fields state
@@ -69,6 +85,19 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
     },
     enabled: !!item,
   });
+
+  // Fetch album children (tracks) for the Files tab
+  const isAlbum = item?.type === 'album';
+  const { data: albumTracksData } = useQuery({
+    queryKey: ['album-tracks', item?.ratingKey || ''],
+    queryFn: async () => {
+      if (!item) return null;
+      const client = createPlexClient({ baseURL: serverUrl, token });
+      return client.get(`/library/metadata/${item.ratingKey}/children`);
+    },
+    enabled: !!item && isAlbum,
+  });
+  const albumTracks = albumTracksData?.MediaContainer?.Metadata || [];
 
   // Check for local NFO file
   useEffect(() => {
@@ -343,6 +372,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
       if (editedFields.studio !== undefined) updates.studio = editedFields.studio;
       if (editedFields.contentRating !== undefined) updates.contentRating = editedFields.contentRating;
       if (editedFields.rating !== undefined) updates.rating = parseFloat(editedFields.rating);
+      if (editedFields.genres !== undefined) updates.genres = editedFields.genres;
       
       // Save to Plex
       if (saveTarget === 'plex' || saveTarget === 'both') {
@@ -430,13 +460,8 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
 
   if (!item) {
     return (
-      <div className="flex items-center justify-center h-full bg-secondary-50 dark:bg-secondary-900 border-l border-secondary-200 dark:border-secondary-700">
-        <div className="text-center text-secondary-500 dark:text-secondary-400">
-          <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-          </svg>
-          <p className="text-sm">Select an item to view details</p>
-        </div>
+      <div className="flex items-center justify-center h-full bg-secondary-50 dark:bg-secondary-900 border-l border-secondary-200 dark:border-secondary-700 rounded-xl">
+        <DetailPanelEmptyState />
       </div>
     );
   }
@@ -444,6 +469,27 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
   const metadata = fullMetadata?.MediaContainer?.Metadata?.[0] || item;
   const posterUrl = metadata.thumb ? `${serverUrl}${metadata.thumb}?X-Plex-Token=${token}` : null;
   const artUrl = metadata.art ? `${serverUrl}${metadata.art}?X-Plex-Token=${token}` : null;
+
+  // Extract media/codec info from first Media part
+  const mediaInfo = metadata.Media?.[0];
+  const mediaPart = mediaInfo?.Part?.[0];
+  const videoCodec = mediaInfo?.videoCodec;
+  const videoResolution = mediaInfo?.videoResolution;
+  const audioCodec = mediaInfo?.audioCodec;
+  const audioChannels = mediaInfo?.audioChannels;
+  const container = mediaPart?.container || mediaInfo?.container;
+  const aspectRatio = mediaInfo?.aspectRatio;
+  const videoFrameRate = mediaInfo?.videoFrameRate;
+
+  // Debug: Log backdrop URL
+  useEffect(() => {
+    if (item) {
+      console.log('[DetailPanel] Item:', item.title);
+      console.log('[DetailPanel] Poster (thumb):', metadata.thumb);
+      console.log('[DetailPanel] Backdrop (art):', metadata.art);
+      console.log('[DetailPanel] Backdrop URL:', artUrl);
+    }
+  }, [item, artUrl, metadata.art, metadata.thumb]);
 
   const formatDuration = (ms: number) => {
     const minutes = Math.floor(ms / 60000);
@@ -457,47 +503,14 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
   };
 
   const tabs = [
-    { id: 'details' as TabType, label: 'Details', icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    )},
-    { id: 'cast' as TabType, label: 'Cast & Crew', icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    )},
-    { id: 'images' as TabType, label: 'Images', icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    )},
-    { id: 'theme' as TabType, label: 'Theme', icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-      </svg>
-    )},
-    { id: 'trailers' as TabType, label: 'Trailers', icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    )},
-    { id: 'subtitles' as TabType, label: 'Subtitles', icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-      </svg>
-    )},
-    { id: 'musicvideos' as TabType, label: 'Music Videos', icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-      </svg>
-    )},
-    { id: 'files' as TabType, label: 'Files', icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-      </svg>
-    )},
+    { id: 'details' as TabType, label: 'Details' },
+    { id: 'cast' as TabType, label: 'Cast & Crew' },
+    { id: 'images' as TabType, label: 'Images' },
+    { id: 'theme' as TabType, label: 'Theme' },
+    { id: 'trailers' as TabType, label: 'Trailers' },
+    { id: 'subtitles' as TabType, label: 'Subtitles' },
+    { id: 'musicvideos' as TabType, label: 'Music Videos' },
+    { id: 'files' as TabType, label: 'Files' },
   ];
 
   // Filter tabs based on item type
@@ -515,8 +528,8 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
     if (isMusicItem && (tab.id === 'cast' || tab.id === 'trailers' || tab.id === 'subtitles')) {
       return false;
     }
-    // Hide trailers for seasons and episodes
-    if (isSeasonOrEpisode && tab.id === 'trailers') {
+    // Hide trailers and cast for seasons and episodes (only show for shows)
+    if (isSeasonOrEpisode && (tab.id === 'trailers' || tab.id === 'cast')) {
       return false;
     }
     // Hide theme tab for non-TV shows
@@ -542,406 +555,627 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
     return editedFields[field] !== undefined ? editedFields[field] : defaultValue;
   };
 
+  // Fetch cast & crew from external providers (TMDB for movies, TVDB for TV shows)
+  const fetchCastFromExternal = async () => {
+    if (!item) return;
+    
+    setIsFetchingCast(true);
+    setCastFetchResult(null);
+    
+    try {
+      const client = createPlexClient({ baseURL: serverUrl, token });
+      const tmdbApiKey = import.meta.env['VITE_TMDB_API_KEY'];
+      const config: any = {};
+      if (tmdbApiKey) config.tmdb = { apiKey: tmdbApiKey };
+      
+      const providerRegistry = createProviderRegistry(client, config);
+      
+      // Determine provider based on item type
+      const isTV = item.type === 'show' || item.type === 'season' || item.type === 'episode';
+      const providerName = isTV ? 'tvdb' : 'tmdb';
+      
+      if (!providerRegistry.hasProvider(providerName)) {
+        setCastFetchResult({ success: false, message: `${providerName.toUpperCase()} provider not available` });
+        return;
+      }
+      
+      // Search for the item
+      const searchTitle = item.type === 'season' && item.parentTitle 
+        ? item.parentTitle 
+        : item.type === 'episode' && item.grandparentTitle
+        ? item.grandparentTitle
+        : item.title;
+      
+      const mediaType = isTV ? 'show' : 'movie';
+      const results = await providerRegistry.search(providerName as any, searchTitle, mediaType as any, item.year);
+      
+      if (!results || results.length === 0) {
+        setCastFetchResult({ success: false, message: `No results found on ${providerName.toUpperCase()}` });
+        return;
+      }
+      
+      // Get details from first result
+      const externalMetadata = await providerRegistry.getDetails(providerName as any, results[0].externalId);
+      
+      // Extract cast and crew data
+      const cast = externalMetadata.cast?.map(c => ({
+        name: c.name,
+        character: c.character,
+        profilePath: c.profilePath,
+      })) || [];
+      
+      const directors = externalMetadata.crew?.filter(c => c.job === 'Director').map(c => c.name) || [];
+      const writers = externalMetadata.crew?.filter(c => c.job === 'Writer' || c.job === 'Screenplay').map(c => c.name) || [];
+      
+      if (cast.length === 0 && directors.length === 0 && writers.length === 0) {
+        setCastFetchResult({ success: false, message: 'No cast/crew data found' });
+        return;
+      }
+      
+      // Store fetched data and show review modal
+      setFetchedCastData({
+        cast,
+        directors,
+        writers,
+        provider: providerName.toUpperCase(),
+      });
+      setShowCastReviewModal(true);
+      
+    } catch (error) {
+      console.error('[DetailPanel] Failed to fetch cast:', error);
+      setCastFetchResult({ 
+        success: false, 
+        message: `Failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    } finally {
+      setIsFetchingCast(false);
+    }
+  };
+
+  // Save cast & crew to Plex and/or local
+  const saveCastAndCrew = async (saveTarget: 'plex' | 'local' | 'both') => {
+    if (!item || !fetchedCastData) return;
+    
+    setIsFetchingCast(true);
+    
+    try {
+      const client = createPlexClient({ baseURL: serverUrl, token });
+      
+      // Build update object with cast and crew
+      const update: MetadataUpdate = {};
+      
+      if (fetchedCastData.cast.length > 0) {
+        update.roles = fetchedCastData.cast.map(c => ({
+          tag: c.name,
+          role: c.character,
+          thumb: c.profilePath,
+        }));
+      }
+      
+      if (fetchedCastData.directors.length > 0) update.directors = fetchedCastData.directors;
+      if (fetchedCastData.writers.length > 0) update.writers = fetchedCastData.writers;
+      
+      // Save to Plex
+      if (saveTarget === 'plex' || saveTarget === 'both') {
+        const metadataManager = createMetadataManager(client);
+        await metadataManager.updateMetadata(item.ratingKey, update);
+        await refetch();
+        queryClient.invalidateQueries({ queryKey: queryKeys.metadata(item.ratingKey) });
+      }
+      
+      // Save locally
+      if (saveTarget === 'local' || saveTarget === 'both') {
+        const localMetadataManager = createLocalMetadataManager(client);
+        await localMetadataManager.saveMetadata(item.ratingKey, update, 'nfo');
+      }
+      
+      const castCount = fetchedCastData.cast.length;
+      const directorCount = fetchedCastData.directors.length;
+      const writerCount = fetchedCastData.writers.length;
+      
+      setCastFetchResult({ 
+        success: true, 
+        message: `Saved ${castCount} cast, ${directorCount} directors, ${writerCount} writers to ${saveTarget}` 
+      });
+      
+      setShowCastReviewModal(false);
+      setFetchedCastData(null);
+      
+    } catch (error) {
+      console.error('[DetailPanel] Failed to save cast:', error);
+      setCastFetchResult({ 
+        success: false, 
+        message: `Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    } finally {
+      setIsFetchingCast(false);
+    }
+  };
+
+  // Calculate height offset based on environment
+  // Electron has TitleBar (32px) + ResponsiveLayout header (64px) + LibraryView toolbar (64px) = 160px
+  // Browser has ResponsiveLayout header (64px) + LibraryView toolbar (64px) = 128px
+  const isElectron = typeof window !== 'undefined' && !!(window as any).electron;
+  const heightOffset = isElectron ? 160 : 128;
+
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-secondary-900 border-l border-secondary-200 dark:border-secondary-700">
-      {/* Header with close button */}
-      <div className="flex items-center justify-between p-4 border-b border-secondary-200 dark:border-secondary-700">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-secondary-900 dark:text-secondary-50 truncate">
-            {metadata.title}
-          </h2>
-          {/* Status indicators */}
-          <div className="flex items-center gap-2">
-            {hasLocalNfo && (
-              <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded flex items-center gap-1">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
-                  <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
-                </svg>
-                Local NFO
-              </span>
-            )}
-            {isDirty && (
-              <span className="px-2 py-1 text-xs bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded flex items-center gap-1">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                </svg>
-                Unsaved
-              </span>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {/* Refresh Metadata Button */}
-          <button
-            onClick={() => setShowRefreshModal(true)}
-            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-2"
-            title="Fetch latest metadata for review"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh Metadata
-          </button>
-
-          {/* Save target selector */}
-          <select
-            value={saveTarget}
-            onChange={(e) => setSaveTarget(e.target.value as 'plex' | 'local' | 'both')}
-            className="px-2 py-1.5 text-sm border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
-          >
-            <option value="plex">Save to Plex</option>
-            <option value="local">Save to Local</option>
-            <option value="both">Save to Both</option>
-          </select>
-          
-          <button
-            onClick={handleSave}
-            disabled={saveMutation.isPending || Object.keys(editedFields).length === 0}
-            className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded transition-colors flex items-center gap-2 disabled:opacity-50"
-            title={Object.keys(editedFields).length === 0 ? "No changes to save" : "Save changes"}
-          >
-            {saveMutation.isPending ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Saving...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Save Changes
-              </>
-            )}
-          </button>
-          
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors"
-              aria-label="Close details"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Poster and basic info */}
-      <div className="p-4 border-b border-secondary-200 dark:border-secondary-700">
-        <div className="flex gap-4">
-          {posterUrl && (
+    <div className="flex flex-col relative text-white overflow-hidden bg-[#0F1419] rounded-xl" style={{ height: `calc(100vh - ${heightOffset}px)` }}>
+      <Tabs value={activeTab} onChange={(value) => setActiveTab(value as TabType)}>
+      {/* Header section - image area + tabs */}
+      <div className="flex flex-col flex-shrink-0">
+        {/* Image area with tabs at bottom */}
+        <div className="relative overflow-hidden flex-shrink-0 bg-[#0F1419]" style={{ height: '280px' }}>
+          {artUrl && (
             <img
-              src={posterUrl}
-              alt={metadata.title}
-              className={`object-cover rounded shadow-md flex-shrink-0 ${
-                metadata.type === 'artist' || metadata.type === 'album' || metadata.type === 'track' ? 'w-32 h-32' : 'w-32 h-48'
-              }`}
+              src={artUrl}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover z-0"
+              style={{ 
+                filter: 'blur(3px)', 
+                opacity: 0.5,
+                transform: 'scale(1.1)'
+              }}
+              onLoad={() => console.log('[DetailPanel] Backdrop image loaded successfully')}
+              onError={(e) => console.error('[DetailPanel] Backdrop image failed to load:', e)}
             />
           )}
-          <div className="flex-1 min-w-0">
-            <h3 className="text-xl font-bold text-secondary-900 dark:text-secondary-50 mb-2">
-              {metadata.title}
-            </h3>
-            {metadata.year && (
-              <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-1">
-                {metadata.year}
-              </p>
-            )}
-            {metadata.duration && (
-              <p className="text-sm text-secondary-600 dark:text-secondary-400 mb-1">
-                {formatDuration(metadata.duration)}
-              </p>
-            )}
-            {metadata.rating && (
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
-                  {metadata.rating.toFixed(1)}
-                </span>
-              </div>
-            )}
-            {metadata.Genre && metadata.Genre.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {metadata.Genre.slice(0, 3).map((genre: any, index: number) => (
-                  <span
-                    key={index}
-                    className="px-2 py-1 text-xs bg-secondary-100 dark:bg-secondary-800 text-secondary-700 dark:text-secondary-300 rounded"
-                  >
-                    {genre.tag}
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/70 z-[1]" />
+
+          {/* Content over backdrop */}
+          <div className="relative z-10 h-full flex flex-col">
+            {/* Top row: status indicators left, action buttons right */}
+            <div className="flex items-center justify-between px-5 pt-3">
+              {/* Status indicators */}
+              <div className="flex items-center gap-2">
+                {hasLocalNfo && (
+                  <span className="px-2.5 py-1 text-xs font-medium bg-blue-500/90 backdrop-blur-md text-white rounded-full flex items-center gap-1.5 shadow-lg">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
+                      <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
+                    </svg>
+                    Local NFO
                   </span>
-                ))}
+                )}
+                {isDirty && (
+                  <span className="px-2.5 py-1 text-xs font-medium bg-orange-500/90 backdrop-blur-md text-white rounded-full flex items-center gap-1.5 shadow-lg">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                    Unsaved
+                  </span>
+                )}
               </div>
-            )}
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2">
+                {onClose && (
+                  <button
+                    onClick={onClose}
+                    className="w-8 h-8 flex items-center justify-center bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-lg transition-all"
+                    aria-label="Close details"
+                  >
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Poster + Title row */}
+            <div className="flex items-start gap-4 px-5 pt-3 flex-1">
+              {/* Poster - left side */}
+              {posterUrl && (
+                <div className={`flex-shrink-0 rounded-lg overflow-hidden shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] ring-1 ring-white/10 ${
+                  isMusicItem ? 'w-[100px] h-[100px]' : 'w-[100px] h-[150px]'
+                }`}>
+                  <img
+                    src={posterUrl}
+                    alt={metadata.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+
+              {/* Title and metadata - right side */}
+              <div className="flex-1 min-w-0 pt-1">
+                <h2 className="text-xl font-semibold mb-1.5 text-white leading-tight tracking-tight truncate">
+                  {metadata.title}
+                </h2>
+                <div className="flex items-center flex-wrap gap-1.5 text-sm text-gray-300 font-medium mb-2">
+                  {metadata.year && <span>{metadata.year}</span>}
+                  {metadata.duration && (
+                    <>
+                      <span className="text-gray-500">•</span>
+                      <span>{formatDuration(metadata.duration)}</span>
+                    </>
+                  )}
+                  {metadata.rating && (
+                    <>
+                      <span className="text-gray-500">•</span>
+                      <div className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        <span>{metadata.rating.toFixed(1)}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {metadata.Genre && metadata.Genre.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {metadata.Genre.slice(0, 3).map((genre: any, index: number) => (
+                      <span
+                        key={index}
+                        className="px-2.5 py-0.5 text-xs font-medium bg-white/10 text-gray-200 rounded-full border border-white/10"
+                      >
+                        {genre.tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* Media codec badges */}
+                {mediaInfo && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {videoResolution && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-black/40 text-gray-200 rounded border border-white/10 uppercase">
+                        <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M2 4a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V4zm3 10h8a1 1 0 010 2H5a1 1 0 010-2z" />
+                        </svg>
+                        {videoResolution === 'sd' ? 'SD' : videoResolution.toUpperCase()}
+                      </span>
+                    )}
+                    {videoCodec && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-black/40 text-gray-200 rounded border border-white/10">
+                        <svg className="w-3 h-3 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        {videoCodec.toUpperCase()}
+                      </span>
+                    )}
+                    {aspectRatio && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-black/40 text-gray-200 rounded border border-white/10">
+                        <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" />
+                        </svg>
+                        {aspectRatio}
+                      </span>
+                    )}
+                    {container && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-black/40 text-gray-200 rounded border border-white/10 uppercase">
+                        <svg className="w-3 h-3 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        {container}
+                      </span>
+                    )}
+                    {audioCodec && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-black/40 text-gray-200 rounded border border-white/10 uppercase">
+                        <svg className="w-3 h-3 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                        </svg>
+                        {audioCodec}
+                      </span>
+                    )}
+                    {audioChannels && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-black/40 text-gray-200 rounded border border-white/10">
+                        <svg className="w-3 h-3 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5.586v12.828a1 1 0 01-1.707.707L5.586 15z" />
+                        </svg>
+                        {audioChannels === 1 ? '1.0' : audioChannels === 2 ? '2.0' : audioChannels === 6 ? '5.1' : audioChannels === 8 ? '7.1' : audioChannels}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tabs - at bottom of dark image area */}
+            <div className="px-5 border-b border-white/10 bg-black/30 backdrop-blur-sm flex-shrink-0">
+              <TabsList 
+                aria-label="Media information tabs"
+                className="w-full bg-transparent border-0 p-0 gap-0 rounded-none overflow-x-auto"
+              >
+                {filteredTabs.map((tab) => (
+                  <Tab 
+                    key={tab.id} 
+                    value={tab.id}
+                    className={`text-sm font-semibold whitespace-nowrap px-4 py-3 rounded-none border-b-[3px] transition-all ${
+                      activeTab === tab.id 
+                        ? 'border-blue-500 text-white' 
+                        : 'border-transparent text-gray-300 hover:text-white hover:border-white/30'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                  </Tab>
+                ))}
+              </TabsList>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-secondary-200 dark:border-secondary-700">
-        {filteredTabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === tab.id
-                ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400'
-                : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-secondary-200'
-            }`}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </div>
+      {/* Rest of content with light background */}
+      <div className="flex-1 flex flex-col bg-[#F8FAFC] text-gray-900 min-h-0">
 
-      {/* Tab content */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4">
-        {activeTab === 'details' && (
-          <div className="space-y-4">
+        {/* Tab content - Using TabPanel components with smooth transitions */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-6 bg-[#F8FAFC] pt-3">
+          <TabPanel value="details" className="space-y-3">
             {/* Title - Editable */}
-            <div>
-              <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
-                Title
-              </h4>
+            <div className="py-1">
               {isEditing ? (
-                <input
+                <Input
+                  label="Title"
                   type="text"
                   value={getFieldValue('title', metadata.title)}
                   onChange={(e) => handleFieldChange('title', e.target.value)}
-                  className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                  labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                  className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                 />
               ) : (
-                <p className="text-sm text-secondary-700 dark:text-secondary-300">
-                  {metadata.title}
-                </p>
+                <>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    Title
+                  </h4>
+                  <p className="text-sm text-gray-900">
+                    {metadata.title}
+                  </p>
+                </>
               )}
             </div>
 
             {/* Artist - For music items only */}
             {(item.type === 'album' || item.type === 'track') && (
-              <div>
-                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
-                  Artist
-                </h4>
+              <div className="py-1">
                 {isEditing ? (
-                  <input
+                  <Input
+                    label="Artist"
                     type="text"
                     value={getFieldValue('artist', item.type === 'track' ? metadata.grandparentTitle : metadata.parentTitle || '')}
                     onChange={(e) => handleFieldChange('artist', e.target.value)}
-                    className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
                     placeholder="Artist name"
+                    labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                   />
                 ) : (
-                  <p className="text-sm text-secondary-700 dark:text-secondary-300">
-                    {item.type === 'track' ? metadata.grandparentTitle : metadata.parentTitle || 'Unknown Artist'}
-                  </p>
+                  <>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Artist
+                    </h4>
+                    <p className="text-sm text-gray-900">
+                      {item.type === 'track' ? metadata.grandparentTitle : metadata.parentTitle || 'Unknown Artist'}
+                    </p>
+                  </>
                 )}
               </div>
             )}
 
             {/* Album - For tracks only */}
             {item.type === 'track' && (
-              <div>
-                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
-                  Album
-                </h4>
+              <div className="py-1">
                 {isEditing ? (
-                  <input
+                  <Input
+                    label="Album"
                     type="text"
                     value={getFieldValue('album', metadata.parentTitle || '')}
                     onChange={(e) => handleFieldChange('album', e.target.value)}
-                    className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
                     placeholder="Album name"
+                    labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                   />
                 ) : (
-                  <p className="text-sm text-secondary-700 dark:text-secondary-300">
-                    {metadata.parentTitle || 'Unknown Album'}
-                  </p>
+                  <>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Album
+                    </h4>
+                    <p className="text-sm text-gray-900">
+                      {metadata.parentTitle || 'Unknown Album'}
+                    </p>
+                  </>
                 )}
               </div>
             )}
 
             {/* Original Title - Editable */}
             {(metadata.originalTitle || isEditing) && (
-              <div>
-                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
-                  Original Title
-                </h4>
+              <div className="py-1">
                 {isEditing ? (
-                  <input
+                  <Input
+                    label="Original Title"
                     type="text"
                     value={getFieldValue('originalTitle', metadata.originalTitle || '')}
                     onChange={(e) => handleFieldChange('originalTitle', e.target.value)}
-                    className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                    labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                   />
                 ) : (
-                  <p className="text-sm text-secondary-700 dark:text-secondary-300">
-                    {metadata.originalTitle}
-                  </p>
+                  <>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Original Title
+                    </h4>
+                    <p className="text-sm text-gray-900">
+                      {metadata.originalTitle}
+                    </p>
+                  </>
                 )}
               </div>
             )}
 
             {/* Summary - Editable */}
             {(metadata.summary || isEditing) && (
-              <div>
-                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
-                  Summary
-                </h4>
+              <div className="py-1">
                 {isEditing ? (
-                  <textarea
+                  <Textarea
+                    label="Summary"
                     value={getFieldValue('summary', metadata.summary || '')}
                     onChange={(e) => handleFieldChange('summary', e.target.value)}
                     rows={6}
-                    className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                    labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                   />
                 ) : (
-                  <p className="text-sm text-secondary-700 dark:text-secondary-300 leading-relaxed">
-                    {metadata.summary}
-                  </p>
+                  <>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Summary
+                    </h4>
+                    <p className="text-sm text-gray-900 leading-relaxed">
+                      {metadata.summary}
+                    </p>
+                  </>
                 )}
               </div>
             )}
 
             {/* Tagline - Editable */}
             {(metadata.tagline || isEditing) && (
-              <div>
-                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
-                  Tagline
-                </h4>
+              <div className="py-1">
                 {isEditing ? (
-                  <input
+                  <Input
+                    label="Tagline"
                     type="text"
                     value={getFieldValue('tagline', metadata.tagline || '')}
                     onChange={(e) => handleFieldChange('tagline', e.target.value)}
-                    className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                    labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                   />
                 ) : (
-                  <p className="text-sm text-secondary-700 dark:text-secondary-300 italic">
-                    {metadata.tagline}
-                  </p>
+                  <>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Tagline
+                    </h4>
+                    <p className="text-sm text-gray-900 italic">
+                      {metadata.tagline}
+                    </p>
+                  </>
                 )}
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               {/* Year - Editable */}
-              <div>
-                <h4 className="text-xs font-semibold text-secondary-500 dark:text-secondary-400 mb-1">
-                  Year
-                </h4>
+              <div className="py-1">
                 {isEditing ? (
-                  <input
+                  <Input
+                    label="Year"
                     type="number"
                     value={getFieldValue('year', metadata.year || '')}
                     onChange={(e) => handleFieldChange('year', e.target.value)}
-                    className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                    labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                    className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                   />
                 ) : (
-                  <p className="text-sm text-secondary-900 dark:text-secondary-50">
-                    {metadata.year}
-                  </p>
+                  <>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Year
+                    </h4>
+                    <p className="text-sm text-gray-900 font-medium">
+                      {metadata.year}
+                    </p>
+                  </>
                 )}
               </div>
 
               {/* Studio - Editable */}
               {(metadata.studio || isEditing) && (
-                <div>
-                  <h4 className="text-xs font-semibold text-secondary-500 dark:text-secondary-400 mb-1">
-                    Studio
-                  </h4>
+                <div className="py-1">
                   {isEditing ? (
-                    <input
+                    <Input
+                      label="Studio"
                       type="text"
                       value={getFieldValue('studio', metadata.studio || '')}
                       onChange={(e) => handleFieldChange('studio', e.target.value)}
-                      className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                      labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                     />
                   ) : (
-                    <p className="text-sm text-secondary-900 dark:text-secondary-50">
-                      {metadata.studio}
-                    </p>
+                    <>
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Studio
+                      </h4>
+                      <p className="text-sm text-gray-900 font-medium">
+                        {metadata.studio}
+                      </p>
+                    </>
                   )}
                 </div>
               )}
 
               {/* Content Rating - Editable */}
               {(metadata.contentRating || isEditing) && (
-                <div>
-                  <h4 className="text-xs font-semibold text-secondary-500 dark:text-secondary-400 mb-1">
-                    Rating
-                  </h4>
+                <div className="py-1">
                   {isEditing ? (
-                    <input
+                    <Input
+                      label="Rating"
                       type="text"
                       value={getFieldValue('contentRating', metadata.contentRating || '')}
                       onChange={(e) => handleFieldChange('contentRating', e.target.value)}
-                      className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                      labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                     />
                   ) : (
-                    <p className="text-sm text-secondary-900 dark:text-secondary-50">
-                      {metadata.contentRating}
-                    </p>
+                    <>
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Rating
+                      </h4>
+                      <p className="text-sm text-gray-900 font-medium">
+                        {metadata.contentRating}
+                      </p>
+                    </>
                   )}
                 </div>
               )}
 
               {/* User Rating - Editable */}
               {(metadata.rating || isEditing) && (
-                <div>
-                  <h4 className="text-xs font-semibold text-secondary-500 dark:text-secondary-400 mb-1">
-                    User Rating
-                  </h4>
+                <div className="py-1">
                   {isEditing ? (
-                    <input
+                    <Input
+                      label="User Rating"
                       type="number"
                       step="0.1"
                       min="0"
                       max="10"
                       value={getFieldValue('rating', metadata.rating || '')}
                       onChange={(e) => handleFieldChange('rating', e.target.value)}
-                      className="w-full px-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100"
+                      labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
+                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500/20"
                     />
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                      <span className="text-sm font-medium text-secondary-900 dark:text-secondary-50">
-                        {metadata.rating.toFixed(1)}
-                      </span>
-                    </div>
+                    <>
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        User Rating
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {metadata.rating.toFixed(1)}
+                        </span>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
 
               {metadata.originallyAvailableAt && (
-                <div>
-                  <h4 className="text-xs font-semibold text-secondary-500 dark:text-secondary-400 mb-1">
+                <div className="py-1">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                     Release Date
                   </h4>
-                  <p className="text-sm text-secondary-900 dark:text-secondary-50">
+                  <p className="text-sm text-gray-900 font-medium">
                     {metadata.originallyAvailableAt}
                   </p>
                 </div>
               )}
 
               {metadata.addedAt && (
-                <div>
-                  <h4 className="text-xs font-semibold text-secondary-500 dark:text-secondary-400 mb-1">
+                <div className="py-1">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                     Added
                   </h4>
-                  <p className="text-sm text-secondary-900 dark:text-secondary-50">
+                  <p className="text-sm text-gray-900 font-medium">
                     {formatDate(metadata.addedAt)}
                   </p>
                 </div>
@@ -949,28 +1183,87 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
             </div>
 
             {/* Genres */}
-            {metadata.Genre && metadata.Genre.length > 0 && (
-              <div>
-                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
-                  Genres
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {metadata.Genre.map((genre: any, index: number) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 text-sm bg-secondary-100 dark:bg-secondary-800 text-secondary-700 dark:text-secondary-300 rounded-full"
+            <div className="py-1">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                Genres
+              </h4>
+              <div className="flex flex-wrap gap-2 items-center">
+                {(editedFields.genres !== undefined 
+                  ? editedFields.genres 
+                  : (metadata.Genre || []).map((g: any) => g.tag)
+                ).map((genre: string, index: number) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-full border border-gray-200 hover:bg-gray-200 transition-all"
+                  >
+                    {genre}
+                    <button
+                      onClick={() => {
+                        const currentGenres = editedFields.genres !== undefined 
+                          ? editedFields.genres 
+                          : (metadata.Genre || []).map((g: any) => g.tag);
+                        const newGenres = currentGenres.filter((_: string, i: number) => i !== index);
+                        handleFieldChange('genres', newGenres);
+                      }}
+                      className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300 transition-colors"
                     >
-                      {genre.tag}
-                    </span>
-                  ))}
-                </div>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  placeholder="Add genre..."
+                  className="px-3 py-1.5 text-sm bg-transparent border border-dashed border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-w-[100px] max-w-[150px]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const input = e.target as HTMLInputElement;
+                      const value = input.value.trim();
+                      if (value) {
+                        const currentGenres = editedFields.genres !== undefined 
+                          ? editedFields.genres 
+                          : (metadata.Genre || []).map((g: any) => g.tag);
+                        if (!currentGenres.includes(value)) {
+                          handleFieldChange('genres', [...currentGenres, value]);
+                        }
+                        input.value = '';
+                      }
+                    }
+                  }}
+                />
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          </TabPanel>
 
-        {activeTab === 'cast' && (
-          <div className="space-y-4">
+          <TabPanel value="cast" className="space-y-5">
+            {/* Fetch Cast & Crew Button */}
+            <div className="flex items-center justify-between gap-3">
+              <Button
+                variant="secondary"
+                size="medium"
+                onClick={fetchCastFromExternal}
+                disabled={isFetchingCast}
+                icon={
+                  isFetchingCast ? (
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  ) : undefined
+                }
+              >
+                {isFetchingCast ? 'Fetching...' : 'Fetch Cast & Crew'}
+              </Button>
+              {castFetchResult && (
+                <span className={`text-xs ${castFetchResult.success ? 'text-green-600' : 'text-red-500'}`}>
+                  {castFetchResult.message}
+                </span>
+              )}
+            </div>
+
             {metadata.Role && metadata.Role.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-3">
@@ -1057,33 +1350,35 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 </p>
               </div>
             )}
-          </div>
-        )}
+          </TabPanel>
 
-        {activeTab === 'images' && (
-          <div className="space-y-6">
-            {/* Search Images Button */}
+          <TabPanel value="images" className="space-y-6">
+            {/* Search Images Button - top */}
             <div className="flex justify-end">
-              <button
+              <Button
+                variant="secondary"
+                size="medium"
                 onClick={() => setShowImageSearchModal(true)}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors flex items-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
                 Search Images
-              </button>
+              </Button>
             </div>
 
             {/* Poster */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50">
+            <div className="py-1">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Poster
                 </h4>
                 {isEditing && (
-                  <label className="px-3 py-1 text-xs bg-primary-600 hover:bg-primary-700 text-white rounded cursor-pointer transition-colors">
-                    Upload New
+                  <label className="cursor-pointer">
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onClick={() => {}}
+                    >
+                      Upload New
+                    </Button>
                     <input
                       type="file"
                       accept="image/*"
@@ -1106,7 +1401,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                   <img 
                     src={posterUrl} 
                     alt="Poster" 
-                    className={`rounded shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all object-cover ${
+                    className={`rounded-lg shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all object-cover ${
                       metadata.type === 'artist' || metadata.type === 'album' || metadata.type === 'track' ? 'w-32 h-32' : 'w-32 h-48'
                     }`}
                     onClick={() => window.open(posterUrl, '_blank')}
@@ -1117,14 +1412,20 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
             </div>
 
             {/* Background */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50">
+            <div className="py-1">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Background
                 </h4>
                 {isEditing && (
-                  <label className="px-3 py-1 text-xs bg-primary-600 hover:bg-primary-700 text-white rounded cursor-pointer transition-colors">
-                    Upload New
+                  <label className="cursor-pointer">
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onClick={() => {}}
+                    >
+                      Upload New
+                    </Button>
                     <input
                       type="file"
                       accept="image/*"
@@ -1147,18 +1448,59 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                   <img 
                     src={artUrl} 
                     alt="Background" 
-                    className="w-64 h-36 rounded shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all object-cover"
+                    className="w-64 h-36 rounded-lg shadow-md cursor-pointer hover:shadow-lg hover:scale-105 transition-all object-cover"
                     onClick={() => window.open(artUrl, '_blank')}
                     title="Click to view full size"
                   />
                 </div>
               )}
             </div>
-          </div>
-        )}
+          </TabPanel>
 
-        {activeTab === 'trailers' && (
-          <div className="space-y-4">
+          <TabPanel value="trailers" className="space-y-5">
+            {/* Add trailer buttons - at top */}
+            {isEditing && (
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="secondary"
+                  size="medium"
+                  onClick={() => {
+                    const metadata = fullMetadata?.MediaContainer?.Metadata?.[0];
+                    
+                    // For TV shows, get the directory path from Location
+                    // For movies/episodes, get the file path from Media
+                    let mediaPath: string | null = null;
+                    
+                    if (item.type === 'show') {
+                      // TV shows have a Location array with directory paths
+                      mediaPath = metadata?.Location?.[0]?.path || null;
+                    } else if (item.type === 'season') {
+                      // Seasons also use Location
+                      mediaPath = metadata?.Location?.[0]?.path || null;
+                    } else {
+                      // Movies and episodes have file paths
+                      mediaPath = metadata?.Media?.[0]?.Part?.[0]?.file || null;
+                    }
+                    
+                    if (!mediaPath) {
+                      alert('Cannot find media path. Please ensure the item has a valid media location.');
+                      return;
+                    }
+                    
+                    setShowTrailerSearch(true);
+                  }}
+                >
+                  Search Trailers
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="medium"
+                >
+                  Add Trailer URL
+                </Button>
+              </div>
+            )}
+
             {/* Plex Trailers Section */}
             {metadata.Extras && metadata.Extras.filter((extra: any) => extra.type === 'clip' && extra.extraType === 1).length > 0 && (
               <div>
@@ -1206,19 +1548,22 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             </div>
                           )}
                         </div>
-                        <button
+                        <Button
+                          variant="icon"
+                          size="medium"
                           onClick={() => {
                             // Play trailer logic
                             const trailerUrl = `${serverUrl}${trailer.Media?.[0]?.Part?.[0]?.key}?X-Plex-Token=${token}`;
                             window.open(trailerUrl, '_blank');
                           }}
-                          className="p-2 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors"
+                          icon={
+                            <svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                            </svg>
+                          }
                           title="Play trailer"
-                        >
-                          <svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                          </svg>
-                        </button>
+                          aria-label="Play trailer"
+                        />
                       </div>
                     </div>
                   ))}
@@ -1275,20 +1620,23 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                               )}
                             </div>
                           </div>
-                          <button
+                          <Button
+                            variant="icon"
+                            size="medium"
                             onClick={() => {
                               // Open local file with default application
                               if (window.electron) {
                                 window.electron.openFile(trailerPath);
                               }
                             }}
-                            className="p-2 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors"
+                            icon={
+                              <svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                              </svg>
+                            }
                             title="Play trailer"
-                          >
-                            <svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                            </svg>
-                          </button>
+                            aria-label="Play trailer"
+                          />
                         </div>
                       </div>
                     );
@@ -1308,56 +1656,28 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 <p className="text-xs mt-1">Local trailers should be named with "-trailer" suffix</p>
               </div>
             )}
+          </TabPanel>
 
-            {/* Add trailer button */}
-            {isEditing && (
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => {
-                    const metadata = fullMetadata?.MediaContainer?.Metadata?.[0];
-                    
-                    // For TV shows, get the directory path from Location
-                    // For movies/episodes, get the file path from Media
-                    let mediaPath: string | null = null;
-                    
-                    if (item.type === 'show') {
-                      // TV shows have a Location array with directory paths
-                      mediaPath = metadata?.Location?.[0]?.path || null;
-                    } else if (item.type === 'season') {
-                      // Seasons also use Location
-                      mediaPath = metadata?.Location?.[0]?.path || null;
-                    } else {
-                      // Movies and episodes have file paths
-                      mediaPath = metadata?.Media?.[0]?.Part?.[0]?.file || null;
-                    }
-                    
-                    if (!mediaPath) {
-                      alert('Cannot find media path. Please ensure the item has a valid media location.');
-                      return;
-                    }
-                    
-                    setShowTrailerSearch(true);
-                  }}
-                  className="flex-1 px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Search Trailers
-                </button>
-                <button className="flex-1 px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Trailer URL
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          <TabPanel value="subtitles" className="space-y-5">
+            {/* Search subtitles button - at top */}
+            <div className="flex justify-end">
+              <Button
+                variant="secondary"
+                size="medium"
+                onClick={() => {
+                  // Check if we have media file path
+                  const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
+                  if (!mediaFilePath) {
+                    alert('Media file path not found');
+                    return;
+                  }
+                  setShowSubtitleSearchModal(true);
+                }}
+              >
+                Search for Subtitles
+              </Button>
+            </div>
 
-        {activeTab === 'subtitles' && (
-          <div className="space-y-4">
             {/* Plex/Embedded Subtitles Section */}
             {plexSubtitles.length > 0 && (
               <div>
@@ -1369,13 +1689,14 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     Embedded Subtitles
                   </h4>
                   {selectedSubtitlesForRemoval.size > 0 && (
-                    <button
+                    <Button
+                      variant="primary"
+                      size="small"
                       onClick={async () => {
                         if (confirm(`Remove ${selectedSubtitlesForRemoval.size} selected subtitle(s)? This will modify the video file. A backup will be created.`)) {
                           try {
                             const ffmpegManager = createFFmpegManager();
-                            const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
-                            
+                            const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;                            
                             if (!mediaFilePath) {
                               alert('Media file path not found');
                               return;
@@ -1416,13 +1737,10 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                           }
                         }
                       }}
-                      className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center gap-2"
+                      className="bg-red-600 hover:bg-red-700"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
                       Remove Selected ({selectedSubtitlesForRemoval.size})
-                    </button>
+                    </Button>
                   )}
                 </div>
                 <div className="space-y-3">
@@ -1486,7 +1804,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                         </div>
                         <div className="flex flex-col gap-2">
                           {!subtitle.external && (
-                            <button
+                            <Button
+                              variant="icon"
+                              size="medium"
                               onClick={async () => {
                                 if (confirm(`Extract subtitle: ${subtitle.language}?`)) {
                                   try {
@@ -1524,13 +1844,14 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                                   }
                                 }
                               }}
-                              className="p-2 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors"
+                              icon={
+                                <svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                              }
                               title="Extract subtitle"
-                            >
-                              <svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                            </button>
+                              aria-label="Extract subtitle"
+                            />
                           )}
                         </div>
                       </div>
@@ -1586,7 +1907,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                           </p>
                         </div>
                         <div className="flex flex-col gap-2">
-                          <button
+                          <Button
+                            variant="icon"
+                            size="medium"
                             onClick={async () => {
                               if (confirm(`Embed subtitle: ${subtitle.fileName}? This will modify the video file.`)) {
                                 try {
@@ -1622,14 +1945,16 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                                 }
                               }
                             }}
-                            className="p-2 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors"
                             title="Embed into video"
-                          >
-                            <svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
-                          </button>
-                          <button
+                            icon={
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 1 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                              </svg>
+                            }
+                          />
+                          <Button
+                            variant="icon"
+                            size="medium"
                             onClick={async () => {
                               if (confirm(`Delete subtitle file: ${subtitle.fileName}?`)) {
                                 try {
@@ -1647,13 +1972,14 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                                 }
                               }
                             }}
-                            className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
                             title="Delete subtitle file"
-                          >
-                            <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                            className="hover:bg-red-100 dark:hover:bg-red-900/20"
+                            icon={
+                              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            }
+                          />
                         </div>
                       </div>
                     </div>
@@ -1672,29 +1998,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 <p className="text-xs mt-1">Search for subtitles or add local subtitle files</p>
               </div>
             )}
+        </TabPanel>
 
-            {/* Search subtitles button */}
-            <button 
-              onClick={() => {
-                // Check if we have media file path
-                const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
-                if (!mediaFilePath) {
-                  alert('Media file path not found');
-                  return;
-                }
-                setShowSubtitleSearchModal(true);
-              }}
-              className="w-full px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              Search for Subtitles
-            </button>
-          </div>
-        )}
-
-        {activeTab === 'musicvideos' && (
+        <TabPanel value="musicvideos" className="space-y-5">
           <div className="space-y-4">
             {/* Music Videos from Plex */}
             {localMusicVideos.length > 0 && (
@@ -1743,7 +2049,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                         
                         {/* Actions */}
                         <div className="flex items-center gap-2">
-                          <button
+                          <Button
+                            variant="icon"
+                            size="medium"
                             onClick={async () => {
                               if (video.file) {
                                 try {
@@ -1754,16 +2062,18 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                                 }
                               }
                             }}
-                            className="p-2 hover:bg-primary-100 dark:hover:bg-primary-900/20 rounded transition-colors"
                             title="Play music video"
                             disabled={!video.file}
-                          >
-                            <svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </button>
-                          <button
+                            icon={
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            }
+                          />
+                          <Button
+                            variant="icon"
+                            size="medium"
                             onClick={async () => {
                               if (!video.file) {
                                 alert('Cannot delete: file path not available');
@@ -1799,14 +2109,15 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                                 }
                               }
                             }}
-                            className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
+                            className="hover:bg-red-100 dark:hover:bg-red-900/20"
                             title="Delete music video file"
                             disabled={!video.file}
-                          >
-                            <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                            icon={
+                              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            }
+                          />
                         </div>
                       </div>
                     );
@@ -1831,7 +2142,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
             )}
 
             {/* Search music videos button */}
-            <button 
+            <Button
+              variant="secondary"
+              size="medium"
               onClick={() => {
                 // Check if we have media file path
                 const mediaFilePath = fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file;
@@ -1841,18 +2154,15 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 }
                 setShowMusicVideoSearch(true);
               }}
-              className="w-full px-4 py-3 border-2 border-dashed border-secondary-300 dark:border-secondary-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors text-secondary-600 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2"
+              className="w-full"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
               Search for Music Videos
-            </button>
+            </Button>
           </div>
-        )}
+        </TabPanel>
 
-        {activeTab === 'theme' && (
-          <div className="space-y-6 p-6">
+        <TabPanel value="theme" className="space-y-6">
+          <div className="space-y-6">
             <div className="text-center">
               <h3 className="text-xl font-semibold text-secondary-900 dark:text-secondary-50 mb-4">
                 Theme Music
@@ -1873,7 +2183,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                   
                   {isEditing && (
                     <div className="flex justify-center gap-2">
-                      <button
+                      <Button
+                        variant="primary"
+                        size="medium"
                         onClick={async () => {
                           if (!window.electron?.selectFile) {
                             alert('File selection is only available in desktop app');
@@ -1909,14 +2221,17 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             alert('Failed to add local theme: ' + (error instanceof Error ? error.message : 'Unknown error'));
                           }
                         }}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-2"
+                        icon={
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                        }
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
                         Add Local Theme
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="medium"
                         onClick={async () => {
                           if (!window.electron?.downloadFile) {
                             alert('File download is only available in desktop app');
@@ -1943,26 +2258,31 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             alert('Failed to download Plex theme: ' + (error instanceof Error ? error.message : 'Unknown error'));
                           }
                         }}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors flex items-center gap-2"
+                        icon={
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        }
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
                         Download Plex Theme
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="medium"
                         onClick={() => {
                           if (confirm('Remove theme music?')) {
                             handleFieldChange('theme', '');
                           }
                         }}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors flex items-center gap-2"
+                        className="hover:bg-red-100 dark:hover:bg-red-900/20 hover:border-red-500"
+                        icon={
+                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        }
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
                         Remove Theme
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -2026,20 +2346,26 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
               )}
             </div>
           </div>
-        )}
+        </TabPanel>
 
-        {activeTab === 'files' && (
+        <TabPanel value="files" className="space-y-5">
           <div className="space-y-4">
             {/* Action buttons */}
             <div className="flex justify-end gap-2">
               {/* Open Media Folder button */}
-              {(metadata.Media?.[0]?.Part?.[0]?.file || metadata.Location?.[0]?.path) && (
-                <button
+              {(metadata.Media?.[0]?.Part?.[0]?.file || metadata.Location?.[0]?.path || (isAlbum && albumTracks.length > 0 && albumTracks[0].Media?.[0]?.Part?.[0]?.file)) && (
+                <Button
+                  variant="secondary"
+                  size="medium"
                   onClick={async () => {
                     let folderPath: string;
                     
-                    if (metadata.Media?.[0]?.Part?.[0]?.file) {
-                      // For movies and episodes - extract folder from file path
+                    if (isAlbum && albumTracks.length > 0 && albumTracks[0].Media?.[0]?.Part?.[0]?.file) {
+                      // For albums - extract folder from first track's file path
+                      const filePath = albumTracks[0].Media[0].Part[0].file;
+                      folderPath = filePath.substring(0, Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/')));
+                    } else if (metadata.Media?.[0]?.Part?.[0]?.file) {
+                      // For movies, episodes and tracks - extract folder from file path
                       const filePath = metadata.Media[0].Part[0].file;
                       folderPath = filePath.substring(0, Math.max(filePath.lastIndexOf('\\'), filePath.lastIndexOf('/')));
                     } else if (metadata.Location?.[0]?.path) {
@@ -2057,36 +2383,25 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                       alert('Failed to open media folder. Please check if the path exists.');
                     }
                   }}
-                  className="px-4 py-2 text-sm bg-secondary-600 hover:bg-secondary-700 text-white rounded transition-colors flex items-center gap-2"
+                  icon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                  }
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                  </svg>
                   Open Media Folder
-                </button>
+                </Button>
               )}
               
               {/* Rescan button */}
-              <button
+              <Button
+                variant="primary"
+                size="medium"
                 onClick={async () => {
                   if (!item) return;
                   try {
                     const client = createPlexClient({ baseURL: serverUrl, token });
                     const manager = createMetadataManager(client);
-                    
-                    // Show loading state
-                    const button = document.activeElement as HTMLButtonElement;
-                    const originalText = button?.innerHTML;
-                    if (button) {
-                      button.disabled = true;
-                      button.innerHTML = `
-                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        <span class="ml-2">Rescanning...</span>
-                      `;
-                    }
                     
                     await manager.refreshMetadata(item.ratingKey);
                     
@@ -2095,126 +2410,159 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                     
                     // Refetch metadata after refresh
                     await refetch();
-                    
-                    // Restore button
-                    if (button && originalText) {
-                      button.disabled = false;
-                      button.innerHTML = originalText;
-                    }
                   } catch (error) {
                     console.error('Failed to refresh metadata:', error);
                     alert('Failed to rescan media info. Please try again.');
                   }
                 }}
-                className="px-4 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                }
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
                 Rescan Media Info
-              </button>
+              </Button>
             </div>
 
-            {metadata.Media && metadata.Media.map((media: any, index: number) => (
-              <div key={index} className="border border-secondary-200 dark:border-secondary-700 rounded-lg p-4">
-                <h5 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-3">
-                  Media Stream {metadata.Media.length > 1 ? `#${index + 1}` : ''}
-                </h5>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-secondary-500 dark:text-secondary-400">Container:</span>
-                    <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                      {media.container?.toUpperCase() || 'Unknown'}
-                    </span>
+            {/* Determine media items to display */}
+            {(() => {
+              // For albums, display each track's media info
+              const mediaItems: Array<{ media: any; label?: string }> = [];
+              
+              if (isAlbum && albumTracks.length > 0) {
+                albumTracks.forEach((track: any) => {
+                  if (track.Media) {
+                    track.Media.forEach((media: any) => {
+                      mediaItems.push({ media, label: track.title || `Track ${track.index}` });
+                    });
+                  }
+                });
+              } else if (metadata.Media) {
+                metadata.Media.forEach((media: any) => {
+                  mediaItems.push({ media });
+                });
+              }
+              
+              if (mediaItems.length === 0) {
+                return (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-sm">No media info available.</p>
+                    <p className="text-xs mt-1">Click "Rescan Media Info" to extract file details from Plex.</p>
                   </div>
-                  <div>
-                    <span className="text-secondary-500 dark:text-secondary-400">Video Codec:</span>
-                    <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                      {media.videoCodec?.toUpperCase() || 'Unknown'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-secondary-500 dark:text-secondary-400">Resolution:</span>
-                    <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                      {media.videoResolution ? `${media.videoResolution}p` : `${media.width}x${media.height}`}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-secondary-500 dark:text-secondary-400">Audio Codec:</span>
-                    <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                      {media.audioCodec?.toUpperCase() || 'Unknown'}
-                    </span>
-                  </div>
-                  {media.bitrate && (
+                );
+              }
+              
+              return mediaItems.map((item, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white">
+                  <h5 className="text-sm font-semibold text-gray-800 mb-3">
+                    {item.label ? `${item.label}` : `Media Stream ${mediaItems.length > 1 ? `#${index + 1}` : ''}`}
+                  </h5>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <span className="text-secondary-500 dark:text-secondary-400">Bitrate:</span>
-                      <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                        {/* Plex stores bitrate in kbps, so just display it directly */}
-                        {media.bitrate >= 1000 
-                          ? `${(media.bitrate / 1000).toFixed(1)} Mbps`
-                          : `${media.bitrate} kbps`
-                        }
+                      <span className="text-gray-500">Container:</span>
+                      <span className="ml-2 text-gray-900 font-medium">
+                        {item.media.container?.toUpperCase() || 'Unknown'}
                       </span>
                     </div>
-                  )}
-                  {media.audioChannels && (
+                    {item.media.videoCodec && (
+                      <div>
+                        <span className="text-gray-500">Video Codec:</span>
+                        <span className="ml-2 text-gray-900 font-medium">
+                          {item.media.videoCodec?.toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    {item.media.videoResolution && (
+                      <div>
+                        <span className="text-gray-500">Resolution:</span>
+                        <span className="ml-2 text-gray-900 font-medium">
+                          {item.media.videoResolution ? `${item.media.videoResolution}p` : `${item.media.width}x${item.media.height}`}
+                        </span>
+                      </div>
+                    )}
                     <div>
-                      <span className="text-secondary-500 dark:text-secondary-400">Audio Channels:</span>
-                      <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                        {media.audioChannels === 6 ? '5.1' : media.audioChannels === 8 ? '7.1' : media.audioChannels}
+                      <span className="text-gray-500">Audio Codec:</span>
+                      <span className="ml-2 text-gray-900 font-medium">
+                        {item.media.audioCodec?.toUpperCase() || 'Unknown'}
                       </span>
                     </div>
-                  )}
-                  {media.aspectRatio && (
-                    <div>
-                      <span className="text-secondary-500 dark:text-secondary-400">Aspect Ratio:</span>
-                      <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                        {media.aspectRatio}
-                      </span>
+                    {item.media.bitrate && (
+                      <div>
+                        <span className="text-gray-500">Bitrate:</span>
+                        <span className="ml-2 text-gray-900 font-medium">
+                          {item.media.bitrate >= 1000 
+                            ? `${(item.media.bitrate / 1000).toFixed(1)} Mbps`
+                            : `${item.media.bitrate} kbps`
+                          }
+                        </span>
+                      </div>
+                    )}
+                    {item.media.audioChannels && (
+                      <div>
+                        <span className="text-gray-500">Audio Channels:</span>
+                        <span className="ml-2 text-gray-900 font-medium">
+                          {item.media.audioChannels === 6 ? '5.1' : item.media.audioChannels === 8 ? '7.1' : item.media.audioChannels}
+                        </span>
+                      </div>
+                    )}
+                    {item.media.aspectRatio && (
+                      <div>
+                        <span className="text-gray-500">Aspect Ratio:</span>
+                        <span className="ml-2 text-gray-900 font-medium">
+                          {item.media.aspectRatio}
+                        </span>
+                      </div>
+                    )}
+                    {item.media.videoFrameRate && (
+                      <div>
+                        <span className="text-gray-500">Frame Rate:</span>
+                        <span className="ml-2 text-gray-900 font-medium">
+                          {item.media.videoFrameRate} fps
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {item.media.Part && item.media.Part.map((part: any, partIndex: number) => (
+                    <div key={partIndex} className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-xs font-semibold text-gray-500 mb-1">File:</p>
+                      <p className="text-xs text-gray-800 font-mono break-all bg-gray-50 p-2 rounded">
+                        {part.file}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                        {part.size && (
+                          <div>
+                            <span className="text-gray-500">Size:</span>
+                            <span className="ml-2 text-gray-900 font-medium">
+                              {part.size >= 1024 * 1024 * 1024
+                                ? `${(part.size / (1024 * 1024 * 1024)).toFixed(2)} GB`
+                                : `${(part.size / (1024 * 1024)).toFixed(1)} MB`
+                              }
+                            </span>
+                          </div>
+                        )}
+                        {part.duration && (
+                          <div>
+                            <span className="text-gray-500">Duration:</span>
+                            <span className="ml-2 text-gray-900 font-medium">
+                              {formatDuration(part.duration)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  {media.videoFrameRate && (
-                    <div>
-                      <span className="text-secondary-500 dark:text-secondary-400">Frame Rate:</span>
-                      <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                        {media.videoFrameRate} fps
-                      </span>
-                    </div>
-                  )}
+                  ))}
                 </div>
-                {media.Part && media.Part.map((part: any, partIndex: number) => (
-                  <div key={partIndex} className="mt-3 pt-3 border-t border-secondary-200 dark:border-secondary-700">
-                    <p className="text-xs font-semibold text-secondary-600 dark:text-secondary-400 mb-1">File:</p>
-                    <p className="text-xs text-secondary-900 dark:text-secondary-50 font-mono break-all bg-secondary-50 dark:bg-secondary-800 p-2 rounded">
-                      {part.file}
-                    </p>
-                    <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                      {part.size && (
-                        <div>
-                          <span className="text-secondary-500 dark:text-secondary-400">Size:</span>
-                          <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                            {(part.size / (1024 * 1024 * 1024)).toFixed(2)} GB
-                          </span>
-                        </div>
-                      )}
-                      {part.duration && (
-                        <div>
-                          <span className="text-secondary-500 dark:text-secondary-400">Duration:</span>
-                          <span className="ml-2 text-secondary-900 dark:text-secondary-50 font-medium">
-                            {formatDuration(part.duration)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
+              ));
+            })()}
           </div>
-        )}
+        </TabPanel>
       </div>
 
-      {/* Metadata Refresh Modal */}
+      {/* Modals and remaining content below */}
       {showRefreshModal && item && (
         <MetadataRefreshModal
           items={[item]}
@@ -2310,6 +2658,137 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
         />
       )}
 
+      {/* Cast & Crew Review Modal */}
+      {showCastReviewModal && fetchedCastData && (
+        <Modal
+          isOpen={showCastReviewModal}
+          onClose={() => {
+            setShowCastReviewModal(false);
+            setFetchedCastData(null);
+          }}
+          title="Review Cast & Crew"
+          maxWidth="lg"
+        >
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+            <p className="text-sm text-secondary-500 dark:text-secondary-400">
+              Found from {fetchedCastData.provider}. Review and select what to import.
+            </p>
+
+            {/* Cast Section */}
+            {fetchedCastData.cast.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
+                  Cast ({fetchedCastData.cast.length})
+                </h4>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {fetchedCastData.cast.slice(0, 20).map((person, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-secondary-50 dark:bg-secondary-800 rounded">
+                      {person.profilePath ? (
+                        <img
+                          src={person.profilePath}
+                          alt={person.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-secondary-200 dark:bg-secondary-700 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-secondary-900 dark:text-secondary-50 truncate">{person.name}</p>
+                        {person.character && (
+                          <p className="text-xs text-secondary-500 dark:text-secondary-400 truncate">as {person.character}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {fetchedCastData.cast.length > 20 && (
+                  <p className="text-xs text-secondary-500 dark:text-secondary-400 mt-1">
+                    ... and {fetchedCastData.cast.length - 20} more
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Directors Section */}
+            {fetchedCastData.directors.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
+                  Directors ({fetchedCastData.directors.length})
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {fetchedCastData.directors.map((director, index) => (
+                    <span key={index} className="px-2 py-1 text-xs bg-secondary-100 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-200 rounded">
+                      {director}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Writers Section */}
+            {fetchedCastData.writers.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-secondary-900 dark:text-secondary-50 mb-2">
+                  Writers ({fetchedCastData.writers.length})
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {fetchedCastData.writers.map((writer, index) => (
+                    <span key={index} className="px-2 py-1 text-xs bg-secondary-100 dark:bg-secondary-700 text-secondary-700 dark:text-secondary-200 rounded">
+                      {writer}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Save Options */}
+          <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-secondary-200 dark:border-secondary-700">
+            <Button
+              variant="secondary"
+              size="medium"
+              onClick={() => {
+                setShowCastReviewModal(false);
+                setFetchedCastData(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              size="medium"
+              onClick={() => saveCastAndCrew('local')}
+              disabled={isFetchingCast}
+            >
+              Save Locally
+            </Button>
+            <Button
+              variant="secondary"
+              size="medium"
+              onClick={() => saveCastAndCrew('plex')}
+              disabled={isFetchingCast}
+            >
+              Save to Plex
+            </Button>
+            <Button
+              variant="primary"
+              size="medium"
+              onClick={() => saveCastAndCrew('both')}
+              disabled={isFetchingCast}
+            >
+              Save Both
+            </Button>
+          </div>
+        </Modal>
+      )}
+
       {/* Music Video Search Modal */}
       {showMusicVideoSearch && item && item.type === 'track' && fullMetadata?.MediaContainer?.Metadata?.[0]?.Media?.[0]?.Part?.[0]?.file && (
         <MusicVideoSearchModal
@@ -2358,6 +2837,61 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
           }}
         />
       )}
+      </div> {/* Close content wrapper with solid background */}
+      </Tabs>
+
+      {/* Action Buttons - Fixed Footer (outside Tabs, direct child of root) */}
+      <div className="flex-shrink-0 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] px-3 py-2.5 z-10">
+        <div className="flex items-center gap-2">
+          {/* Save Target Selector */}
+          <select
+            value={saveTarget}
+            onChange={(e) => setSaveTarget(e.target.value as 'plex' | 'local' | 'both')}
+            className="flex-shrink min-w-0 px-2 py-1.5 text-xs font-medium bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-gray-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            aria-label="Save target"
+          >
+            <option value="plex">Save to Plex</option>
+            <option value="local">Save to Local</option>
+            <option value="both">Save to Both</option>
+          </select>
+
+          <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+            {/* Refresh Metadata Button */}
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={() => setShowRefreshModal(true)}
+              icon={
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              }
+              title="Fetch latest metadata for review"
+            >
+              Refresh
+            </Button>
+
+            {/* Save Changes Button */}
+            <Button
+              variant="primary"
+              size="small"
+              onClick={handleSave}
+              disabled={saveMutation.isPending || Object.keys(editedFields).length === 0}
+              loading={saveMutation.isPending}
+              icon={
+                !saveMutation.isPending && (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )
+              }
+              title={Object.keys(editedFields).length === 0 ? "No changes to save" : "Save changes"}
+            >
+              {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

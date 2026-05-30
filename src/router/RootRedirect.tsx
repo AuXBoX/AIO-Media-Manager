@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAppStore } from '@/store/appStore';
+import { PageLoadingState } from '@/components/ui/LoadingState';
 
 /**
  * Smart root redirect that checks auth state
@@ -12,18 +13,7 @@ export function RootRedirect() {
 
   // Wait for hydration
   if (!isHydrated) {
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        backgroundColor: '#1a1a1a',
-        color: '#ffffff',
-      }}>
-        Loading...
-      </div>
-    );
+    return <PageLoadingState message="Loading..." />;
   }
 
   // Not authenticated - go to auth page

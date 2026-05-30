@@ -7,6 +7,8 @@ import { createMusicBrainzProvider } from './MusicBrainzProvider';
 import { createTVDBProvider } from './TVDBProvider';
 import { createDiscogsProvider } from './DiscogsProvider';
 import { createFanartProvider } from './FanartProvider';
+import { createLastFmProvider } from './LastFmProvider';
+import { createAlbumArtExchangeProvider } from './AlbumArtExchangeProvider';
 import { createYouTubeTrailerProvider, YouTubeTrailerProvider } from './YouTubeTrailerProvider';
 
 /**
@@ -30,6 +32,12 @@ export interface ProviderConfig {
     apiKey: string;
   };
   musicbrainz?: {
+    enabled: boolean;
+  };
+  lastfm?: {
+    apiKey: string;
+  };
+  albumartexchange?: {
     enabled: boolean;
   };
   youtube?: {
@@ -139,6 +147,18 @@ export class ProviderRegistry {
     if (config.musicbrainz?.enabled !== false) {
       const musicbrainzProvider = createMusicBrainzProvider(this.plexClient);
       this.providers.set('musicbrainz', musicbrainzProvider);
+    }
+
+    // Initialize Last.fm provider (requires API key - get free at https://www.last.fm/api)
+    if (config.lastfm?.apiKey) {
+      const lastfmProvider = createLastFmProvider(this.plexClient, config.lastfm.apiKey);
+      this.providers.set('lastfm', lastfmProvider);
+    }
+
+    // Initialize AlbumArtExchange provider (no API key required, web scraping)
+    if (config.albumartexchange?.enabled !== false) {
+      const albumArtExchangeProvider = createAlbumArtExchangeProvider(this.plexClient);
+      this.providers.set('albumartexchange', albumArtExchangeProvider);
     }
 
     // Initialize YouTube trailer provider (no API key required)

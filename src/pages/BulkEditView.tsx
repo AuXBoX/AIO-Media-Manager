@@ -5,6 +5,7 @@ import { MetadataManager, MetadataUpdate, BulkOperationResult } from '@/managers
 import { PlexClient } from '@/api/plexClient';
 import { queryKeys } from '@/api/queryKeys';
 import { useAppStore } from '@/store/appStore';
+import { Button } from '@/components/ui/Button';
 
 interface BulkEditViewProps {
   client?: PlexClient;
@@ -83,61 +84,57 @@ export function BulkEditView({ client: providedClient }: BulkEditViewProps) {
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Please select items from the library view to perform bulk editing.
           </p>
-          <button
-            onClick={handleBack}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            Go Back
-          </button>
+          <Button onClick={handleBack} variant="primary">Go Back</Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
+    <div className="min-h-screen bg-background-primary">
+      {/* Header / Toolbar with Glass Effect */}
+      <div className="sticky top-0 z-50 h-16 bg-white/75 backdrop-blur-md border-b border-border">
+        <div className="max-w-7xl mx-auto px-6 h-full">
+          <div className="flex items-center justify-between h-full">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="icon"
                 onClick={handleBack}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 aria-label="Go back"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
+                icon={
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                }
+              />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bulk Edit</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <h1 className="text-xl font-semibold text-text-primary tracking-tight">Bulk Edit</h1>
+                <p className="text-sm text-text-tertiary">
                   {state.selectedItems.length} items selected
                 </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
-              <button
+              <Button
+                variant="secondary"
                 onClick={handleReset}
                 disabled={bulkUpdateMutation.isPending}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
               >
                 Reset
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleApply}
                 disabled={bulkUpdateMutation.isPending || Object.keys(updates).length === 0}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
               >
                 {bulkUpdateMutation.isPending ? 'Applying...' : 'Apply Changes'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -235,11 +232,11 @@ export function BulkEditView({ client: providedClient }: BulkEditViewProps) {
 
         {/* Progress Indicator */}
         {bulkUpdateMutation.isPending && (
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="mb-6 p-4 bg-primary-subtle border border-primary-200 rounded-lg">
             <div className="flex items-center">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-3"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-500 mr-3"></div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                <p className="text-sm font-medium text-primary-800">
                   Updating {state.selectedItems.length} items...
                 </p>
                 <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">

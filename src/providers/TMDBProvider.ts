@@ -103,11 +103,13 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
   readonly provider = 'tmdb' as const;
   private client: AxiosInstance;
   private imageBaseURL: string;
+  private backdropBaseURL: string;
 
   constructor(plexClient: PlexClient, config: TMDBConfig) {
     super(plexClient);
 
     this.imageBaseURL = config.imageBaseURL || 'https://image.tmdb.org/t/p/w500';
+    this.backdropBaseURL = 'https://image.tmdb.org/t/p/original';
 
     this.client = axios.create({
       baseURL: config.baseURL || 'https://api.themoviedb.org/3',
@@ -172,13 +174,13 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
       
       if (episodeIndex !== -1 && parts[episodeIndex + 1]) {
         const seriesId = parts.slice(1, seasonIndex).join('-');
-        const seasonNumber = parseInt(parts[seasonIndex + 1]);
-        const episodeNumber = parseInt(parts[episodeIndex + 1]);
+        const seasonNumber = parseInt(parts[seasonIndex + 1]!);
+        const episodeNumber = parseInt(parts[episodeIndex + 1]!);
         return this.getEpisodeDetails(seriesId, seasonNumber, episodeNumber);
       } else if (seasonIndex !== -1 && parts[seasonIndex + 1]) {
         // Season request: tv-123-season-2
         const seriesId = parts.slice(1, seasonIndex).join('-');
-        const seasonNumber = parseInt(parts[seasonIndex + 1]);
+        const seasonNumber = parseInt(parts[seasonIndex + 1]!);
         return this.getSeasonDetails(seriesId, seasonNumber);
       } else {
         // Show request: tv-123
@@ -226,7 +228,7 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
         profilePath: c.profile_path ? `${this.imageBaseURL}${c.profile_path}` : undefined,
       })),
       posters: movie.images?.posters?.map((p) => `${this.imageBaseURL}${p.file_path}`),
-      backdrops: movie.images?.backdrops?.map((b) => `${this.imageBaseURL}${b.file_path}`),
+      backdrops: movie.images?.backdrops?.map((b) => `${this.backdropBaseURL}${b.file_path}`),
       provider: 'tmdb',
     };
   }
@@ -267,7 +269,7 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
         profilePath: c.profile_path ? `${this.imageBaseURL}${c.profile_path}` : undefined,
       })),
       posters: show.images?.posters?.map((p) => `${this.imageBaseURL}${p.file_path}`),
-      backdrops: show.images?.backdrops?.map((b) => `${this.imageBaseURL}${b.file_path}`),
+      backdrops: show.images?.backdrops?.map((b) => `${this.backdropBaseURL}${b.file_path}`),
       provider: 'tmdb',
     };
   }

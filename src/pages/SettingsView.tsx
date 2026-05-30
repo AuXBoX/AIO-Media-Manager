@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/Button';
+import { PageLoadingState } from '@/components/ui/LoadingState';
 import { getSettingsManager, AppSettings } from '@/managers/SettingsManager';
 import { GeneralSettings } from '@/components/settings/GeneralSettings';
 import { CacheSettings } from '@/components/settings/CacheSettings';
@@ -98,14 +100,7 @@ export const SettingsView: React.FC = () => {
   ];
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading settings...</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingState message="Loading settings..." />;
   }
 
   if (!settings) {
@@ -113,24 +108,21 @@ export const SettingsView: React.FC = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <p className="text-red-600 dark:text-red-400">Failed to load settings</p>
-          <button
-            onClick={loadSettings}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
+          <Button onClick={loadSettings} variant="primary" className="mt-4">
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+    <div className="min-h-screen bg-background-primary">
+      {/* Header / Toolbar with Glass Effect */}
+      <div className="sticky top-0 z-50 h-16 bg-white/75 backdrop-blur-md border-b border-border">
+        <div className="max-w-7xl mx-auto px-6 h-full flex flex-col justify-center">
+          <h1 className="text-xl font-semibold text-text-primary tracking-tight">Settings</h1>
+          <p className="text-sm text-text-tertiary">
             Manage your application preferences and configuration
           </p>
         </div>
@@ -176,13 +168,14 @@ export const SettingsView: React.FC = () => {
 
             {/* Reset Button */}
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <button
+              <Button
+                variant="secondary"
                 onClick={handleReset}
                 disabled={saving}
-                className="w-full px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full !text-red-700 dark:!text-red-400 !bg-red-50 dark:!bg-red-900/20 !border-red-200 dark:!border-red-800 hover:!bg-red-100 dark:hover:!bg-red-900/30"
               >
                 Reset to Defaults
-              </button>
+              </Button>
             </div>
           </div>
 

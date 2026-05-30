@@ -7,6 +7,8 @@ import { queryKeys } from '@/api/queryKeys';
 import { CachedDataBadge } from '@/components/offline/CachedDataBadge';
 import { CacheManager } from '@/managers/CacheManager';
 import { useAppStore } from '@/store/appStore';
+import { PageLoadingState } from '@/components/ui/LoadingState';
+import { Button } from '@/components/ui/Button';
 
 interface MetadataDetailViewProps {
   client?: PlexClient;
@@ -125,14 +127,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading metadata...</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingState message="Loading metadata..." />;
   }
 
   if (error) {
@@ -146,12 +141,9 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             {error instanceof Error ? error.message : 'Unknown error occurred'}
           </p>
-          <button
-            onClick={handleBack}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
+          <Button onClick={handleBack} variant="primary">
             Go Back
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -168,41 +160,39 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             The requested metadata could not be found.
           </p>
-          <button
-            onClick={handleBack}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
+          <Button onClick={handleBack} variant="primary">
             Go Back
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
+    <div className="min-h-screen bg-background-primary">
+      {/* Header / Toolbar with Glass Effect */}
+      <div className="sticky top-0 z-50 h-16 bg-white/75 backdrop-blur-md border-b border-border">
+        <div className="max-w-7xl mx-auto px-6 h-full">
+          <div className="flex items-center justify-between h-full">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="icon"
                 onClick={handleBack}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 aria-label="Go back"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
+                icon={
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                }
+              />
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <h1 className="text-xl font-semibold text-text-primary tracking-tight">
                     {metadata.title}
                   </h1>
                   {/* Cached data badge */}
@@ -222,36 +212,36 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
             <div className="flex items-center space-x-2">
               {!isEditing ? (
                 <>
-                  <button
+                  <Button
+                    variant="secondary"
                     onClick={handleRefresh}
                     disabled={refreshMutation.isPending}
-                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
                   >
                     {refreshMutation.isPending ? 'Refreshing...' : 'Refresh'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={handleEdit}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                   >
                     Edit
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>
-                  <button
+                  <Button
+                    variant="secondary"
                     onClick={handleCancel}
                     disabled={updateMutation.isPending}
-                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={handleSave}
                     disabled={updateMutation.isPending}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
                   >
                     {updateMutation.isPending ? 'Saving...' : 'Save'}
-                  </button>
+                  </Button>
                 </>
               )}
             </div>

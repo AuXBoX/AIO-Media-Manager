@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppSettings } from '@/managers/SettingsManager';
+import { Button } from '@/components/ui/Button';
 
 export interface PrivacySettingsProps {
   settings: AppSettings;
@@ -201,20 +202,12 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({
       {/* Action Buttons */}
       {hasChanges && (
         <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
+          <Button variant="primary" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-          <button
-            onClick={handleCancel}
-            disabled={saving}
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
+          </Button>
+          <Button variant="secondary" onClick={handleCancel} disabled={saving}>
             Cancel
-          </button>
+          </Button>
         </div>
       )}
     </div>

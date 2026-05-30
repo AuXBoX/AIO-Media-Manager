@@ -8,8 +8,6 @@ import { getSettingsManager } from '@/managers/SettingsManager';
 import { queryKeys } from '@/api/queryKeys';
 import { VirtualGrid } from '@/components/library/VirtualGrid';
 import { TableListView } from '@/components/library/TableListView';
-import { TVShowTreeView } from '@/components/library/TVShowTreeView';
-import { MusicTreeView } from '@/components/library/MusicTreeView';
 import { DetailPanel } from '@/components/library/DetailPanel';
 import { ColumnSelector } from '@/components/library/ColumnSelector';
 import { MetadataRefreshModal } from '@/components/library/MetadataRefreshModal';
@@ -18,6 +16,11 @@ import { getColumnDefinitions } from '@/components/library/columnDefinitions';
 import { useResponsiveColumns } from '@/hooks/useResponsiveColumns';
 import { useColumnSettings } from '@/hooks/useColumnSettings';
 import { ResizablePanes } from '@/components/ui/ResizablePanes';
+import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { TableLoadingState } from '@/components/ui/TableLoadingState';
+import { GridLoadingState } from '@/components/ui/GridLoadingState';
+import { LibraryEmptyState } from '@/components/ui/EmptyState';
+import { Button } from '@/components/ui/Button';
 import { db } from '@/db/database';
 
 type ViewMode = 'grid' | 'list';
@@ -40,6 +43,7 @@ export function LibraryView() {
   const [posterSize, setPosterSize] = useState<number>(180); // Default 180px
   const pageSize = 200; // Page size for infinite scroll
   const gridRef = useRef<{ scrollToLetter: (letter: string) => void } | null>(null);
+  const pendingScrollIndex = useRef<number | null>(null);
   
   // Load poster size from settings
   useEffect(() => {
@@ -115,6 +119,12 @@ export function LibraryView() {
   // Use libraryKey from URL if available, otherwise use selectedLibrary
   const activeLibraryKey = libraryKey || selectedLibrary?.key;
   const libraryType = selectedLibrary?.type || 'movie';
+
+  // Clear selected item when library changes so the detail panel hides
+  useEffect(() => {
+    setSelectedItem(null);
+    setSelectedItems(new Set());
+  }, [activeLibraryKey]);
   
   // Check if this is a TV show library or music library
   const isTVShowLibrary = libraryType === 'show';
@@ -126,10 +136,7 @@ export function LibraryView() {
   // Use persistent column settings
   const [columns, setColumns] = useColumnSettings(libraryType, defaultColumns);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('Selected item changed:', selectedItem?.title, 'View mode:', viewMode);
-  }, [selectedItem, viewMode]);
+  // Debug logging removed to prevent performance issues
 
   // Fetch ALL item titles for alphabet navigation (lightweight query)
   const { data: allTitles, isLoading: isLoadingTitles } = useQuery({
@@ -139,29 +146,16 @@ export function LibraryView() {
         throw new Error('No server connection, token, or library selected');
       }
 
-      console.log('[LibraryView] Fetching all titles for alphabet navigation...');
-
       const client = createPlexClient({
         baseURL: serverConnection.uri,
         token: currentToken,
       });
 
-      // Fetch all items but only request title, titleSort and ratingKey fields
-      const response = await client.get(`/library/sections/${activeLibraryKey}/all`, {
-        params: {
-          'X-Plex-Container-Size': 0, // Get total count first
-          ...(isTVShowLibrary ? { type: 2 } : {}),
-          ...(isMusicLibrary ? { type: musicViewMode === 'artists' ? 8 : 9 } : {}),
-        },
-      });
-
-      const totalSize = response.MediaContainer?.totalSize || 0;
-      console.log('[LibraryView] Total items in library:', totalSize);
-      
-      // Now fetch all titles (with titleSort for proper alphabetical sorting)
+      // Fetch all titles directly with a large container size
+      // Note: For movies, Plex doesn't return accurate totalSize with size=0, so we fetch directly
       const fullResponse = await client.get(`/library/sections/${activeLibraryKey}/all`, {
         params: {
-          'X-Plex-Container-Size': totalSize,
+          'X-Plex-Container-Size': 10000, // Large enough for most libraries
           sort: 'titleSort:asc',
           ...(isTVShowLibrary ? { type: 2 } : {}),
           ...(isMusicLibrary ? { type: musicViewMode === 'artists' ? 8 : 9 } : {}),
@@ -169,9 +163,6 @@ export function LibraryView() {
       });
 
       const titles = fullResponse.MediaContainer?.Metadata || [];
-      console.log('[LibraryView] Fetched', titles.length, 'titles');
-      console.log('[LibraryView] First 5 titles:', titles.slice(0, 5).map((t: any) => ({ title: t.title, titleSort: t.titleSort })));
-
       return titles;
     },
     enabled: !!serverConnection && !!currentToken && !!activeLibraryKey,
@@ -196,14 +187,6 @@ export function LibraryView() {
       ...(isMusicLibrary ? { type: musicViewMode === 'artists' ? 8 : 9 } : {}),
     }),
     queryFn: async ({ pageParam = 0 }) => {
-      console.log('[LibraryView] Fetching page:', { 
-        pageParam, 
-        pageSize, 
-        isTVShowLibrary, 
-        isMusicLibrary, 
-        musicViewMode,
-      });
-      
       if (!serverConnection || !currentToken || !activeLibraryKey) {
         throw new Error('No server connection, token, or library selected');
       }
@@ -223,20 +206,7 @@ export function LibraryView() {
         sort: 'titleSort:asc', // Sort alphabetically by title
       };
       
-      console.log('[LibraryView] Filter params:', filterParams);
-      
       const result = await manager.getLibraryItems(activeLibraryKey, filterParams);
-      
-      console.log('[LibraryView] Page fetched:', {
-        offset: pageParam,
-        itemsReceived: result.items.length,
-        totalSize: result.totalSize,
-        isTVShowLibrary,
-        isMusicLibrary,
-        musicViewMode,
-        firstItem: result.items[0],
-      });
-      
       return result;
     },
     getNextPageParam: (lastPage, allPages) => {
@@ -248,39 +218,46 @@ export function LibraryView() {
     initialPageParam: 0,
   });
 
-  // Preload all items in the background for instant alphabet navigation
-  // Disabled for now to prevent stack overflow in dev mode
-  // TODO: Re-enable with virtualization or in production only
-  /*
-  useEffect(() => {
-    const preloadAllItems = async () => {
-      // Only preload for music libraries (artists/albums)
-      if (!isMusicLibrary || !hasNextPage || isFetchingNextPage) return;
-      
-      // Wait a bit after initial load before starting background preload
-      const timer = setTimeout(async () => {
-        console.log('[LibraryView] Starting background preload of all items...');
-        
-        // Load all remaining pages in the background
-        while (hasNextPage && !isFetchingNextPage) {
-          await fetchNextPage();
-          // Longer delay between requests to avoid blocking the UI
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        console.log('[LibraryView] Background preload complete. Total items loaded:', allItems.length);
-      }, 3000); // Wait 3 seconds after initial load
-      
-      return () => clearTimeout(timer);
-    };
-    
-    preloadAllItems();
-  }, [isMusicLibrary, hasNextPage, isFetchingNextPage, fetchNextPage]);
-  */
-
   // Flatten all pages into single items array
   const allItems = data?.pages.flatMap((page) => page.items) || [];
   const totalSize = data?.pages[0]?.totalSize || 0;
+
+  // Preload all items in the background for instant alphabet navigation
+  useEffect(() => {
+    let isCancelled = false;
+    
+    const preloadAllItems = async () => {
+      // Only preload if we have items and more pages to load
+      if (!allItems.length || !hasNextPage || isFetchingNextPage) return;
+      
+      // Wait a bit after initial load before starting background preload
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      if (isCancelled) return;
+      
+      // Load all remaining pages in the background
+      let pagesLoaded = 0;
+      const maxPages = 100; // Safety limit to prevent infinite loops
+      
+      while (hasNextPage && !isFetchingNextPage && !isCancelled && pagesLoaded < maxPages) {
+        try {
+          await fetchNextPage();
+          pagesLoaded++;
+          // Small delay between requests to avoid blocking the UI
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (error) {
+          // Silently fail background preload
+          break;
+        }
+      }
+    };
+    
+    preloadAllItems();
+    
+    return () => {
+      isCancelled = true;
+    };
+  }, [allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Check cache status for items
   useEffect(() => {
@@ -307,6 +284,75 @@ export function LibraryView() {
   const getCacheStatus = (ratingKey: string) => {
     return cachedItems.get(ratingKey) || { isCached: false, isDirty: false };
   };
+
+  // Function to fetch children (seasons/episodes for TV, albums/tracks for Music)
+  const getChildrenFn = async (item: LibraryItem): Promise<LibraryItem[]> => {
+    if (!serverConnection || !currentToken) return [];
+    const client = createPlexClient({ baseURL: serverConnection.uri, token: currentToken });
+    
+    try {
+      if (isTVShowLibrary) {
+        // Fetch seasons for a show
+        const response = await client.get(`/library/metadata/${item.ratingKey}/children`, {
+          params: { 'X-Plex-Container-Size': 100 },
+        });
+        const seasons = response.MediaContainer?.Metadata || [];
+        return seasons.map((s: any) => ({
+          ratingKey: s.ratingKey,
+          key: s.key,
+          guid: s.guid,
+          type: s.type,
+          title: s.title,
+          parentTitle: s.parentTitle,
+          index: s.index,
+          thumb: s.thumb,
+          year: s.year,
+          duration: s.duration,
+          rating: s.rating,
+          userRating: s.userRating,
+        }));
+      } else if (isMusicLibrary) {
+        // Fetch albums for an artist, or tracks for an album
+        const response = await client.get(`/library/metadata/${item.ratingKey}/children`, {
+          params: { 'X-Plex-Container-Size': 200 },
+        });
+        const children = response.MediaContainer?.Metadata || [];
+        return children.map((c: any) => ({
+          ratingKey: c.ratingKey,
+          key: c.key,
+          guid: c.guid,
+          type: c.type,
+          title: c.title,
+          parentTitle: c.parentTitle,
+          index: c.index,
+          thumb: c.thumb,
+          year: c.year,
+          duration: c.duration,
+          rating: c.rating,
+          userRating: c.userRating,
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch children:', error);
+      return [];
+    }
+  };
+
+  // Effect to handle pending scroll after items are loaded
+  useEffect(() => {
+    const targetIndex = pendingScrollIndex.current;
+    if (targetIndex === null || targetIndex < 0) return;
+    if (targetIndex >= allItems.length) return; // Items not loaded yet
+    
+    // Clear the pending scroll
+    pendingScrollIndex.current = null;
+    
+    // Wait for DOM to update then scroll
+    requestAnimationFrame(() => {
+      scrollToIndex(targetIndex);
+    });
+  }, [allItems.length]);
 
   // Handle alphabet jump - scroll to first item starting with letter
   const handleJumpToLetter = async (letter: string) => {
@@ -346,48 +392,61 @@ export function LibraryView() {
       return;
     }
     
-    // Calculate how many pages we need to load
-    const pagesToLoad = Math.ceil((targetIndexInAll + 1 - allItems.length) / pageSize);
+    // Set pending scroll so the effect will scroll after items load
+    pendingScrollIndex.current = targetIndexInAll;
     
     // Load pages until we have the target item
+    const pagesToLoad = Math.ceil((targetIndexInAll + 1 - allItems.length) / pageSize);
     for (let i = 0; i < pagesToLoad && hasNextPage; i++) {
       await fetchNextPage();
     }
-    
-    // Wait briefly for DOM update, then scroll
-    await new Promise(resolve => setTimeout(resolve, 100));
-    scrollToIndex(targetIndexInAll);
   };
   
   // Helper function to scroll to a specific index
   const scrollToIndex = (index: number) => {
-    const scrollContainers = document.querySelectorAll('.overflow-auto');
+    // First try to use the grid ref if available (grid view)
+    if (gridRef.current && viewMode === 'grid') {
+      const targetItem = allItems[index];
+      if (targetItem) {
+        const firstChar = targetItem.title.charAt(0).toUpperCase();
+        const letter = /[A-Z]/.test(firstChar) ? firstChar : '#';
+        gridRef.current.scrollToLetter(letter);
+        return;
+      }
+    }
+    
+    // For list view - use the virtualizer's scrollToIndex via the data-item-key
+    const scrollContainers = document.querySelectorAll('.overflow-y-auto, .overflow-auto');
     
     if (scrollContainers.length === 0) return;
     
     const targetItem = allItems[index];
     if (!targetItem) return;
     
-    scrollContainers.forEach(container => {
-      // Try to find the element by searching for the title text
-      const allItemElements = container.querySelectorAll('[class*="cursor-pointer"]');
+    // Find the correct scroll container (the one with virtualized content)
+    scrollContainers.forEach((container: Element) => {
+      const htmlContainer = container as HTMLElement;
       
-      // Find the element that matches our target item
-      let targetElement: Element | null = null;
-      allItemElements.forEach((el) => {
-        const textContent = el.textContent || '';
-        if (textContent.includes(targetItem.title)) {
-          targetElement = el;
-        }
-      });
+      // Try to find the element by data-item-key attribute (most reliable for virtualized lists)
+      const targetElement = container.querySelector(`[data-item-key="${targetItem.ratingKey}"]`);
       
       if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+        // Calculate the offset accounting for sticky header
+        const containerRect = htmlContainer.getBoundingClientRect();
+        const elementRect = (targetElement as HTMLElement).getBoundingClientRect();
+        const stickyHeaderOffset = 48; // Height of the sticky table header (h-12 = 48px)
+        const offset = elementRect.top - containerRect.top - stickyHeaderOffset;
+        
+        htmlContainer.scrollTo({
+          top: htmlContainer.scrollTop + offset,
+          behavior: 'auto'
+        });
       } else {
-        // Fallback to calculated position
-        const itemHeight = 50;
+        // Fallback: calculate position based on row height
+        // Use the actual estimatedItemHeight passed to TableListView (56px)
+        const itemHeight = 56;
         const scrollTop = index * itemHeight;
-        container.scrollTo({
+        htmlContainer.scrollTo({
           top: scrollTop,
           behavior: 'auto'
         });
@@ -423,7 +482,7 @@ export function LibraryView() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="p-6">
         <div className="mb-6">
@@ -470,29 +529,24 @@ export function LibraryView() {
     );
   }
 
-  if (!data || allItems.length === 0) {
+  if (!data || (allItems.length === 0 && !isLoading && !isFetchingNextPage)) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-            />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-            No items found
-          </h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            This library is empty
-          </p>
+      <div className="flex flex-col flex-1 min-h-0 bg-background-primary">
+        {/* Header / Toolbar with Glass Effect */}
+        <div className="sticky top-0 z-50 h-16 px-6 bg-white/75 backdrop-blur-md border-b border-border flex-shrink-0">
+          <div className="flex items-center justify-between h-full gap-6">
+            {/* Left Section: Title */}
+            <div className="flex items-center gap-4 min-w-0">
+              <h1 className="text-xl font-semibold text-text-primary tracking-tight whitespace-nowrap">
+                {selectedLibrary?.title || 'Library'}
+              </h1>
+            </div>
+          </div>
+        </div>
+        
+        {/* Empty State */}
+        <div className="flex-1 flex items-center justify-center">
+          <LibraryEmptyState libraryName={selectedLibrary?.title || 'library'} />
         </div>
       </div>
     );
@@ -510,49 +564,57 @@ export function LibraryView() {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {selectedLibrary?.title || 'Library'}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {totalSize} items
-            {allItems.length < totalSize && (
-              <span className="ml-2 text-secondary-500 dark:text-secondary-400">
-                • Loaded {allItems.length}
-              </span>
-            )}
-            {selectedItems.size > 0 && (
-              <span className="ml-2 text-primary-600 dark:text-primary-400">
-                • {selectedItems.size} selected
-              </span>
-            )}
-          </p>
-        </div>
+    <div className="flex flex-col flex-1 min-h-0 animate-fade-in">
+      {/* Header / Toolbar with Glass Effect */}
+      <div className="sticky top-0 z-50 h-16 px-6 bg-white/75 backdrop-blur-md border-b border-border flex-shrink-0">
+        <div className="flex items-center justify-between h-full gap-6">
+          {/* Left Section: Title and Stats */}
+          <div className="flex items-center gap-4 min-w-0">
+            <h1 className="text-xl font-semibold text-text-primary tracking-tight whitespace-nowrap">
+              {selectedLibrary?.title || 'Library'}
+            </h1>
+            <div className="flex items-center gap-2 text-sm text-text-tertiary">
+              <span>{totalSize} items</span>
+              {allItems.length < totalSize && (
+                <>
+                  <span>•</span>
+                  <span className="text-secondary-500">
+                    Loaded {allItems.length}
+                  </span>
+                </>
+              )}
+              {selectedItems.size > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="text-primary-600 font-medium">
+                    {selectedItems.size} selected
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
 
-        {/* View Toggle and Column Selector */}
-        <div className="flex items-center space-x-4">
+          {/* Right Section: Actions and View Toggle */}
+          <div className="flex items-center gap-3 flex-shrink-0">
           {/* Music View Mode Toggle (Artists/Albums) */}
           {isMusicLibrary && (
-            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-md p-1">
+            <div className="inline-flex items-center gap-1 bg-background-secondary rounded-xl p-1">
               <button
                 onClick={() => setMusicViewMode('artists')}
-                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 ${
                   musicViewMode === 'artists'
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-white/50'
                 }`}
               >
                 Artists
               </button>
               <button
                 onClick={() => setMusicViewMode('albums')}
-                className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-150 ${
                   musicViewMode === 'albums'
-                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-white/50'
                 }`}
               >
                 Albums
@@ -563,32 +625,38 @@ export function LibraryView() {
           {/* Selection Actions */}
           {selectedItems.size > 0 && (
             <>
-              <button
+              <Button
+                variant="primary"
+                size="small"
                 onClick={() => {
                   const itemsToRefresh = allItems.filter((item) => selectedItems.has(item.ratingKey));
                   if (itemsToRefresh.length > 0) {
                     setShowRefreshModal(true);
                   }
                 }}
-                className="px-3 py-2 text-sm font-medium bg-primary-600 hover:bg-primary-700 text-white rounded transition-colors flex items-center gap-2"
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                }
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh Metadata ({selectedItems.size})
-              </button>
-              <button
+                Refresh ({selectedItems.size})
+              </Button>
+              <Button
+                variant="ghost"
+                size="small"
                 onClick={() => setSelectedItems(new Set())}
-                className="px-3 py-2 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors"
               >
-                Clear Selection
-              </button>
+                Clear
+              </Button>
             </>
           )}
 
           {/* Select All / Deselect All */}
           {viewMode === 'list' && (
-            <button
+            <Button
+              variant="ghost"
+              size="small"
               onClick={() => {
                 if (selectedItems.size === allItems.length) {
                   setSelectedItems(new Set());
@@ -596,24 +664,25 @@ export function LibraryView() {
                   setSelectedItems(new Set(allItems.map((item) => item.ratingKey)));
                 }
               }}
-              className="px-3 py-2 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-800 rounded transition-colors flex items-center gap-2"
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {selectedItems.size === allItems.length ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  )}
+                </svg>
+              }
               title={selectedItems.size === allItems.length ? 'Deselect All' : 'Select All'}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {selectedItems.size === allItems.length ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                )}
-              </svg>
               {selectedItems.size === allItems.length ? 'Deselect All' : 'Select All'}
-            </button>
+            </Button>
           )}
 
           {/* Poster Size Slider (only in grid view) */}
           {viewMode === 'grid' && (
-            <div className="flex items-center gap-3 px-3 py-2 bg-secondary-100 dark:bg-secondary-800 rounded-md">
-              <svg className="w-4 h-4 text-secondary-600 dark:text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="inline-flex items-center gap-3 px-4 py-2 bg-background-secondary rounded-lg">
+              <svg className="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <input
@@ -623,10 +692,10 @@ export function LibraryView() {
                 step="20"
                 value={posterSize}
                 onChange={(e) => setPosterSize(parseInt(e.target.value))}
-                className="w-32 h-2 bg-secondary-300 dark:bg-secondary-600 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                className="w-32 h-2 bg-secondary-300 rounded-lg appearance-none cursor-pointer accent-primary-500"
                 aria-label="Poster size"
               />
-              <span className="text-xs text-secondary-600 dark:text-secondary-400 w-12">
+              <span className="text-xs text-text-tertiary font-medium w-12 text-right">
                 {posterSize}px
               </span>
             </div>
@@ -636,79 +705,57 @@ export function LibraryView() {
             <ColumnSelector columns={columns} onColumnsChange={setColumns} />
           )}
           
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`p-2 rounded-md ${
-              viewMode === 'grid'
-                ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-            aria-label="Grid view"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-              />
-            </svg>
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`p-2 rounded-md ${
-              viewMode === 'list'
-                ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-            aria-label="List view"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
+          {/* View Toggle Buttons */}
+          <div className="inline-flex items-center gap-1 bg-background-secondary rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded-md transition-all duration-150 ${
+                viewMode === 'grid'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-white/50'
+              }`}
+              aria-label="Grid view"
+              title="Grid view"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-md transition-all duration-150 ${
+                viewMode === 'list'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-white/50'
+              }`}
+              aria-label="List view"
+              title="List view"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-hidden flex">
+      <div className="flex-1 min-h-0 overflow-hidden flex bg-background-primary" style={{ height: `calc(100vh - ${typeof window !== 'undefined' && (window as any).electron ? 160 : 128}px)` }}>
         {selectedItem ? (
           <ResizablePanes
             leftPane={
               <div className="h-full overflow-hidden relative">
-                {isMusicLibrary ? (
-                  // Music Tree View
-                  <MusicTreeView
-                    items={allItems}
-                    serverUrl={serverConnection?.uri || ''}
-                    token={currentToken || ''}
-                    onItemClick={(item) => setSelectedItem(item)}
-                    selectedItem={selectedItem}
-                    selectedItems={selectedItems}
-                    onSelectionChange={setSelectedItems}
-                    getCacheStatus={getCacheStatus}
-                    onScroll={handleScroll}
-                    viewMode={musicViewMode}
-                  />
-                ) : isTVShowLibrary ? (
-                  // TV Show Tree View
-                  <TVShowTreeView
-                    items={allItems}
-                    serverUrl={serverConnection?.uri || ''}
-                    token={currentToken || ''}
-                    onItemClick={(item) => setSelectedItem(item)}
-                    selectedItem={selectedItem}
-                    selectedItems={selectedItems}
-                    onSelectionChange={setSelectedItems}
-                    getCacheStatus={getCacheStatus}
-                    onScroll={handleScroll}
-                  />
-                ) : viewMode === 'grid' ? (
+                {viewMode === 'grid' ? (
                   <VirtualGrid
                     ref={gridRef}
                     items={allItems}
@@ -717,10 +764,11 @@ export function LibraryView() {
                     onItemClick={(item) => setSelectedItem(item)}
                     getCacheStatus={getCacheStatus}
                     columns={columns_grid}
-                    gap={8}
+                    gap={24}
                     posterSize={posterSize}
                     estimatedItemHeight={Math.round(posterSize * 1.5) + 120}
                     onScroll={handleScroll}
+                    squarePosters={isMusicLibrary}
                   />
                 ) : (
                   <TableListView
@@ -735,6 +783,9 @@ export function LibraryView() {
                     getCacheStatus={getCacheStatus}
                     estimatedItemHeight={56}
                     onScroll={handleScroll}
+                    isExpandable={isTVShowLibrary || isMusicLibrary}
+                    getChildren={isTVShowLibrary || isMusicLibrary ? getChildrenFn : undefined}
+                    squarePosters={isMusicLibrary}
                   />
                 )}
                 {/* Alphabet Jump List - show for all views */}
@@ -764,77 +815,25 @@ export function LibraryView() {
             minRightWidth={25}
           />
         ) : (
-          <div className="w-full h-full min-h-0 overflow-hidden relative">
-            {isMusicLibrary ? (
-              // Music Tree View (no detail panel)
-              <>
-                <MusicTreeView
-                  items={allItems}
-                  serverUrl={serverConnection?.uri || ''}
-                  token={currentToken || ''}
-                  onItemClick={(item) => setSelectedItem(item)}
-                  selectedItem={selectedItem}
-                  selectedItems={selectedItems}
-                  onSelectionChange={setSelectedItems}
-                  getCacheStatus={getCacheStatus}
-                  onScroll={handleScroll}
-                  viewMode={musicViewMode}
-                />
-                {/* Alphabet Jump List */}
-                <AlphabetJumpList
-                  items={allTitles || allItems}
-                  onJumpToLetter={handleJumpToLetter}
-                  isLoading={isLoadingTitles}
-                />
-                {/* Loading indicator */}
-                {isFetchingNextPage && (
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg z-10">
-                    Loading more...
-                  </div>
-                )}
-              </>
-            ) : isTVShowLibrary ? (
-              // TV Show Tree View (no detail panel)
-              <>
-                <TVShowTreeView
-                  items={allItems}
-                  serverUrl={serverConnection?.uri || ''}
-                  token={currentToken || ''}
-                  onItemClick={(item) => setSelectedItem(item)}
-                  selectedItem={selectedItem}
-                  selectedItems={selectedItems}
-                  onSelectionChange={setSelectedItems}
-                  getCacheStatus={getCacheStatus}
-                  onScroll={handleScroll}
-                />
-                {/* Alphabet Jump List */}
-                <AlphabetJumpList
-                  items={allTitles || allItems}
-                  onJumpToLetter={handleJumpToLetter}
-                  isLoading={isLoadingTitles}
-                />
-                {/* Loading indicator */}
-                {isFetchingNextPage && (
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg z-10">
-                    Loading more...
-                  </div>
-                )}
-              </>
-            ) : viewMode === 'grid' ? (
-              <>
-                <VirtualGrid
-                  ref={gridRef}
-                  items={allItems}
-                  serverUrl={serverConnection?.uri || ''}
-                  token={currentToken || ''}
-                  onItemClick={(item) => setSelectedItem(item)}
-                  getCacheStatus={getCacheStatus}
-                  columns={columns_grid}
-                  gap={8}
-                  posterSize={posterSize}
-                  estimatedItemHeight={Math.round(posterSize * 1.5) + 120}
-                  onScroll={handleScroll}
-                />
+          <div className="w-full h-full overflow-hidden relative flex flex-col">
+            {viewMode === 'grid' ? (
+              <div className="flex-1 min-h-0 relative flex flex-col">
+                <div className="flex-1 min-h-0">
+                  <VirtualGrid
+                    ref={gridRef}
+                    items={allItems}
+                    serverUrl={serverConnection?.uri || ''}
+                    token={currentToken || ''}
+                    onItemClick={(item) => setSelectedItem(item)}
+                    getCacheStatus={getCacheStatus}
+                    columns={columns_grid}
+                    gap={24}
+                    posterSize={posterSize}
+                    estimatedItemHeight={Math.round(posterSize * 1.5) + 120}
+                    onScroll={handleScroll}
+                    squarePosters={isMusicLibrary}
+                  />
+                </div>
                 {/* Alphabet Jump List - only show in grid view */}
                 <AlphabetJumpList
                   items={allTitles || allItems}
@@ -847,7 +846,7 @@ export function LibraryView() {
                     Loading more...
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <>
                 <div className="relative h-full">
@@ -863,8 +862,17 @@ export function LibraryView() {
                     getCacheStatus={getCacheStatus}
                     estimatedItemHeight={56}
                     onScroll={handleScroll}
+                    isExpandable={isTVShowLibrary || isMusicLibrary}
+                    getChildren={isTVShowLibrary || isMusicLibrary ? getChildrenFn : undefined}
+                    squarePosters={isMusicLibrary}
                   />
                 </div>
+                {/* Alphabet Jump List */}
+                <AlphabetJumpList
+                  items={allTitles || allItems}
+                  onJumpToLetter={handleJumpToLetter}
+                  isLoading={isLoadingTitles}
+                />
                 {/* Loading indicator */}
                 {isFetchingNextPage && (
                   <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg z-10">
@@ -890,6 +898,7 @@ export function LibraryView() {
           }}
         />
       )}
+      </div>
     </div>
   );
 }

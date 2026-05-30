@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
 import { PinDisplay } from '@/components/auth/PinDisplay';
 import { authManager } from '@/managers/AuthenticationManager';
 import type { PinResponse } from '@/managers/AuthenticationManager';
@@ -186,12 +187,13 @@ export function AuthenticationPage() {
         {/* Auth Button */}
         {pin && !loading && !error && (
           <div className="mt-6 text-center">
-            <button
+            <Button
               onClick={openAuthUrl}
-              className="px-8 py-4 bg-primary-500 hover:bg-primary-600 text-white text-lg font-semibold rounded-lg shadow-medium transition-all duration-200 hover:shadow-hard focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2"
+              variant="primary"
+              size="large"
             >
               Open Plex Authentication
-            </button>
+            </Button>
             <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
               Click the button above to authenticate with Plex
             </p>
@@ -201,8 +203,8 @@ export function AuthenticationPage() {
         {/* Status Message */}
         {polling && pin && !isPinExpired() && (
           <div className="mt-6 text-center">
-            <div className="inline-flex items-center space-x-2 text-blue-600 dark:text-blue-400">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 dark:border-blue-400"></div>
+            <div className="inline-flex items-center space-x-2 text-primary-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
               <span className="text-sm font-medium">
                 Waiting for authentication...
               </span>

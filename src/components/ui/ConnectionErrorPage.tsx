@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Button } from './Button';
 import { RetryButton } from './RetryButton';
 
 export interface ConnectionErrorPageProps {
@@ -108,12 +109,13 @@ export function ConnectionErrorPage({
           </RetryButton>
 
           {isOffline && (
-            <button
+            <Button
               onClick={() => window.location.reload()}
-              className="w-full px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+              variant="secondary"
+              className="w-full justify-center"
             >
               Reload Page
-            </button>
+            </Button>
           )}
         </div>
 

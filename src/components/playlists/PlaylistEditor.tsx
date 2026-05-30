@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Playlist, PlaylistManager } from '@/managers/PlaylistManager';
 import { MetadataItem } from '@/managers/MetadataManager';
 import { PlexClient } from '@/api/plexClient';
+import { Spinner } from '@/components/ui/Spinner';
+import { Button } from '@/components/ui/Button';
 
 interface PlaylistEditorProps {
   playlist: Playlist;
@@ -232,7 +234,7 @@ export function PlaylistEditor({
               </h3>
               {loading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <Spinner size="lg" variant="primary" />
                 </div>
               ) : items.length === 0 ? (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -337,16 +339,14 @@ export function PlaylistEditor({
             >
               Cancel
             </button>
-            <button
+            <Button
               onClick={handleSave}
               disabled={saving || !title.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              loading={saving}
+              variant="primary"
             >
-              {saving && (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              )}
               Save Changes
-            </button>
+            </Button>
           </div>
         </div>
       </div>

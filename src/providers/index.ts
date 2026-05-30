@@ -20,6 +20,8 @@ export { TVDBProvider, createTVDBProvider } from './TVDBProvider';
 export { MusicBrainzProvider, createMusicBrainzProvider } from './MusicBrainzProvider';
 export { DiscogsProvider, createDiscogsProvider } from './DiscogsProvider';
 export { FanartProvider, createFanartProvider } from './FanartProvider';
+export { LastFmProvider, createLastFmProvider } from './LastFmProvider';
+export { AlbumArtExchangeProvider, createAlbumArtExchangeProvider } from './AlbumArtExchangeProvider';
 
 export {
   YouTubeTrailerProvider,

@@ -1,0 +1,826 @@
+/* AIO Media Manager - Animations & Transitions */
+/* Modern Plex Pro Aesthetic - Smooth 60fps animations */
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+
+/* Fade In - Page loads and content appearance */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade In (subtle) - Minimal movement */
+@keyframes fadeInSubtle {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slide In from Right - Detail Panel */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Slide Out to Right - Detail Panel close */
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Slide In from Left - Sidebar */
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Slide Out to Left - Sidebar collapse */
+@keyframes slideOutLeft {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+/* Scale In - Modals */
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Scale Out - Modal close */
+@keyframes scaleOut {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+/* Fade In Backdrop - Modal/overlay backgrounds */
+@keyframes fadeInBackdrop {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* Fade Out Backdrop */
+@keyframes fadeOutBackdrop {
+  from {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+}
+
+/* Slide Down - Dropdowns */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slide Up - Dropdown close */
+@keyframes slideUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* Spin - Loading spinners */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pulse - Loading states */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Skeleton Loading - Content placeholders */
+@keyframes skeletonLoading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Bounce - Attention grabber */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Shake - Error states */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+/* Expand - Accordion/collapsible */
+@keyframes expand {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 1000px;
+    opacity: 1;
+  }
+}
+
+/* Collapse - Accordion/collapsible */
+@keyframes collapse {
+  from {
+    max-height: 1000px;
+    opacity: 1;
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
+/* Progress Bar - Loading indicator */
+@keyframes progressBar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Shimmer - Premium loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* ============================================
+   ANIMATION UTILITY CLASSES
+   ============================================ */
+
+/* Page Load Animations */
+.animate-fade-in {
+  animation: fadeIn var(--transition-base) ease-out;
+}
+
+.animate-fade-in-subtle {
+  animation: fadeInSubtle var(--transition-fast) ease-out;
+}
+
+.animate-fade-in-slow {
+  animation: fadeIn var(--transition-slow) ease-out;
+}
+
+/* Staggered fade-in for lists */
+.animate-fade-in-stagger > * {
+  animation: fadeInSubtle var(--transition-base) ease-out;
+  animation-fill-mode: both;
+}
+
+.animate-fade-in-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.animate-fade-in-stagger > *:nth-child(2) { animation-delay: 50ms; }
+.animate-fade-in-stagger > *:nth-child(3) { animation-delay: 100ms; }
+.animate-fade-in-stagger > *:nth-child(4) { animation-delay: 150ms; }
+.animate-fade-in-stagger > *:nth-child(5) { animation-delay: 200ms; }
+.animate-fade-in-stagger > *:nth-child(6) { animation-delay: 250ms; }
+.animate-fade-in-stagger > *:nth-child(7) { animation-delay: 300ms; }
+.animate-fade-in-stagger > *:nth-child(8) { animation-delay: 350ms; }
+.animate-fade-in-stagger > *:nth-child(9) { animation-delay: 400ms; }
+.animate-fade-in-stagger > *:nth-child(10) { animation-delay: 450ms; }
+
+/* Panel Animations */
+.animate-slide-in-right {
+  animation: slideInRight var(--transition-slow) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-slide-out-right {
+  animation: slideOutRight var(--transition-base) cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft var(--transition-slow) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-slide-out-left {
+  animation: slideOutLeft var(--transition-base) cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* Modal Animations */
+.animate-scale-in {
+  animation: scaleIn var(--transition-base) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-scale-out {
+  animation: scaleOut var(--transition-fast) cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* Backdrop Animations */
+.animate-fade-in-backdrop {
+  animation: fadeInBackdrop var(--transition-base) ease-out;
+}
+
+.animate-fade-out-backdrop {
+  animation: fadeOutBackdrop var(--transition-fast) ease-out;
+}
+
+/* Dropdown Animations */
+.animate-slide-down {
+  animation: slideDown var(--transition-fast) ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp var(--transition-fast) ease-out;
+}
+
+/* Loading Animations */
+.animate-spin {
+  animation: spin 0.6s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.1) 0%,
+    rgba(148, 163, 184, 0.2) 50%,
+    rgba(148, 163, 184, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonLoading 1.5s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Attention Animations */
+.animate-bounce {
+  animation: bounce 0.5s ease-in-out;
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Expand/Collapse */
+.animate-expand {
+  animation: expand var(--transition-slow) ease-out;
+  overflow: hidden;
+}
+
+.animate-collapse {
+  animation: collapse var(--transition-base) ease-out;
+  overflow: hidden;
+}
+
+/* ============================================
+   HOVER ANIMATIONS & TRANSITIONS
+   ============================================ */
+
+/* Hover Elevation - Interactive elements */
+.hover-elevate {
+  transition: all var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, box-shadow;
+}
+
+.hover-elevate:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.hover-elevate:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-md);
+}
+
+/* Hover Elevation (subtle) - Cards */
+.hover-elevate-subtle {
+  transition: all var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, box-shadow;
+}
+
+.hover-elevate-subtle:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Hover Scale - Images and thumbnails */
+.hover-scale {
+  transition: transform var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+/* Hover Scale (subtle) */
+.hover-scale-subtle {
+  transition: transform var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.hover-scale-subtle:hover {
+  transform: scale(1.02);
+}
+
+/* Hover Brightness - Images */
+.hover-brighten {
+  transition: filter var(--transition-fast);
+  will-change: filter;
+}
+
+.hover-brighten:hover {
+  filter: brightness(1.1);
+}
+
+/* Hover Opacity */
+.hover-opacity {
+  transition: opacity var(--transition-fast);
+  will-change: opacity;
+}
+
+.hover-opacity:hover {
+  opacity: 0.8;
+}
+
+/* Hover Background - Buttons and interactive elements */
+.hover-bg {
+  transition: background-color var(--transition-fast);
+  will-change: background-color;
+}
+
+/* Hover Border */
+.hover-border {
+  transition: border-color var(--transition-fast);
+  will-change: border-color;
+}
+
+/* Hover Color */
+.hover-color {
+  transition: color var(--transition-fast);
+  will-change: color;
+}
+
+/* ============================================
+   TAB TRANSITIONS
+   ============================================ */
+
+/* Smooth tab content transitions */
+.tab-content {
+  animation: fadeInSubtle var(--transition-base) ease-out;
+}
+
+/* Tab indicator slide */
+.tab-indicator {
+  transition: all var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, width;
+}
+
+/* Tab background transition */
+.tab-background {
+  transition: all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: background-color, box-shadow;
+}
+
+/* ============================================
+   PERFORMANCE OPTIMIZATIONS
+   ============================================ */
+
+/* Hardware acceleration for smooth animations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .hover-elevate:hover,
+  .hover-elevate-subtle:hover {
+    transform: none;
+  }
+  
+  .hover-scale:hover,
+  .hover-scale-subtle:hover {
+    transform: none;
+  }
+}
+
+/* ============================================
+   TRANSITION UTILITIES
+   ============================================ */
+
+/* Transition All */
+.transition-all {
+  transition: all var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-all-fast {
+  transition: all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-all-slow {
+  transition: all var(--transition-slow) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Transition Specific Properties */
+.transition-opacity {
+  transition: opacity var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-transform {
+  transition: transform var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-colors {
+  transition: color var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1),
+              background-color var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1),
+              border-color var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-shadow {
+  transition: box-shadow var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   COMPONENT-SPECIFIC ANIMATIONS
+   ============================================ */
+
+/* Detail Panel Slide Animation */
+.detail-panel-enter {
+  animation: slideInRight var(--transition-slow) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.detail-panel-exit {
+  animation: slideOutRight var(--transition-base) cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* Modal Animations */
+.modal-backdrop-enter {
+  animation: fadeInBackdrop var(--transition-base) ease-out;
+}
+
+.modal-backdrop-exit {
+  animation: fadeOutBackdrop var(--transition-fast) ease-out;
+}
+
+.modal-panel-enter {
+  animation: scaleIn var(--transition-base) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-panel-exit {
+  animation: scaleOut var(--transition-fast) cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* Sidebar Animations */
+.sidebar-enter {
+  animation: slideInLeft var(--transition-slow) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-exit {
+  animation: slideOutLeft var(--transition-base) cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* Table Row Animations */
+.table-row {
+  transition: background-color var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: background-color;
+}
+
+/* Card Grid Item Animations */
+.grid-item {
+  transition: all var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, box-shadow;
+}
+
+.grid-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Button Press Animation */
+.button-press {
+  transition: transform var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.button-press:active {
+  transform: scale(0.98);
+}
+
+/* Input Focus Animation */
+.input-focus {
+  transition: all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-focus:focus {
+  transform: scale(1.01);
+}
+
+/* Toast/Notification Slide In */
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast-enter {
+  animation: toastSlideIn var(--transition-base) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Tooltip Fade In */
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltip-enter {
+  animation: tooltipFadeIn var(--transition-fast) ease-out;
+}
+
+/* ============================================
+   LOADING STATES
+   ============================================ */
+
+/* Progress Bar */
+.progress-bar {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-bg-secondary);
+  border-radius: 9999px;
+  height: 4px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width var(--transition-base) ease-out;
+  border-radius: 9999px;
+}
+
+.progress-bar-indeterminate {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 30%;
+  background: var(--color-primary);
+  border-radius: 9999px;
+  animation: progressBar 1.5s ease-in-out infinite;
+}
+
+/* Skeleton Loader */
+.skeleton-loader {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.1) 0%,
+    rgba(148, 163, 184, 0.2) 50%,
+    rgba(148, 163, 184, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonLoading 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Spinner */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.spinner-lg {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.spinner-sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+/* ============================================
+   INTERACTIVE STATES
+   ============================================ */
+
+/* Ripple Effect (Material Design inspired) */
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.ripple:active::after {
+  width: 200px;
+  height: 200px;
+  animation: ripple 0.6s ease-out;
+}
+
+/* Focus Ring Animation */
+.focus-ring-animated {
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.focus-ring-animated:focus-visible {
+  outline: none;
+}
+
+.focus-ring-animated:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 2px solid var(--color-primary);
+  border-radius: inherit;
+  animation: fadeInSubtle var(--transition-fast) ease-out;
+}
+
+/* ============================================
+   SCROLL ANIMATIONS
+   ============================================ */
+
+/* Smooth scroll behavior */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Fade in on scroll (requires JS) */
+.fade-in-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity var(--transition-slow) ease-out,
+              transform var(--transition-slow) ease-out;
+}
+
+.fade-in-on-scroll.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================
+   PERFORMANCE HINTS
+   ============================================ */
+
+/* Will-change hints for frequently animated properties */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+.will-change-scroll {
+  will-change: scroll-position;
+}
+
+/* Remove will-change after animation completes (requires JS) */
+.animation-complete {
+  will-change: auto;
+}

@@ -5,7 +5,6 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
     "./electron/**/*.{js,ts}",
   ],
-  darkMode: 'class', // Enable dark mode with class strategy
   theme: {
     // Responsive breakpoints (mobile-first)
     screens: {
@@ -17,19 +16,38 @@ export default {
     },
     extend: {
       colors: {
-        // Primary brand colors (Plex-inspired orange/amber)
+        // Primary brand colors (Modern Blue - Plex Pro aesthetic)
         primary: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
-          800: '#9a3412',
-          900: '#7c2d12',
-          950: '#431407',
+          50: '#eff6ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          300: '#93c5fd',
+          400: '#60a5fa',  // Light blue
+          500: '#3b82f6',  // Base blue
+          600: '#2563eb',  // Dark blue
+          700: '#1d4ed8',
+          800: '#1e40af',
+          900: '#1e3a8a',
+          950: '#172554',
+          subtle: 'rgba(59, 130, 246, 0.1)',  // Subtle blue background
+        },
+        // Background colors
+        background: {
+          primary: '#F8FAFC',    // Light gray-blue
+          secondary: '#EEF4FF',  // Very light blue
+          glass: 'rgba(255, 255, 255, 0.75)',  // Translucent white for glass effects
+          white: '#FFFFFF',
+        },
+        // Text colors
+        text: {
+          primary: '#0F172A',    // Almost black
+          secondary: '#334155',  // Dark gray
+          tertiary: '#64748B',   // Medium gray
+        },
+        // Border colors
+        border: {
+          DEFAULT: 'rgba(148, 163, 184, 0.12)',
+          hover: 'rgba(148, 163, 184, 0.24)',
         },
         // Secondary colors (slate for neutral UI elements)
         secondary: {
@@ -82,21 +100,10 @@ export default {
           800: '#991b1b',
           900: '#7f1d1d',
         },
-        info: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-        },
       },
       fontFamily: {
         sans: [
+          'Inter',
           '-apple-system',
           'BlinkMacSystemFont',
           '"Segoe UI"',
@@ -118,6 +125,19 @@ export default {
           'monospace',
         ],
       },
+      backdropBlur: {
+        xs: '2px',
+        sm: '8px',
+        md: '12px',
+        lg: '16px',
+        xl: '24px',
+        '2xl': '32px',
+      },
+      fontSize: {
+        'heading-1': ['2rem', { lineHeight: '1.2', fontWeight: '700', letterSpacing: '-0.025em' }],
+        'heading-2': ['1.5rem', { lineHeight: '1.3', fontWeight: '600', letterSpacing: '-0.02em' }],
+        'heading-3': ['1.25rem', { lineHeight: '1.4', fontWeight: '600' }],
+      },
       spacing: {
         '18': '4.5rem',
         '88': '22rem',
@@ -129,10 +149,18 @@ export default {
         '4xl': '2rem',
       },
       boxShadow: {
-        'soft': '0 2px 8px rgba(0, 0, 0, 0.08)',
-        'medium': '0 4px 16px rgba(0, 0, 0, 0.12)',
-        'hard': '0 8px 32px rgba(0, 0, 0, 0.16)',
-        'inner-soft': 'inset 0 2px 4px rgba(0, 0, 0, 0.06)',
+        // Softer shadow system for modern Plex Pro aesthetic
+        'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',           // Small
+        'soft': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',         // Alias for small
+        'md': '0 4px 6px -1px rgba(0, 0, 0, 0.05)',        // Medium
+        'medium': '0 4px 6px -1px rgba(0, 0, 0, 0.05)',    // Alias for medium
+        'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.05)',      // Large
+        'hard': '0 10px 15px -3px rgba(0, 0, 0, 0.05)',    // Alias for large
+        'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.05)',      // Extra Large
+        '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.08)',    // Floating
+        'floating': '0 25px 50px -12px rgba(0, 0, 0, 0.08)', // Floating panels
+        'inner': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)',  // Inner shadow
+        'inner-soft': 'inset 0 2px 4px rgba(0, 0, 0, 0.06)', // Inner soft
       },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-in-out',
@@ -144,6 +172,7 @@ export default {
         'scale-in': 'scaleIn 0.2s ease-out',
         'spin-slow': 'spin 2s linear infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'shimmer': 'shimmer 2s linear infinite',
       },
       keyframes: {
         fadeIn: {
@@ -173,6 +202,10 @@ export default {
         scaleIn: {
           '0%': { transform: 'scale(0.9)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
         },
       },
       transitionDuration: {

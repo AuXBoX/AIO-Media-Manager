@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import type { LibraryItem } from '@/managers/LibraryManager';
 import { createPlexClient } from '@/api/plexClient';
@@ -6,6 +6,8 @@ import { createMetadataManager } from '@/managers/MetadataManager';
 import { createProviderRegistry } from '@/providers/ProviderRegistry';
 import { getSettingsManager } from '@/managers/SettingsManager';
 import type { SearchResult } from '@/types';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
 
 interface ImageSearchModalProps {
   item: LibraryItem;
@@ -44,7 +46,12 @@ export function ImageSearchModal({
   
   const isMovie = item.type === 'movie';
   const isTVShow = item.type === 'show' || item.type === 'season' || item.type === 'episode';
-  const mediaType = isMovie ? 'movie' : 'show';
+  const isMusic = item.type === 'artist' || item.type === 'album' || item.type === 'track';
+  const mediaType: 'movie' | 'show' | 'artist' | 'album' | 'track' = isMovie 
+    ? 'movie' 
+    : isMusic 
+    ? (item.type as 'artist' | 'album' | 'track')
+    : 'show';
 
   // Load image dimensions when an image loads
   const handleImageLoad = (url: string, event: React.SyntheticEvent<HTMLImageElement>) => {
@@ -104,6 +111,12 @@ export function ImageSearchModal({
               console.warn('[ImageSearch] Could not fetch grandparent year:', error);
             }
           }
+        } else if (item.type === 'album' && item.parentTitle) {
+          // For albums: use "Artist - Album" format for better search results
+          searchTitle = `${item.parentTitle} - ${item.title}`;
+        } else if (item.type === 'track' && item.grandparentTitle) {
+          // For tracks: use artist name for searching
+          searchTitle = item.grandparentTitle;
         }
         
         console.log('[ImageSearch] Searching for matches...', { 
@@ -123,15 +136,26 @@ export function ImageSearchModal({
         if (settings.fanartApiKey) config.fanart = { apiKey: settings.fanartApiKey };
         if (settings.tvdbApiKey) config.tvdb = { apiKey: settings.tvdbApiKey };
         
+        // Add Last.fm for music
+        const lastfmApiKey = import.meta.env['VITE_LASTFM_API_KEY'];
+        if (lastfmApiKey) config.lastfm = { apiKey: lastfmApiKey };
+        
         const providerRegistry = createProviderRegistry(client, config);
         
         console.log('[ImageSearch] Available providers:', providerRegistry.getAvailableProviders());
         
-        // For TV shows: Try TVDB first (if available), then TMDB
-        // For movies: Use TMDB
-        const providers = isTVShow 
-          ? ['tvdb', 'tmdb'] 
-          : ['tmdb'];
+        // Determine providers based on content type
+        let providers: string[];
+        if (isMusic) {
+          // Music: Use Last.fm, MusicBrainz, Discogs
+          providers = ['lastfm', 'musicbrainz', 'discogs'];
+        } else if (isTVShow) {
+          // TV shows: Try TVDB first (if available), then TMDB
+          providers = ['tvdb', 'tmdb'];
+        } else {
+          // Movies: Use TMDB
+          providers = ['tmdb'];
+        }
         
         let results: SearchResult[] = [];
         
@@ -393,6 +417,54 @@ export function ImageSearchModal({
   const posters = images?.filter((img: ImageResult) => img.type === 'poster') || [];
   const backgrounds = images?.filter((img: ImageResult) => img.type === 'background') || [];
 
+  // Sort state
+  const [sortBy, setSortBy] = useState<'default' | 'size-desc' | 'size-asc'>('size-desc');
+
+  // Preload image dimensions using Image() objects so we can sort before display
+  useEffect(() => {
+    if (!images || images.length === 0) return;
+
+    const urlsToLoad = images
+      .filter((img: ImageResult) => !imageDimensions.has(img.url))
+      .map((img: ImageResult) => img.url);
+
+    urlsToLoad.forEach((url: string) => {
+      const img = new Image();
+      img.onload = () => {
+        setImageDimensions(prev => {
+          if (prev.has(url)) return prev;
+          const next = new Map(prev);
+          next.set(url, { width: img.naturalWidth, height: img.naturalHeight });
+          return next;
+        });
+      };
+      img.src = url;
+    });
+  }, [images]);
+
+  // Sorted image lists
+  const sortedPosters = useMemo(() => {
+    if (sortBy === 'default') return posters;
+    return [...posters].sort((a, b) => {
+      const dimsA = imageDimensions.get(a.url);
+      const dimsB = imageDimensions.get(b.url);
+      const areaA = dimsA ? dimsA.width * dimsA.height : 0;
+      const areaB = dimsB ? dimsB.width * dimsB.height : 0;
+      return sortBy === 'size-desc' ? areaB - areaA : areaA - areaB;
+    });
+  }, [posters, imageDimensions, sortBy]);
+
+  const sortedBackgrounds = useMemo(() => {
+    if (sortBy === 'default') return backgrounds;
+    return [...backgrounds].sort((a, b) => {
+      const dimsA = imageDimensions.get(a.url);
+      const dimsB = imageDimensions.get(b.url);
+      const areaA = dimsA ? dimsA.width * dimsA.height : 0;
+      const areaB = dimsB ? dimsB.width * dimsB.height : 0;
+      return sortBy === 'size-desc' ? areaB - areaA : areaA - areaB;
+    });
+  }, [backgrounds, imageDimensions, sortBy]);
+
   // Apply selected images mutation
   const applyImageMutation = useMutation({
     mutationFn: async () => {
@@ -447,21 +519,6 @@ export function ImageSearchModal({
         // Download and save each image
         for (const image of imagesToApply) {
           try {
-            // Download image
-            const response = await fetch(image.url);
-            const blob = await response.blob();
-            const arrayBuffer = await blob.arrayBuffer();
-            const buffer = new Uint8Array(arrayBuffer);
-            
-            // Convert to base64 for Electron IPC (process in chunks to avoid stack overflow)
-            let base64 = '';
-            const chunkSize = 8192; // Process 8KB at a time
-            for (let i = 0; i < buffer.length; i += chunkSize) {
-              const chunk = buffer.subarray(i, Math.min(i + chunkSize, buffer.length));
-              base64 += String.fromCharCode(...chunk);
-            }
-            base64 = btoa(base64);
-
             // Determine file extension from URL or content type
             let ext = 'jpg';
             const urlExt = image.url.match(/\.(jpg|jpeg|png|webp)(\?|$)/i);
@@ -526,8 +583,8 @@ export function ImageSearchModal({
               }
             }
 
-            // Write file using Electron (base64 encoded)
-            await window.electron.writeFile(targetPath, base64);
+            // Download directly via Electron main process (bypasses CORS)
+            await window.electron.downloadFile(image.url, targetPath);
             console.log(`[ImageSearch] Saved ${image.type} locally:`, targetPath);
           } catch (error) {
             console.error(`[ImageSearch] Failed to save ${image.type} locally:`, error);
@@ -543,30 +600,19 @@ export function ImageSearchModal({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {step === 'search' ? 'Select Match' : 'Search Images'}
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {step === 'search' 
-                ? `${item.title} • Confirm the correct ${mediaType}`
-                : `${selectedMatch?.title} • Searching multiple image sources`
-              }
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={step === 'search' ? 'Select Match' : 'Search Images'}
+      subtitle={
+        step === 'search' 
+          ? `${item.title} • Confirm the correct ${mediaType}`
+          : `${selectedMatch?.title} • Searching multiple image sources`
+      }
+      maxWidth="4xl"
+      className="max-h-[90vh]"
+    >
+      <div className="flex flex-col h-full -m-6">{/* Negative margin to extend to modal edges */}
 
         {/* Step 1: Search Results */}
         {step === 'search' && (
@@ -574,8 +620,8 @@ export function ImageSearchModal({
             {isSearching ? (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600 dark:text-gray-400">Searching {isTVShow ? 'TVDB and TMDB' : 'TMDB'}...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-slate-600">Searching {isTVShow ? 'TVDB and TMDB' : 'TMDB'}...</p>
                 </div>
               </div>
             ) : searchResults && searchResults.length > 0 ? (
@@ -584,38 +630,38 @@ export function ImageSearchModal({
                   <div
                     key={index}
                     onClick={() => setSelectedMatch(result)}
-                    className={`flex gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`flex gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                       selectedMatch?.externalId === result.externalId
-                        ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-primary-400'
+                        ? 'border-blue-500 bg-blue-50 shadow-md'
+                        : 'border-slate-200 hover:border-blue-300 hover:shadow-sm'
                     }`}
                   >
                     {result.thumb && (
                       <img
                         src={result.thumb}
                         alt={result.title}
-                        className="w-20 h-30 object-cover rounded"
+                        className="w-20 h-30 object-cover rounded-lg shadow-sm"
                       />
                     )}
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      <h3 className="text-lg font-semibold text-slate-900">
                         {result.title}
-                        {result.year && <span className="text-gray-500 ml-2">({result.year})</span>}
+                        {result.year && <span className="text-slate-500 ml-2">({result.year})</span>}
                       </h3>
                       {result.summary && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                        <p className="text-sm text-slate-600 mt-1 line-clamp-2">
                           {result.summary}
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
+                        <span className="px-2 py-1 text-xs bg-slate-100 text-slate-700 rounded-md font-medium">
                           {result.provider?.toUpperCase()}
                         </span>
                       </div>
                     </div>
                     {selectedMatch?.externalId === result.externalId && (
                       <div className="flex items-center">
-                        <div className="bg-primary-600 text-white rounded-full p-2">
+                        <div className="bg-blue-500 text-white rounded-full p-2">
                           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
@@ -626,7 +672,7 @@ export function ImageSearchModal({
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+              <div className="flex flex-col items-center justify-center h-64 text-slate-500">
                 <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -640,51 +686,55 @@ export function ImageSearchModal({
         {step === 'images' && (
           <>
             {/* Type Selector */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant={selectedTypes.has('poster') ? 'primary' : 'secondary'}
+                  size="medium"
                   onClick={() => toggleType('poster')}
-                  className={`px-4 py-2 rounded-md transition-colors ${
-                    selectedTypes.has('poster')
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
                 >
                   Posters {selectedTypes.has('poster') && `(${posters.length})`}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant={selectedTypes.has('background') ? 'primary' : 'secondary'}
+                  size="medium"
                   onClick={() => toggleType('background')}
-                  className={`px-4 py-2 rounded-md transition-colors ${
-                    selectedTypes.has('background')
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
                 >
                   Backgrounds {selectedTypes.has('background') && `(${backgrounds.length})`}
-                </button>
+                </Button>
               </div>
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant="secondary"
+                  size="medium"
                   onClick={() => {
                     setStep('search');
                     setSelectedPoster(null);
                     setSelectedBackground(null);
                   }}
-                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
+                  icon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                  }
                 >
-                  ← Back to Search
-                </button>
-                <button
+                  Back to Search
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="medium"
                   onClick={() => refetch()}
                   disabled={isLoadingImages}
-                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 flex items-center gap-2"
+                  loading={isLoadingImages}
+                  icon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  }
                   title="Refresh images from sources"
                 >
-                  <svg className={`w-4 h-4 ${isLoadingImages ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
                   Refresh
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -693,26 +743,43 @@ export function ImageSearchModal({
               {isLoadingImages ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600 dark:text-gray-400">Loading images from {isTVShow ? 'TVDB, TMDB, Fanart.tv' : 'TMDB, Fanart.tv'}...</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-slate-600">Loading images from {isTVShow ? 'TVDB, TMDB, Fanart.tv' : 'TMDB, Fanart.tv'}...</p>
                   </div>
                 </div>
               ) : images && images.length > 0 ? (
                 <div className="space-y-8">
+                  {/* Sort Controls */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-slate-500">{images.length} images found</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sort by:</span>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="size-desc">Largest first</option>
+                        <option value="size-asc">Smallest first</option>
+                        <option value="default">Default</option>
+                      </select>
+                    </div>
+                  </div>
+
                   {/* Posters Section */}
-                  {selectedTypes.has('poster') && posters.length > 0 && (
+                  {selectedTypes.has('poster') && sortedPosters.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        Posters ({posters.length})
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                        Posters ({sortedPosters.length})
                       </h3>
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                        {posters.map((image: ImageResult, index: number) => (
+                        {sortedPosters.map((image: ImageResult, index: number) => (
                           <div
                             key={`poster-${index}`}
-                            className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                            className={`relative cursor-pointer rounded-xl overflow-hidden border-2 transition-all group ${
                               selectedPoster?.url === image.url
-                                ? 'border-primary-600 shadow-lg ring-2 ring-primary-600'
-                                : 'border-gray-200 dark:border-gray-700 hover:border-primary-400'
+                                ? 'border-blue-500 shadow-lg ring-2 ring-blue-500 scale-105'
+                                : 'border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105'
                             }`}
                             onClick={() => setSelectedPoster(image)}
                           >
@@ -723,19 +790,19 @@ export function ImageSearchModal({
                               loading="lazy"
                               onLoad={(e) => handleImageLoad(image.url, e)}
                             />
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-2">
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent text-white text-xs p-3 opacity-0 group-hover:opacity-100 transition-opacity">
                               {(() => {
                                 const dims = getDimensions(image.url);
                                 return dims.width > 0 ? (
-                                  <div>{dims.width} × {dims.height}</div>
+                                  <div className="font-medium">{dims.width} × {dims.height}</div>
                                 ) : (
                                   <div>Loading...</div>
                                 );
                               })()}
-                              {image.provider && <div className="font-medium">{image.provider}</div>}
+                              {image.provider && <div className="font-semibold mt-1">{image.provider}</div>}
                             </div>
                             {selectedPoster?.url === image.url && (
-                              <div className="absolute top-2 right-2 bg-primary-600 text-white rounded-full p-1">
+                              <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1.5 shadow-lg">
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
@@ -748,19 +815,19 @@ export function ImageSearchModal({
                   )}
 
                   {/* Backgrounds Section */}
-                  {selectedTypes.has('background') && backgrounds.length > 0 && (
+                  {selectedTypes.has('background') && sortedBackgrounds.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        Backgrounds ({backgrounds.length})
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                        Backgrounds ({sortedBackgrounds.length})
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {backgrounds.map((image: ImageResult, index: number) => (
+                        {sortedBackgrounds.map((image: ImageResult, index: number) => (
                           <div
                             key={`background-${index}`}
-                            className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                            className={`relative cursor-pointer rounded-xl overflow-hidden border-2 transition-all group ${
                               selectedBackground?.url === image.url
-                                ? 'border-primary-600 shadow-lg ring-2 ring-primary-600'
-                                : 'border-gray-200 dark:border-gray-700 hover:border-primary-400'
+                                ? 'border-blue-500 shadow-lg ring-2 ring-blue-500 scale-105'
+                                : 'border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105'
                             }`}
                             onClick={() => setSelectedBackground(image)}
                           >
@@ -771,19 +838,19 @@ export function ImageSearchModal({
                               loading="lazy"
                               onLoad={(e) => handleImageLoad(image.url, e)}
                             />
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-2">
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent text-white text-xs p-3 opacity-0 group-hover:opacity-100 transition-opacity">
                               {(() => {
                                 const dims = getDimensions(image.url);
                                 return dims.width > 0 ? (
-                                  <div>{dims.width} × {dims.height}</div>
+                                  <div className="font-medium">{dims.width} × {dims.height}</div>
                                 ) : (
                                   <div>Loading...</div>
                                 );
                               })()}
-                              {image.provider && <div className="font-medium">{image.provider}</div>}
+                              {image.provider && <div className="font-semibold mt-1">{image.provider}</div>}
                             </div>
                             {selectedBackground?.url === image.url && (
-                              <div className="absolute top-2 right-2 bg-primary-600 text-white rounded-full p-1">
+                              <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1.5 shadow-lg">
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
@@ -796,7 +863,7 @@ export function ImageSearchModal({
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+                <div className="flex flex-col items-center justify-center h-64 text-slate-500">
                   <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
@@ -808,9 +875,9 @@ export function ImageSearchModal({
         )}
 
         {/* Footer */}
-        <div className="flex flex-col gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col gap-3 p-6 border-t border-slate-200 bg-slate-50">
           {/* Selected images info */}
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="text-sm text-slate-600">
             {step === 'search' && selectedMatch && (
               <span>Selected: {selectedMatch.title} ({selectedMatch.year})</span>
             )}
@@ -845,7 +912,7 @@ export function ImageSearchModal({
               <select
                 value={saveTarget}
                 onChange={(e) => setSaveTarget(e.target.value as 'plex' | 'local' | 'both')}
-                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="plex">Save to Plex</option>
                 <option value="local">Save Locally</option>
@@ -854,49 +921,54 @@ export function ImageSearchModal({
             )}
             
             <div className="flex items-center gap-3 ml-auto">
-              <button
+              <Button
+                variant="secondary"
+                size="medium"
                 onClick={onClose}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
               >
                 Cancel
-              </button>
+              </Button>
               {step === 'search' ? (
-                <button
+                <Button
+                  variant="primary"
+                  size="medium"
                   onClick={() => {
                     if (selectedMatch) {
                       setStep('images');
                     }
                   }}
                   disabled={!selectedMatch}
-                  className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  icon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  }
                 >
-                  Continue to Images →
-                </button>
+                  Continue to Images
+                </Button>
               ) : (
-                <button
+                <Button
+                  variant="primary"
+                  size="medium"
                   onClick={() => {
                     if (selectedPoster || selectedBackground) {
                       applyImageMutation.mutate();
                     }
                   }}
                   disabled={(!selectedPoster && !selectedBackground) || applyImageMutation.isPending}
-                  className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  loading={applyImageMutation.isPending}
                 >
-                  {applyImageMutation.isPending ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Applying...
-                    </>
-                  ) : (
-                    `Apply Selected ${selectedPoster && selectedBackground ? 'Images' : 'Image'}`
-                  )}
-                </button>
+                  {applyImageMutation.isPending 
+                    ? 'Applying...'
+                    : `Apply Selected ${selectedPoster && selectedBackground ? 'Images' : 'Image'}`
+                  }
+                </Button>
               )}
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

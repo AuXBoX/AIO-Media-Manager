@@ -14,6 +14,7 @@ interface VirtualGridProps {
   posterSize?: number;
   estimatedItemHeight?: number;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+  squarePosters?: boolean;
 }
 
 export interface VirtualGridHandle {
@@ -32,10 +33,11 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
   onItemClick,
   getCacheStatus,
   columns = 5,
-  gap = 16,
+  gap = 24, // Elegant spacing between grid items (updated from 20px)
   posterSize = 180,
-  estimatedItemHeight = 280,
+  estimatedItemHeight = 300,
   onScroll,
+  squarePosters = false,
 }, ref) => {
   const parentRef = useRef<HTMLDivElement>(null);
   const [actualColumns, setActualColumns] = useState(columns);
@@ -58,7 +60,6 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
   // Calculate rows from items and actual columns
   const rows = Math.ceil(items.length / actualColumns);
 
-  // Debug logging
   // Create virtualizer for rows
   const rowVirtualizer = useVirtualizer({
     count: rows,
@@ -66,16 +67,6 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
     estimateSize: () => estimatedItemHeight,
     overscan: 5, // Render 5 extra rows above and below viewport for smoother scrolling
   });
-
-  useEffect(() => {
-    console.log('[VirtualGrid] Items:', items.length, 'Columns:', actualColumns, 'Rows:', rows);
-    console.log('[VirtualGrid] Estimated item height:', estimatedItemHeight);
-    console.log('[VirtualGrid] Total virtual height:', rowVirtualizer.getTotalSize());
-    if (parentRef.current) {
-      console.log('[VirtualGrid] Container height:', parentRef.current.clientHeight);
-      console.log('[VirtualGrid] Container scrollHeight:', parentRef.current.scrollHeight);
-    }
-  }, [items.length, actualColumns, rows, estimatedItemHeight, rowVirtualizer]);
 
   // Expose scrollToLetter method via ref
   useImperativeHandle(ref, () => ({
@@ -101,7 +92,7 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
   return (
     <div
       ref={parentRef}
-      className="h-full w-full overflow-y-auto overflow-x-hidden"
+      className="h-full w-full overflow-y-auto overflow-x-hidden bg-background-primary"
       onScroll={onScroll}
       style={{
         contain: 'strict',
@@ -158,6 +149,7 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
                       isCached={cacheStatus.isCached}
                       isDirty={cacheStatus.isDirty}
                       posterSize={posterSize}
+                      squarePosters={squarePosters}
                     />
                   );
                 })}

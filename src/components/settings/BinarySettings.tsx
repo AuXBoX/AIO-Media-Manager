@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/Button';
 
 interface BinarySettingsProps {
   saving?: boolean;
@@ -166,22 +167,24 @@ export function BinarySettings({ saving }: BinarySettingsProps) {
           </div>
 
           <div className="flex flex-col gap-2 ml-4">
-            <button
+            <Button
+              variant="secondary"
+              size="small"
               onClick={handleCheckUpdate}
               disabled={checking || updating || saving}
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm whitespace-nowrap"
             >
               {checking ? 'Checking...' : 'Check for Updates'}
-            </button>
+            </Button>
 
             {updateAvailable && (
-              <button
+              <Button
+                variant="primary"
+                size="small"
                 onClick={handleUpdate}
                 disabled={checking || updating || saving}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm whitespace-nowrap"
               >
                 {updating ? 'Updating...' : 'Update Now'}
-              </button>
+              </Button>
             )}
           </div>
         </div>

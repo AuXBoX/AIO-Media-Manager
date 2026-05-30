@@ -1,4 +1,5 @@
 import React, { Component, ReactNode } from 'react';
+import { Button } from './Button';
 import { AppError, classifyError, logError } from '@/utils/errorHandling';
 
 interface ErrorBoundaryProps {
@@ -81,12 +82,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <p className="text-gray-600 mb-4">{this.state.error.message}</p>
 
             {this.state.error.recoverable && (
-              <button
+              <Button
                 onClick={this.reset}
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                variant="primary"
+                className="w-full"
               >
                 Try Again
-              </button>
+              </Button>
             )}
 
             {process.env['NODE_ENV'] === 'development' && this.state.error.details && (
