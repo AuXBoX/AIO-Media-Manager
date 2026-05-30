@@ -55,10 +55,34 @@ export function TableListView({
   const { play, currentTrack, isPlaying, pause, resume } = useAudioPlayer();
 
   // Helper to create AudioTrack from LibraryItem
-  const createAudioTrack = (item: LibraryItem): AudioTrack | null => {
-    const media = item['Media']?.[0];
-    const part = media?.['Part']?.[0];
-    if (!part?.key) return null;
+  const createAudioTrack = async (item: LibraryItem): Promise<AudioTrack | null> => {
+    let media = item['Media']?.[0];
+    let part = media?.['Part']?.[0];
+    
+    // If Media/Part data is missing, fetch full metadata from Plex
+    if (!part?.key) {
+      try {
+        console.log('[Play] Fetching full metadata for track:', item.ratingKey, item.title);
+        const res = await fetch(`${serverUrl}/library/metadata/${item.ratingKey}?X-Plex-Token=${token}`, {
+          headers: { 'Accept': 'application/json' },
+        });
+        if (!res.ok) throw new Error(`Metadata fetch failed: ${res.status}`);
+        const data = await res.json();
+        const metadata = data?.MediaContainer?.Metadata?.[0];
+        if (metadata) {
+          media = metadata.Media?.[0];
+          part = media?.Part?.[0];
+        }
+      } catch (err) {
+        console.error('[Play] Failed to fetch track metadata:', err);
+        return null;
+      }
+    }
+    
+    if (!part?.key) {
+      console.error('[Play] No playable media found for track:', item.title);
+      return null;
+    }
     
     return {
       ratingKey: item.ratingKey,
@@ -68,14 +92,17 @@ export function TableListView({
       albumArt: item.parentThumb ? `${serverUrl}${item.parentThumb}?X-Plex-Token=${token}` : 
                item.thumb ? `${serverUrl}${item.thumb}?X-Plex-Token=${token}` : null,
       duration: item.duration,
-      streamUrl: `${serverUrl}${part.key}?X-Plex-Token=${token}`,
+      // Plex requires download=1 for direct audio streaming
+      streamUrl: `${serverUrl}${part.key}?download=1&X-Plex-Token=${token}`,
     };
   };
 
   // Handle play button click
-  const handlePlayTrack = (item: LibraryItem) => {
-    const track = createAudioTrack(item);
+  const handlePlayTrack = async (item: LibraryItem) => {
+    console.log('[Play] Play clicked for:', item.title, 'type:', item.type);
+    const track = await createAudioTrack(item);
     if (track) {
+      console.log('[Play] Starting playback:', track.streamUrl);
       if (currentTrack?.ratingKey === track.ratingKey) {
         if (isPlaying) {
           pause();
@@ -85,6 +112,8 @@ export function TableListView({
       } else {
         play(track);
       }
+    } else {
+      console.warn('[Play] Could not create audio track for:', item.title);
     }
   };
 
@@ -390,6 +419,32 @@ export function TableListView({
                         style={cellStyle}
                       >
                         <div className="flex items-center gap-3 min-w-0">
+                          {/* Play button for music tracks - positioned before poster */}
+                          {column.id === 'title' && isMusicLibrary && item.type === 'track' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlayTrack(item);
+                              }}
+                              className={`flex-shrink-0 p-1.5 rounded-full transition-colors ${
+                                currentTrack?.ratingKey === item.ratingKey && isPlaying
+                                  ? 'text-primary-600 bg-primary-100 dark:bg-primary-900/30'
+                                  : 'text-primary-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20'
+                              }`}
+                              title={currentTrack?.ratingKey === item.ratingKey && isPlaying ? "Pause" : "Play"}
+                            >
+                              {currentTrack?.ratingKey === item.ratingKey && isPlaying ? (
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z" />
+                                </svg>
+                              )}
+                            </button>
+                          )}
+                          
                           {/* Poster thumbnail for title column - 34x50px or 50x50px for music */}
                           {showPoster && posterUrl && (
                             <div className={`flex-shrink-0 ${squarePosters ? 'w-[50px] h-[50px]' : 'w-[34px] h-[50px]'} rounded overflow-hidden bg-secondary-100 shadow-sm`}>
@@ -424,27 +479,6 @@ export function TableListView({
                               </span>
                             )}
                             
-                            {/* Play button for music tracks */}
-                            {column.id === 'title' && isMusicLibrary && item.type === 'track' && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePlayTrack(item);
-                                }}
-                                className="flex-shrink-0 w-6 h-6 bg-primary-500 hover:bg-primary-600 rounded-full flex items-center justify-center transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
-                                title={currentTrack?.ratingKey === item.ratingKey && isPlaying ? "Pause" : "Play"}
-                              >
-                                {currentTrack?.ratingKey === item.ratingKey && isPlaying ? (
-                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M8 5v14l11-7z" />
-                                  </svg>
-                                )}
-                              </button>
-                            )}
                           </div>
                         </div>
                       </div>

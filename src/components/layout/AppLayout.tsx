@@ -14,6 +14,7 @@ import { createPlexClient } from '@/api/plexClient';
 import { createLibraryManager, type LibrarySection } from '@/managers/LibraryManager';
 import { queryKeys } from '@/api/queryKeys';
 import { AudioPlayerProvider, AudioPlayerBar } from '@/components/audio/AudioPlayer';
+import { UpdateNotification } from '@/components/pwa/UpdateNotification';
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -189,6 +190,7 @@ export function AppLayout() {
         </div>
       </ResponsiveLayout>
       <AudioPlayerBar />
+      <UpdateNotification />
     </AudioPlayerProvider>
   );
 }

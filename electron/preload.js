@@ -77,6 +77,35 @@ contextBridge.exposeInMainWorld('electron', {
   
   // Playlist URL import
   importPlaylistUrl: (url, source) => ipcRenderer.invoke('playlist:importUrl', url, source),
+  
+  // Auto-updater APIs
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke('update:check'),
+    downloadUpdate: () => ipcRenderer.invoke('update:download'),
+    installUpdate: () => ipcRenderer.invoke('update:install'),
+    getStatus: () => ipcRenderer.invoke('update:getStatus'),
+    // Event listeners
+    onAvailable: (callback) => {
+      const handler = (event, info) => callback(info);
+      ipcRenderer.on('update:available', handler);
+      return () => ipcRenderer.removeListener('update:available', handler);
+    },
+    onProgress: (callback) => {
+      const handler = (event, progress) => callback(progress);
+      ipcRenderer.on('update:progress', handler);
+      return () => ipcRenderer.removeListener('update:progress', handler);
+    },
+    onDownloaded: (callback) => {
+      const handler = (event, info) => callback(info);
+      ipcRenderer.on('update:downloaded', handler);
+      return () => ipcRenderer.removeListener('update:downloaded', handler);
+    },
+    onError: (callback) => {
+      const handler = (event, error) => callback(error);
+      ipcRenderer.on('update:error', handler);
+      return () => ipcRenderer.removeListener('update:error', handler);
+    },
+  },
 });
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -226,18 +226,44 @@ export function LibraryView() {
   const isBackgroundLoadingRef = useRef(false);
   const [isBackgroundLoading, setIsBackgroundLoading] = useState(false);
 
+  // Refs for the preloader to avoid stale closures
+  const hasNextPageRef = useRef(hasNextPage);
+  const isFetchingNextPageRef = useRef(isFetchingNextPage);
+  const fetchNextPageRef = useRef(fetchNextPage);
+  const allItemsLengthRef = useRef(allItems.length);
+  hasNextPageRef.current = hasNextPage;
+  isFetchingNextPageRef.current = isFetchingNextPage;
+  fetchNextPageRef.current = fetchNextPage;
+  allItemsLengthRef.current = allItems.length;
+
   // Preload all items in the background for instant alphabet navigation
   useEffect(() => {
     let isCancelled = false;
     
     const preloadAllItems = async () => {
-      // Only preload if we have items and more pages to load
-      if (!allItems.length || !hasNextPage || isFetchingNextPage || isBackgroundLoadingRef.current) return;
+      // Only start if not already loading
+      if (isBackgroundLoadingRef.current) return;
+      
+      // Wait for initial data to load (React Query first fetch)
+      let waitAttempts = 0;
+      while (allItemsLengthRef.current === 0 && !isCancelled && waitAttempts < 100) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        waitAttempts++;
+      }
+      
+      if (isCancelled || allItemsLengthRef.current === 0) return;
+      
+      // Wait for any in-flight page fetch to complete
+      while (isFetchingNextPageRef.current && !isCancelled) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      if (isCancelled || !hasNextPageRef.current) return;
       
       // Wait a bit after initial load before starting background preload
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      if (isCancelled) return;
+      if (isCancelled || !hasNextPageRef.current) return;
       
       // Mark as background loading
       isBackgroundLoadingRef.current = true;
@@ -247,11 +273,15 @@ export function LibraryView() {
       let pagesLoaded = 0;
       const maxPages = 200; // Safety limit to prevent infinite loops
       
-      while (hasNextPage && !isFetchingNextPage && !isCancelled && pagesLoaded < maxPages) {
+      while (hasNextPageRef.current && !isFetchingNextPageRef.current && !isCancelled && pagesLoaded < maxPages) {
         try {
-          await fetchNextPage();
+          await fetchNextPageRef.current();
           pagesLoaded++;
-          // Minimal delay to keep UI responsive
+          // Wait for React Query to finish processing
+          while (isFetchingNextPageRef.current && !isCancelled) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+          // Small delay between requests
           await new Promise(resolve => setTimeout(resolve, 50));
         } catch (error) {
           // Silently fail background preload
@@ -269,7 +299,9 @@ export function LibraryView() {
     return () => {
       isCancelled = true;
     };
-  }, [allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  // Only re-run when the library key changes (new library selected)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLibraryKey]);
 
   // Check cache status for items
   useEffect(() => {

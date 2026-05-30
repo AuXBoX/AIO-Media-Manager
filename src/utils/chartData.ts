@@ -73,6 +73,8 @@ export const billboardCharts: ChartItem[] = [
 ];
 
 // Popular playlists by region for different services
+// Note: Deezer playlists are most reliable (stable API)
+// YouTube Music playlists removed - use custom URL paste instead
 export const popularPlaylists: Record<string, Record<string, ChartItem[]>> = {
   AU: {
     deezer: [
@@ -80,23 +82,15 @@ export const popularPlaylists: Record<string, Record<string, ChartItem[]>> = {
       { id: 'triple-j', name: 'Triple J Hottest 100', url: 'https://www.deezer.com/playlist/9086330844', description: 'Triple J countdown' },
       { id: 'au-indie', name: 'Aussie Indie', url: 'https://www.deezer.com/playlist/1282495365', description: 'Independent Australian music' },
     ],
-    youtube: [
-      { id: 'au-top', name: 'Australia Top 50', url: 'https://music.youtube.com/playlist?list=PL4fGSI1pDJn5k57v9yGJbGQc_mMvX4y_T', description: 'Most played in Australia' },
-      { id: 'au-indie', name: 'Australian Indie', url: 'https://music.youtube.com/playlist?list=PL4fGSI1pDJn6puJdssH2mMnqK6zMJfGnG', description: 'Indie from Australia' },
-    ],
     lastfm: [
       { id: 'au-charts', name: 'Australian Charts', url: 'https://www.last.fm/charts/track/Australia', description: 'Top tracks in Australia' },
     ],
   },
   US: {
     deezer: [
-      { id: 'us-hits', name: 'US Top Hits', url: 'https://www.deezer.com/playlist/1875055742', description: 'Top US tracks' },
+      { id: 'us-hits', name: 'US Top Hits', url: 'https://www.deezer.com/playlist/1376581235', description: 'Top US tracks' },
       { id: 'hip-hop', name: 'Hip Hop Hits', url: 'https://www.deezer.com/playlist/1301073465', description: 'Hip hop essentials' },
       { id: 'country', name: 'Country Hits', url: 'https://www.deezer.com/playlist/1475959942', description: 'Top country tracks' },
-    ],
-    youtube: [
-      { id: 'us-top', name: 'US Top 50', url: 'https://music.youtube.com/playlist?list=PL4fGSI1pDJn5k57v9yGJbGQc_mMvX4y_T', description: 'Most played in the US' },
-      { id: 'trending', name: 'Trending Music', url: 'https://music.youtube.com/playlist?list=PL4fGSI1pDJn6puJdssH2mMnqK6zMJfGnG', description: 'Trending now' },
     ],
     lastfm: [
       { id: 'us-charts', name: 'US Charts', url: 'https://www.last.fm/charts/track/United%20States', description: 'Top tracks in the US' },
@@ -104,12 +98,9 @@ export const popularPlaylists: Record<string, Record<string, ChartItem[]>> = {
   },
   GB: {
     deezer: [
-      { id: 'uk-hits', name: 'UK Top Hits', url: 'https://www.deezer.com/playlist/1875055742', description: 'Top UK tracks' },
+      { id: 'uk-hits', name: 'UK Top Hits', url: 'https://www.deezer.com/playlist/1376581235', description: 'Top UK tracks' },
       { id: 'uk-indie', name: 'UK Indie', url: 'https://www.deezer.com/playlist/1282495365', description: 'British indie music' },
       { id: 'uk-grime', name: 'UK Grime & Rap', url: 'https://www.deezer.com/playlist/1301073465', description: 'UK urban music' },
-    ],
-    youtube: [
-      { id: 'uk-top', name: 'UK Top 50', url: 'https://music.youtube.com/playlist?list=PL4fGSI1pDJn5k57v9yGJbGQc_mMvX4y_T', description: 'Most played in the UK' },
     ],
     lastfm: [
       { id: 'uk-charts', name: 'UK Charts', url: 'https://www.last.fm/charts/track/United%20Kingdom', description: 'Top tracks in the UK' },
@@ -120,9 +111,6 @@ export const popularPlaylists: Record<string, Record<string, ChartItem[]>> = {
       { id: 'de-hits', name: 'Deutsche Hits', url: 'https://www.deezer.com/playlist/1875055742', description: 'Top deutsche Tracks' },
       { id: 'de-charts', name: 'Deutschland Charts', url: 'https://www.deezer.com/playlist/1475959942', description: 'Offizielle Charts' },
     ],
-    youtube: [
-      { id: 'de-top', name: 'Germany Top 50', url: 'https://music.youtube.com/playlist?list=PL4fGSI1pDJn5k57v9yGJbGQc_mMvX4y_T', description: 'Beliebt in Deutschland' },
-    ],
     lastfm: [
       { id: 'de-charts', name: 'Germany Charts', url: 'https://www.last.fm/charts/track/Germany', description: 'Top tracks in Germany' },
     ],
@@ -131,9 +119,6 @@ export const popularPlaylists: Record<string, Record<string, ChartItem[]>> = {
     deezer: [
       { id: 'fr-hits', name: 'Top France', url: 'https://www.deezer.com/playlist/1875055742', description: 'Top titres français' },
       { id: 'fr-rap', name: 'Rap FR', url: 'https://www.deezer.com/playlist/1301073465', description: 'Rap français' },
-    ],
-    youtube: [
-      { id: 'fr-top', name: 'France Top 50', url: 'https://music.youtube.com/playlist?list=PL4fGSI1pDJn5k57v9yGJbGQc_mMvX4y_T', description: 'Les plus écoutés en France' },
     ],
     lastfm: [
       { id: 'fr-charts', name: 'France Charts', url: 'https://www.last.fm/charts/track/France', description: 'Top tracks in France' },
@@ -144,9 +129,6 @@ export const popularPlaylists: Record<string, Record<string, ChartItem[]>> = {
       { id: 'jp-hits', name: 'J-Pop Hits', url: 'https://www.deezer.com/playlist/1875055742', description: 'Top J-Pop tracks' },
       { id: 'jp-anime', name: 'Anime Songs', url: 'https://www.deezer.com/playlist/1282495365', description: 'Popular anime themes' },
     ],
-    youtube: [
-      { id: 'jp-top', name: 'Japan Top 50', url: 'https://music.youtube.com/playlist?list=PL4fGSI1pDJn5k57v9yGJbGQc_mMvX4y_T', description: '日本で人気' },
-    ],
     lastfm: [
       { id: 'jp-charts', name: 'Japan Charts', url: 'https://www.last.fm/charts/track/Japan', description: 'Top tracks in Japan' },
     ],
@@ -155,9 +137,6 @@ export const popularPlaylists: Record<string, Record<string, ChartItem[]>> = {
     deezer: [
       { id: 'ca-hits', name: 'Canadian Hits', url: 'https://www.deezer.com/playlist/1875055742', description: 'Top Canadian tracks' },
       { id: 'ca-indie', name: 'Canadian Indie', url: 'https://www.deezer.com/playlist/1282495365', description: 'Indie from Canada' },
-    ],
-    youtube: [
-      { id: 'ca-top', name: 'Canada Top 50', url: 'https://music.youtube.com/playlist?list=PL4fGSI1pDJn5k57v9yGJbGQc_mMvX4y_T', description: 'Most played in Canada' },
     ],
     lastfm: [
       { id: 'ca-charts', name: 'Canada Charts', url: 'https://www.last.fm/charts/track/Canada', description: 'Top tracks in Canada' },

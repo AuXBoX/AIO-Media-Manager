@@ -495,7 +495,7 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
                         
                         if (!tracks || tracks.length === 0) {
                           setStep('input');
-                          alert('No tracks found in the playlist. The URL may be invalid or the playlist may be empty.');
+                          alert(`No tracks found in the playlist.\n\nPossible causes:\n• The URL is invalid or points to a non-existent playlist\n• The playlist is private or region-restricted\n• The source website has changed its structure\n\nTry:\n• Double-check the URL works in your browser\n• Use a Deezer playlist URL (most reliable)\n• Paste a YouTube playlist URL for yt-dlp extraction`);
                           return;
                         }
                         
