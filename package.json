@@ -1,6 +1,6 @@
 {
     "name":  "aio-media-manager",
-    "version":  "1.0.1",
+    "version":  "1.0.2",
     "description":  "A desktop and web application for viewing and editing metadata for movies, TV shows, and music in Plex Media Server libraries",
     "main":  "electron/main.js",
     "scripts":  {
