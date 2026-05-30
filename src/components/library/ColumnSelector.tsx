@@ -80,7 +80,7 @@ export function ColumnSelector({ columns, onColumnsChange }: ColumnSelectorProps
                     type="checkbox"
                     checked={column.visible}
                     onChange={() => toggleColumn(column.id)}
-                    className="w-4 h-4 text-primary-600 bg-secondary-100 border-secondary-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-secondary-800 focus:ring-2 dark:bg-secondary-700 dark:border-secondary-600"
+                    className="w-4 h-4 accent-primary-600 bg-secondary-100 border-secondary-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-secondary-800 focus:ring-2 dark:bg-secondary-700 dark:border-secondary-600"
                   />
                   <span className="text-sm text-secondary-700 dark:text-secondary-300">
                     {column.label}

@@ -1762,7 +1762,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                             }
                             setSelectedSubtitlesForRemoval(newSelection);
                           }}
-                          className="mt-1 w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+                          className="mt-1 w-4 h-4 accent-primary-600 border-secondary-300 rounded focus:ring-primary-500"
                         />
                         <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded flex items-center justify-center flex-shrink-0">
                           <svg className="w-6 h-6 text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">

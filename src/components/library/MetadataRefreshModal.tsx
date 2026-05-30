@@ -1212,7 +1212,7 @@ export function MetadataRefreshModal({
                         downloadImages: e.target.checked,
                         downloadTrailers: e.target.checked,
                       })}
-                      className="mt-1 w-5 h-5 text-primary-500 border-slate-300 rounded focus:ring-primary-500 focus:ring-offset-0 transition-colors"
+                      className="mt-1 w-5 h-5 accent-primary-500 border-slate-300 rounded focus:ring-primary-500 focus:ring-offset-0 transition-colors"
                     />
                     <div className="flex-1">
                       <div className="text-sm font-semibold text-text-primary mb-2 group-hover:text-primary-600 transition-colors">

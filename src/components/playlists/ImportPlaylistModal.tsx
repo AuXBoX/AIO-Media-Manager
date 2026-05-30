@@ -474,16 +474,48 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
 
                   {/* Import button for URL sources */}
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (!playlistUrl.trim()) {
                         alert('Please enter a URL or select a chart');
                         return;
                       }
-                      // For now, URL import creates a playlist from the URL metadata
-                      // In the future, this could scrape the actual playlist data
-                      const name = playlistName || getSourceLabel(importSource) + ' Import';
-                      onImport(name, []);
-                      resetState();
+                      
+                      // Check for Electron API
+                      if (!(window as any).electron?.importPlaylistUrl) {
+                        alert('URL import requires the desktop application. Please use the installed version.');
+                        return;
+                      }
+                      
+                      try {
+                        setStep('parsing');
+                        const name = playlistName || getSourceLabel(importSource) + ' Import';
+                        
+                        console.log('[Import] Fetching playlist from URL:', playlistUrl, 'source:', importSource);
+                        const tracks = await (window as any).electron.importPlaylistUrl(playlistUrl, importSource);
+                        
+                        if (!tracks || tracks.length === 0) {
+                          setStep('input');
+                          alert('No tracks found in the playlist. The URL may be invalid or the playlist may be empty.');
+                          return;
+                        }
+                        
+                        console.log(`[Import] Got ${tracks.length} tracks, starting match...`);
+                        
+                        const matched: MatchedTrack[] = tracks.map((t: { title: string; artist: string }) => ({
+                          title: t.title,
+                          artist: t.artist,
+                          matched: null,
+                          status: 'pending' as const,
+                        }));
+                        
+                        setPlaylistName(name);
+                        setParsedTracks(matched);
+                        await matchTracks(matched);
+                      } catch (error) {
+                        console.error('[Import] Failed to fetch playlist:', error);
+                        setStep('input');
+                        alert(`Failed to import playlist: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                      }
                     }}
                     className="w-full px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                   >
@@ -500,7 +532,7 @@ export function ImportPlaylistModal({ isOpen, onClose, onImport }: ImportPlaylis
           {step === 'parsing' && (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">Parsing file...</p>
+              <p className="text-gray-600 dark:text-gray-400">Fetching and parsing playlist...</p>
             </div>
           )}
 

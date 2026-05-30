@@ -2,7 +2,7 @@
  * Error Handling System
  * 
  * Provides error classification, recovery strategies, and user-friendly error messages
- * for the Plex Media Manager application.
+ * for the AIO Media Manager application.
  */
 
 /**

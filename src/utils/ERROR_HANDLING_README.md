@@ -1,6 +1,6 @@
 # Error Handling System
 
-This document describes the error handling system implemented for the Plex Media Manager application.
+This document describes the error handling system implemented for the AIO Media Manager application.
 
 ## Overview
 

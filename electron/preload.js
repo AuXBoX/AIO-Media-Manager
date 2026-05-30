@@ -74,6 +74,9 @@ contextBridge.exposeInMainWorld('electron', {
 
   // HTTP requests (bypasses CORS restrictions)
   fetch: (url, options) => ipcRenderer.invoke('http:fetch', url, options),
+  
+  // Playlist URL import
+  importPlaylistUrl: (url, source) => ipcRenderer.invoke('playlist:importUrl', url, source),
 });
 
 window.addEventListener('DOMContentLoaded', () => {

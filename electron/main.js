@@ -104,8 +104,8 @@ app.whenReady().then(async () => {
 });
 
 function createWindow() {
-  // Use icon.png from root directory
-  const iconPath = path.join(__dirname, '../icon.png');
+  // Use icon.png from build-resources directory
+  const iconPath = path.join(__dirname, '../build-resources/icon.png');
   
   // Create native image for the icon
   const icon = nativeImage.createFromPath(iconPath);
@@ -1038,6 +1038,230 @@ ipcMain.handle('http:fetch', async (event, url, options = {}) => {
     });
   } catch (error) {
     console.error('HTTP fetch error:', error);
+    throw error;
+  }
+});
+
+// Import playlist from URL - extracts track data from various sources
+ipcMain.handle('playlist:importUrl', async (event, url, source) => {
+  try {
+    const https = require('https');
+    const http = require('http');
+    const urlModule = require('url');
+    
+    // Helper to fetch URL content
+    const fetchUrl = (fetchUrlStr) => new Promise((resolve, reject) => {
+      const parsedUrl = urlModule.parse(fetchUrlStr);
+      const protocol = parsedUrl.protocol === 'https:' ? https : http;
+      const req = protocol.request({
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port,
+        path: parsedUrl.path,
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/json',
+        },
+      }, (res) => {
+        // Follow redirects
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          fetchUrl(res.headers.location).then(resolve).catch(reject);
+          return;
+        }
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => resolve(data));
+      });
+      req.on('error', reject);
+      req.setTimeout(30000, () => { req.destroy(); reject(new Error('Timeout')); });
+      req.end();
+    });
+
+    // YouTube Music - use yt-dlp --flat-playlist
+    if (source === 'youtube' || url.includes('music.youtube.com') || url.includes('youtube.com/playlist')) {
+      const { spawn } = require('child_process');
+      
+      if (!binaryPaths?.ytdlpPath) {
+        throw new Error('yt-dlp not available. Check Settings > Binaries.');
+      }
+      
+      const fsSync = require('fs');
+      if (!fsSync.existsSync(binaryPaths.ytdlpPath)) {
+        throw new Error('yt-dlp binary not found. Check Settings > Binaries.');
+      }
+
+      return new Promise((resolve, reject) => {
+        const args = [url, '--flat-playlist', '-J', '--no-warnings'];
+        console.log('[PlaylistImport] Running yt-dlp for YouTube Music:', url);
+        
+        const proc = spawn(binaryPaths.ytdlpPath, args);
+        let stdout = '';
+        let stderr = '';
+        
+        proc.stdout.on('data', (data) => { stdout += data; });
+        proc.stderr.on('data', (data) => { stderr += data; });
+        
+        proc.on('close', (code) => {
+          if (code !== 0) {
+            console.error('[PlaylistImport] yt-dlp error:', stderr);
+            reject(new Error(`Failed to fetch playlist: ${stderr || 'yt-dlp error'}`));
+            return;
+          }
+          
+          try {
+            const data = JSON.parse(stdout);
+            const entries = data.entries || [];
+            const tracks = entries.map(entry => ({
+              title: entry.title || '',
+              artist: entry.uploader || entry.channel || entry.artist || '',
+            })).filter(t => t.title);
+            
+            console.log(`[PlaylistImport] Extracted ${tracks.length} tracks from YouTube Music`);
+            resolve(tracks);
+          } catch (parseError) {
+            reject(new Error(`Failed to parse playlist data: ${parseError.message}`));
+          }
+        });
+      });
+    }
+
+    // Deezer - use their public API
+    if (source === 'deezer' || url.includes('deezer.com')) {
+      const match = url.match(/playlist\/(\d+)/);
+      if (!match) throw new Error('Invalid Deezer playlist URL');
+      
+      const apiUrl = `https://api.deezer.com/playlist/${match[1]}/tracks?limit=100`;
+      console.log('[PlaylistImport] Fetching Deezer API:', apiUrl);
+      const response = await fetchUrl(apiUrl);
+      const data = JSON.parse(response);
+      
+      const tracks = (data.data || []).map(track => ({
+        title: track.title || '',
+        artist: track.artist?.name || '',
+      })).filter(t => t.title);
+      
+      console.log(`[PlaylistImport] Extracted ${tracks.length} tracks from Deezer`);
+      return tracks;
+    }
+
+    // Billboard - parse HTML
+    if (source === 'billboard' || url.includes('billboard.com')) {
+      console.log('[PlaylistImport] Fetching Billboard:', url);
+      const html = await fetchUrl(url);
+      
+      const tracks = [];
+      // Billboard uses structured data or specific class names
+      // Try JSON-LD first
+      const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+      if (jsonLdMatch) {
+        try {
+          const jsonLd = JSON.parse(jsonLdMatch[1]);
+          const items = jsonLd.itemListElement || [];
+          for (const item of items) {
+            const song = item.item;
+            if (song?.name) {
+              tracks.push({
+                title: song.name,
+                artist: song.byArtist?.name || '',
+              });
+            }
+          }
+        } catch (e) { /* fallback to HTML parsing */ }
+      }
+      
+      // Fallback: parse chart-item elements
+      if (tracks.length === 0) {
+        const titleRegex = /class="[^"]*c-chart-item__title[^"]*"[^>]*>([^<]+)</gi;
+        const artistRegex = /class="[^"]*c-chart-item__artist[^"]*"[^>]*>([^<]+)</gi;
+        
+        let titleMatch;
+        let artistMatch;
+        const titles = [];
+        const artists = [];
+        
+        while ((titleMatch = titleRegex.exec(html)) !== null) {
+          titles.push(titleMatch[1].trim());
+        }
+        while ((artistMatch = artistRegex.exec(html)) !== null) {
+          artists.push(artistMatch[1].trim());
+        }
+        
+        for (let i = 0; i < titles.length; i++) {
+          tracks.push({ title: titles[i], artist: artists[i] || '' });
+        }
+      }
+      
+      // Another fallback: look for o-chart-item data attributes
+      if (tracks.length === 0) {
+        const itemRegex = /data-chart-position="(\d+)"[\s\S]*?class="[^"]*u-text-truncate[^"]*"[^>]*>([^<]+)</gi;
+        let match;
+        while ((match = itemRegex.exec(html)) !== null) {
+          tracks.push({ title: match[2].trim(), artist: '' });
+        }
+      }
+      
+      console.log(`[PlaylistImport] Extracted ${tracks.length} tracks from Billboard`);
+      return tracks;
+    }
+
+    // ARIA Charts - parse HTML
+    if (source === 'aria' || url.includes('ariacharts.com.au')) {
+      console.log('[PlaylistImport] Fetching ARIA Charts:', url);
+      const html = await fetchUrl(url);
+      
+      const tracks = [];
+      // Try to find Next.js data
+      const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+      if (nextDataMatch) {
+        try {
+          const nextData = JSON.parse(nextDataMatch[1]);
+          const chartData = nextData?.props?.pageProps?.chartData || nextData?.props?.pageProps?.data;
+          if (chartData) {
+            const items = chartData.items || chartData.entries || chartData;
+            if (Array.isArray(items)) {
+              for (const item of items) {
+                tracks.push({
+                  title: item.title || item.songTitle || item.name || '',
+                  artist: item.artist || item.artistName || '',
+                });
+              }
+            }
+          }
+        } catch (e) { /* fallback */ }
+      }
+      
+      // Fallback: parse visible text content
+      if (tracks.length === 0) {
+        const rowRegex = /class="[^"]*chart-row[^"]*"[\s\S]*?class="[^"]*title[^"]*"[^>]*>([^<]+)<[\s\S]*?class="[^"]*artist[^"]*"[^>]*>([^<]+)</gi;
+        let match;
+        while ((match = rowRegex.exec(html)) !== null) {
+          tracks.push({ title: match[1].trim(), artist: match[2].trim() });
+        }
+      }
+      
+      console.log(`[PlaylistImport] Extracted ${tracks.length} tracks from ARIA`);
+      return tracks;
+    }
+
+    // Last.fm - parse HTML
+    if (source === 'lastfm' || url.includes('last.fm')) {
+      console.log('[PlaylistImport] Fetching Last.fm:', url);
+      const html = await fetchUrl(url);
+      
+      const tracks = [];
+      const rowRegex = /class="[^"]*chartlist-name[^"]*"[^>]*><a[^>]*>([^<]+)<\/a>[\s\S]*?class="[^"]*chartlist-artist[^"]*"[^>]*><a[^>]*>([^<]+)<\/a>/gi;
+      let match;
+      while ((match = rowRegex.exec(html)) !== null) {
+        tracks.push({ title: match[1].trim(), artist: match[2].trim() });
+      }
+      
+      console.log(`[PlaylistImport] Extracted ${tracks.length} tracks from Last.fm`);
+      return tracks;
+    }
+
+    throw new Error(`Unsupported import source: ${source}`);
+  } catch (error) {
+    console.error('[PlaylistImport] Error:', error);
     throw error;
   }
 });

@@ -280,7 +280,7 @@ export function SubtitleSearchModal({
                 type="checkbox"
                 checked={forcedOnly}
                 onChange={(e) => setForcedOnly(e.target.checked)}
-                className="w-4 h-4 text-primary-500 bg-white border-border rounded focus:ring-primary-500 focus:ring-2"
+                className="w-4 h-4 accent-primary-500 bg-white border-border rounded focus:ring-primary-500 focus:ring-2"
               />
               <span className="text-sm text-text-primary">
                 Forced subtitles only

@@ -222,34 +222,46 @@ export function LibraryView() {
   const allItems = data?.pages.flatMap((page) => page.items) || [];
   const totalSize = data?.pages[0]?.totalSize || 0;
 
+  // Track background loading to hide "Loading more..." indicator during preload
+  const isBackgroundLoadingRef = useRef(false);
+  const [isBackgroundLoading, setIsBackgroundLoading] = useState(false);
+
   // Preload all items in the background for instant alphabet navigation
   useEffect(() => {
     let isCancelled = false;
     
     const preloadAllItems = async () => {
       // Only preload if we have items and more pages to load
-      if (!allItems.length || !hasNextPage || isFetchingNextPage) return;
+      if (!allItems.length || !hasNextPage || isFetchingNextPage || isBackgroundLoadingRef.current) return;
       
       // Wait a bit after initial load before starting background preload
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       if (isCancelled) return;
       
+      // Mark as background loading
+      isBackgroundLoadingRef.current = true;
+      setIsBackgroundLoading(true);
+      
       // Load all remaining pages in the background
       let pagesLoaded = 0;
-      const maxPages = 100; // Safety limit to prevent infinite loops
+      const maxPages = 200; // Safety limit to prevent infinite loops
       
       while (hasNextPage && !isFetchingNextPage && !isCancelled && pagesLoaded < maxPages) {
         try {
           await fetchNextPage();
           pagesLoaded++;
-          // Small delay between requests to avoid blocking the UI
-          await new Promise(resolve => setTimeout(resolve, 200));
+          // Minimal delay to keep UI responsive
+          await new Promise(resolve => setTimeout(resolve, 50));
         } catch (error) {
           // Silently fail background preload
           break;
         }
       }
+      
+      // Done background loading
+      isBackgroundLoadingRef.current = false;
+      setIsBackgroundLoading(false);
     };
     
     preloadAllItems();
@@ -796,7 +808,7 @@ export function LibraryView() {
                   isLoading={isLoadingTitles}
                 />
                 {/* Loading indicator */}
-                {isFetchingNextPage && (
+                {isFetchingNextPage && !isBackgroundLoading && (
                   <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg">
                     Loading more...
                   </div>
@@ -842,7 +854,7 @@ export function LibraryView() {
                   isLoading={isLoadingTitles}
                 />
                 {/* Loading indicator */}
-                {isFetchingNextPage && (
+                {isFetchingNextPage && !isBackgroundLoading && (
                   <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg">
                     Loading more...
                   </div>
@@ -876,7 +888,7 @@ export function LibraryView() {
                   isLoading={isLoadingTitles}
                 />
                 {/* Loading indicator */}
-                {isFetchingNextPage && (
+                {isFetchingNextPage && !isBackgroundLoading && (
                   <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg z-10">
                     Loading more...
                   </div>

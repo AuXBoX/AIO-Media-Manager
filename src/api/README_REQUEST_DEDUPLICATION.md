@@ -382,4 +382,4 @@ npm test -- src/api/requestDeduplicator.test.ts
 
 ## License
 
-Part of the Plex Media Manager project.
+Part of the AIO Media Manager project.

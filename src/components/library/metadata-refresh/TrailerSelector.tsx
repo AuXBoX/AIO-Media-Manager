@@ -63,7 +63,7 @@ export function TrailerSelector({
                   checked={trailer.selected}
                   onChange={(e) => onSelectionChange(index, e.target.checked)}
                   disabled={!trailer.selected && selectedCount >= maxSelection}
-                  className="w-5 h-5 text-primary-600 border-secondary-300 rounded focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-5 h-5 accent-primary-600 border-secondary-300 rounded focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 

@@ -1,6 +1,6 @@
 # API Layer Documentation
 
-This directory contains the API client infrastructure for the Plex Media Manager application.
+This directory contains the API client infrastructure for the AIO Media Manager application.
 
 ## Components
 

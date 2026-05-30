@@ -1,6 +1,6 @@
 # Error UI Components Usage Guide
 
-This guide demonstrates how to use the error UI components in the Plex Media Manager application.
+This guide demonstrates how to use the error UI components in the AIO Media Manager application.
 
 ## Components Overview
 

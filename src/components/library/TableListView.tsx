@@ -228,7 +228,7 @@ export function TableListView({
                     onSelectionChange(new Set());
                   }
                 }}
-                className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-2 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer"
+                className="w-4 h-4 accent-primary-600 border-secondary-300 rounded focus:ring-2 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer"
               />
             </div>
           )}
@@ -363,7 +363,7 @@ export function TableListView({
                           onSelectionChange(newSelection);
                         }}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-2 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer"
+                        className="w-4 h-4 accent-primary-600 border-secondary-300 rounded focus:ring-2 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer"
                       />
                     </div>
                   )}

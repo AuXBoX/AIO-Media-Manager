@@ -211,7 +211,7 @@ export function DetailedReviewScreen({
               type="checkbox"
               checked={currentItem.selected}
               onChange={handleToggleItemSelection}
-              className="w-5 h-5 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+              className="w-5 h-5 accent-primary-600 border-secondary-300 rounded focus:ring-primary-500"
             />
             <span className="text-sm font-medium text-secondary-700 dark:text-secondary-300">
               Include in update

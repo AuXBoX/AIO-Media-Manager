@@ -66,6 +66,12 @@ code {
   outline-offset: 2px;
 }
 
+/* Global accent color for form controls - Plex yellow */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-primary);
+}
+
 /* Skip to content link styles */
 .skip-link {
   position: absolute;

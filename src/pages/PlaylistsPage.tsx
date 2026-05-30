@@ -625,7 +625,7 @@ export function PlaylistsPage() {
                               checked={isSelected}
                               onChange={() => toggleTrackSelection(track.ratingKey)}
                               onClick={e => e.stopPropagation()}
-                              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                              className="w-4 h-4 rounded border-gray-300 accent-primary-600 focus:ring-primary-500"
                             />
                           </td>
                           <td className="px-2 py-3 text-gray-500 dark:text-gray-400">
@@ -754,26 +754,58 @@ export function PlaylistsPage() {
           try {
             setSaving(true);
             
-            // Find the original track to get its playlistItemID
-            const originalTrack = playlistTracks.find(t => t.ratingKey === originalKey);
+            // Find the original track to get its playlistItemID and position
+            const originalIndex = playlistTracks.findIndex(t => t.ratingKey === originalKey);
+            const originalTrack = playlistTracks[originalIndex];
             if (!originalTrack?.playlistItemID) {
               console.error('Could not find original track or missing playlistItemID');
               return;
             }
 
+            // Get the track before the original (for repositioning)
+            const prevTrack = originalIndex > 0 ? playlistTracks[originalIndex - 1] : null;
+
             // Remove the original track
             await manager.removeFromPlaylist(selectedPlaylist.ratingKey, originalTrack.playlistItemID);
 
-            // Add the replacement track
+            // Add the replacement track (goes to end of playlist)
             const machineId = selectedServer.machineIdentifier;
             const replacementUri = `server://${machineId}/com.plexapp.plugins.library/library/metadata/${replacement.ratingKey}`;
             await manager.addToPlaylist(selectedPlaylist.ratingKey, [replacementUri]);
 
             // Reload tracks to get updated list with new playlistItemIDs
             await loadPlaylistTracks(selectedPlaylist);
+            
+            // Move the new track to the correct position if it wasn't the last track
+            if (originalIndex < playlistTracks.length - 1) {
+              // Get the fresh track list after reload
+              const freshManager = getManager();
+              if (freshManager) {
+                const updatedTracks = await freshManager.getPlaylistItems(selectedPlaylist.ratingKey);
+                // Find the newly added track (last in the list)
+                const newTrack = updatedTracks[updatedTracks.length - 1];
+                const newItemId = newTrack?.['playlistItemID'] as string | undefined;
+                if (newItemId) {
+                  if (prevTrack) {
+                    // Move after the previous track (but need fresh playlistItemID for prevTrack)
+                    const freshPrevTrack = updatedTracks.find(t => t.ratingKey === prevTrack.ratingKey);
+                    const freshPrevItemId = freshPrevTrack?.['playlistItemID'] as string | undefined;
+                    if (freshPrevItemId) {
+                      await manager.moveInPlaylist(selectedPlaylist.ratingKey, newItemId, freshPrevItemId);
+                    }
+                  } else {
+                    // Original was first track - move new track to beginning
+                    await manager.moveInPlaylist(selectedPlaylist.ratingKey, newItemId, '');
+                  }
+                  // Reload again to reflect the move
+                  await loadPlaylistTracks(selectedPlaylist);
+                }
+              }
+            }
+            
             await loadPlaylists();
             
-            console.log('Track replaced successfully:', originalKey, '→', replacement.title);
+            console.log('Track replaced successfully:', originalKey, '→', replacement.title, 'at position', originalIndex);
           } catch (error) {
             console.error('Failed to replace track:', error);
           } finally {
