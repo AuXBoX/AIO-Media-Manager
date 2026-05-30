@@ -699,7 +699,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
   // Electron has TitleBar (32px) + ResponsiveLayout header (64px) + LibraryView toolbar (64px) = 160px
   // Browser has ResponsiveLayout header (64px) + LibraryView toolbar (64px) = 128px
   const isElectron = typeof window !== 'undefined' && !!(window as any).electron;
-  const heightOffset = isElectron ? 160 : 128;
+  const heightOffset = isElectron ? 96 : 64;
 
   return (
     <div className="flex flex-col relative overflow-hidden bg-[#F8FAFC] rounded-xl shadow-lg" style={{ height: `calc(100vh - ${heightOffset}px)` }}>
@@ -727,28 +727,9 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
 
           {/* Content over backdrop */}
           <div className="relative z-10 h-full flex flex-col">
-            {/* Top row: status indicators left, action buttons right */}
+            {/* Top row: action buttons right */}
             <div className="flex items-center justify-between px-5 pt-3">
-              {/* Status indicators */}
-              <div className="flex items-center gap-2">
-                {hasLocalNfo && (
-                  <span className="px-2.5 py-1 text-xs font-medium bg-primary-500/90 backdrop-blur-md text-white rounded-full flex items-center gap-1.5 shadow-lg">
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
-                      <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
-                    </svg>
-                    Local NFO
-                  </span>
-                )}
-                {isDirty && (
-                  <span className="px-2.5 py-1 text-xs font-medium bg-orange-500/90 backdrop-blur-md text-white rounded-full flex items-center gap-1.5 shadow-lg">
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                    </svg>
-                    Unsaved
-                  </span>
-                )}
-              </div>
+              <div />
 
               {/* Action buttons */}
               <div className="flex items-center gap-2">
@@ -770,7 +751,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
             <div className="flex items-start gap-4 px-5 pt-3 flex-1">
               {/* Poster - left side */}
               {posterUrl && (
-                <div className={`flex-shrink-0 rounded-lg overflow-hidden shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] ring-1 ring-white/10 ${
+                <div className={`flex-shrink-0 rounded-md overflow-hidden shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] ring-1 ring-white/10 ${
                   isMusicItem ? 'w-[100px] h-[100px]' : 'w-[100px] h-[150px]'
                 }`}>
                   <img
@@ -1104,18 +1085,53 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                 </div>
               )}
 
-              {/* Content Rating - Editable */}
+              {/* Content Rating - Editable Dropdown */}
               {(metadata.contentRating || isEditing) && (
                 <div className="py-1">
                   {isEditing ? (
-                    <Input
-                      label="Rating"
-                      type="text"
-                      value={getFieldValue('contentRating', metadata.contentRating || '')}
-                      onChange={(e) => handleFieldChange('contentRating', e.target.value)}
-                      labelClassName="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1"
-                      className="bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-primary-500/20"
-                    />
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">
+                        Rating
+                      </label>
+                      <select
+                        value={getFieldValue('contentRating', metadata.contentRating || '')}
+                        onChange={(e) => handleFieldChange('contentRating', e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 appearance-none cursor-pointer"
+                      >
+                        <option value="">None</option>
+                        <optgroup label="Movie Ratings">
+                          <option value="G">G</option>
+                          <option value="PG">PG</option>
+                          <option value="PG-13">PG-13</option>
+                          <option value="R">R</option>
+                          <option value="NC-17">NC-17</option>
+                          <option value="NR">NR (Not Rated)</option>
+                        </optgroup>
+                        <optgroup label="TV Ratings">
+                          <option value="TV-Y">TV-Y</option>
+                          <option value="TV-Y7">TV-Y7</option>
+                          <option value="TV-G">TV-G</option>
+                          <option value="TV-PG">TV-PG</option>
+                          <option value="TV-14">TV-14</option>
+                          <option value="TV-MA">TV-MA</option>
+                        </optgroup>
+                        <optgroup label="Australian">
+                          <option value="au/G">au/G</option>
+                          <option value="au/PG">au/PG</option>
+                          <option value="au/M">au/M</option>
+                          <option value="au/MA15+">au/MA15+</option>
+                          <option value="au/R18+">au/R18+</option>
+                        </optgroup>
+                        <optgroup label="UK">
+                          <option value="gb/U">gb/U</option>
+                          <option value="gb/PG">gb/PG</option>
+                          <option value="gb/12A">gb/12A</option>
+                          <option value="gb/12">gb/12</option>
+                          <option value="gb/15">gb/15</option>
+                          <option value="gb/18">gb/18</option>
+                        </optgroup>
+                      </select>
+                    </div>
                   ) : (
                     <>
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
@@ -1374,18 +1390,12 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                   Poster
                 </h4>
                 {isEditing && (
-                  <label className="cursor-pointer">
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onClick={() => {}}
-                    >
-                      Upload New
-                    </Button>
+                  <>
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      id={`poster-upload-${item?.ratingKey}`}
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file && item) {
@@ -1396,7 +1406,16 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                         }
                       }}
                     />
-                  </label>
+                    <label htmlFor={`poster-upload-${item?.ratingKey}`} className="cursor-pointer">
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        type="button"
+                      >
+                        Upload New
+                      </Button>
+                    </label>
+                  </>
                 )}
               </div>
               {posterUrl && (
@@ -1421,18 +1440,12 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                   Background
                 </h4>
                 {isEditing && (
-                  <label className="cursor-pointer">
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onClick={() => {}}
-                    >
-                      Upload New
-                    </Button>
+                  <>
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      id={`background-upload-${item?.ratingKey}`}
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file && item) {
@@ -1443,7 +1456,16 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
                         }
                       }}
                     />
-                  </label>
+                    <label htmlFor={`background-upload-${item?.ratingKey}`} className="cursor-pointer">
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        type="button"
+                      >
+                        Upload New
+                      </Button>
+                    </label>
+                  </>
                 )}
               </div>
               {artUrl && (

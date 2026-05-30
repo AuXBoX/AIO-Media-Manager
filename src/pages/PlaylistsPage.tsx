@@ -412,27 +412,27 @@ export function PlaylistsPage() {
   return (
     <div className="h-full flex min-h-0">
       {/* Playlists list */}
-      <div className="w-96 border-r border-gray-200 dark:border-gray-700 overflow-y-auto flex-shrink-0">
+      <div className="w-96 border-r border-border overflow-y-auto flex-shrink-0 bg-background-primary">
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Playlists</h1>
+            <h1 className="text-xl font-semibold text-text-primary tracking-tight">Playlists</h1>
             <button
               onClick={() => setShowImport(true)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               title="Import Playlist"
             >
-              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </button>
           </div>
           {playlists.length === 0 ? (
             <div className="text-center py-8">
-              <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-16 h-16 mx-auto text-text-tertiary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
-              <p className="text-gray-500 dark:text-gray-400">No playlists found</p>
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">Create playlists in Plex to see them here</p>
+              <p className="text-text-secondary">No playlists found</p>
+              <p className="text-sm text-text-tertiary mt-2">Create playlists in Plex to see them here</p>
             </div>
           ) : (
             <div className="space-y-1">
@@ -466,8 +466,8 @@ export function PlaylistsPage() {
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 dark:text-white truncate">{playlist.title}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm font-medium text-text-primary truncate">{playlist.title}</p>
+                        <p className="text-xs text-text-tertiary">
                           {playlist.leafCount} {playlist.leafCount === 1 ? 'track' : 'tracks'}
                         </p>
                       </div>
@@ -513,8 +513,8 @@ export function PlaylistsPage() {
                   </div>
                 </button>
                 <div className="flex-1 flex flex-col justify-center">
-                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{selectedPlaylist.title}</h2>
-                  <p className="text-gray-500 dark:text-gray-400">
+                  <h2 className="text-xl font-semibold text-text-primary tracking-tight mb-2">{selectedPlaylist.title}</h2>
+                  <p className="text-sm text-text-tertiary">
                     {playlistTracks.length} {playlistTracks.length === 1 ? 'track' : 'tracks'} • {formatTotalDuration(totalDuration)}
                     {selectedPlaylist.summary && ` • ${selectedPlaylist.summary}`}
                   </p>
@@ -538,11 +538,11 @@ export function PlaylistsPage() {
                 {/* Action buttons */}
                 <div className="flex items-center gap-2">
                   {saving && (
-                    <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">Saving...</span>
+                    <span className="text-sm text-text-tertiary mr-2">Saving...</span>
                   )}
                   <button
                     onClick={() => { setMatchTrackTarget(null); setShowTrackMatch(true); }}
-                    className="px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                    className="px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-text-secondary rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
                     title="Find better matches for tracks"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -581,20 +581,20 @@ export function PlaylistsPage() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
                 </div>
               ) : playlistTracks.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                <p className="text-text-tertiary text-center py-8">
                   No tracks in this playlist
                 </p>
               ) : (
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead>
-                      <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                      <tr className="bg-gray-50 dark:bg-gray-800 border-b border-border">
                         <th className="w-10 px-3 py-3"></th>
-                        <th className="w-12 px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Title</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Artist</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Album</th>
-                        <th className="w-20 px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Duration</th>
+                        <th className="w-12 px-2 py-3 text-left text-xs font-medium text-text-tertiary uppercase">#</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase">Title</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase">Artist</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase">Album</th>
+                        <th className="w-20 px-4 py-3 text-right text-xs font-medium text-text-tertiary uppercase">Duration</th>
                         <th className="w-24 px-3 py-3"></th>
                       </tr>
                     </thead>
@@ -628,11 +628,11 @@ export function PlaylistsPage() {
                               className="w-4 h-4 rounded border-gray-300 accent-primary-600 focus:ring-primary-500"
                             />
                           </td>
-                          <td className="px-2 py-3 text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-3 text-text-tertiary">
                             <div className="flex items-center gap-1 w-[96px] h-[28px]">
                               <button
                                 draggable={false}
-                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-grab flex-shrink-0"
+                                className="p-1 text-text-tertiary hover:text-text-secondary cursor-grab flex-shrink-0"
                                 title="Drag to reorder"
                               >
                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -651,7 +651,7 @@ export function PlaylistsPage() {
                                 </button>
                                 <button
                                   onClick={() => { setMatchTrackTarget(track); setShowTrackMatch(true); }}
-                                  className="p-1 text-gray-400 hover:text-primary-500"
+                                  className="p-1 text-text-tertiary hover:text-primary-500"
                                   title="Find better match for this track"
                                 >
                                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -661,16 +661,16 @@ export function PlaylistsPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{track.title}</td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{track.artist || '-'}</td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{track.album || '-'}</td>
-                          <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{formatDuration(track.duration || 0)}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-text-primary">{track.title}</td>
+                          <td className="px-4 py-3 text-sm text-text-secondary">{track.artist || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-text-secondary">{track.album || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-right text-text-tertiary">{formatDuration(track.duration || 0)}</td>
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity w-[80px] h-[28px]">
                               <button
                                 onClick={() => handleMoveTrack(originalIndex, 'up')}
                                 disabled={originalIndex === 0}
-                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30"
+                                className="p-1 text-text-tertiary hover:text-text-secondary disabled:opacity-30"
                                 title="Move up"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -680,7 +680,7 @@ export function PlaylistsPage() {
                               <button
                                 onClick={() => handleMoveTrack(originalIndex, 'down')}
                                 disabled={originalIndex === playlistTracks.length - 1}
-                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30"
+                                className="p-1 text-text-tertiary hover:text-text-secondary disabled:opacity-30"
                                 title="Move down"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -690,7 +690,7 @@ export function PlaylistsPage() {
                               {track.playlistItemID && (
                                 <button
                                   onClick={() => handleRemoveTrack(track.playlistItemID!)}
-                                  className="p-1 text-gray-400 hover:text-red-500"
+                                  className="p-1 text-text-tertiary hover:text-red-500"
                                   title="Remove from playlist"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -710,7 +710,7 @@ export function PlaylistsPage() {
             </div>
           </>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
+          <div className="flex items-center justify-center h-full text-text-tertiary">
             <div className="text-center">
               <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />

@@ -9,8 +9,39 @@ import { PerformanceSettings } from '@/components/settings/PerformanceSettings';
 import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { APIKeysSettings } from '@/components/settings/APIKeysSettings';
 import { BinarySettings } from '@/components/settings/BinarySettings';
+import { useAppStore } from '@/store/appStore';
 
 type SettingsTab = 'general' | 'apikeys' | 'binaries' | 'cache' | 'metadata' | 'performance' | 'privacy';
+
+/**
+ * Logout Button - small inline component for settings sidebar
+ */
+function LogoutButton() {
+  const { clearAuthentication, currentUser } = useAppStore();
+  
+  const handleLogout = () => {
+    clearAuthentication();
+  };
+
+  return (
+    <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+      {currentUser && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-1">
+          Signed in as <span className="font-medium">{currentUser.username}</span>
+        </p>
+      )}
+      <button
+        onClick={handleLogout}
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+        Logout
+      </button>
+    </div>
+  );
+}
 
 /**
  * SettingsView Component
@@ -105,7 +136,7 @@ export const SettingsView: React.FC = () => {
 
   if (!settings) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <p className="text-red-600 dark:text-red-400">Failed to load settings</p>
           <Button onClick={loadSettings} variant="primary" className="mt-4">
@@ -117,7 +148,7 @@ export const SettingsView: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background-primary">
+    <div className="h-full flex flex-col min-h-0 bg-background-primary overflow-y-auto">
       {/* Header / Toolbar with Glass Effect */}
       <div className="sticky top-0 z-50 h-16 bg-white/75 backdrop-blur-md border-b border-border">
         <div className="max-w-7xl mx-auto px-6 h-full flex flex-col justify-center">
@@ -167,7 +198,7 @@ export const SettingsView: React.FC = () => {
             </nav>
 
             {/* Reset Button */}
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-3">
               <Button
                 variant="secondary"
                 onClick={handleReset}
@@ -176,6 +207,7 @@ export const SettingsView: React.FC = () => {
               >
                 Reset to Defaults
               </Button>
+              <LogoutButton />
             </div>
           </div>
 

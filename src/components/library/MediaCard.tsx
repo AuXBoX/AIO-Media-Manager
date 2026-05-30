@@ -1,5 +1,4 @@
 import { LibraryItem } from '@/managers/LibraryManager';
-import { CachedDataBadge } from '@/components/offline/CachedDataBadge';
 import { useState, useEffect, useRef } from 'react';
 import { Spinner } from '@/components/ui/Spinner';
 
@@ -87,11 +86,10 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
       >
         {/* Card with hover elevation - Modern Plex Pro styling */}
         <div 
-          className="relative bg-white rounded-xl overflow-hidden border border-border shadow-soft group-hover:shadow-medium transition-all duration-200 group-hover:-translate-y-1 flex-shrink-0"
+          className="relative bg-white rounded-md overflow-hidden border border-border shadow-soft group-hover:shadow-medium transition-all duration-200 group-hover:-translate-y-1 flex-shrink-0"
           style={{
             width: `${posterSize}px`,
             height: `${squarePosters ? posterSize : Math.round(posterSize * 1.5)}px`, // Square for music, 2:3 for video posters
-            borderRadius: '12px', // Explicit 12px border radius per spec
           }}
         >
           {/* Poster Image */}
@@ -161,13 +159,7 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
               </div>
             </div>
             
-            {/* Cached data badge */}
-            <CachedDataBadge
-              isCached={isCached}
-              isDirty={isDirty}
-              size="sm"
-              position="top-right"
-            />
+            {/* Cached data badge removed */}
           </div>
         </div>
         
@@ -245,13 +237,6 @@ export function MediaCard({ item, viewMode, serverUrl, token, onClick, isCached 
           <h3 className="text-sm font-medium text-text-primary truncate">
             {item.title}
           </h3>
-          {/* Cached data badge inline */}
-          <CachedDataBadge
-            isCached={isCached}
-            isDirty={isDirty}
-            size="sm"
-            position="inline"
-          />
         </div>
         {item.parentTitle && (
           <p className="text-xs text-text-tertiary truncate">

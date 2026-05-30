@@ -169,7 +169,7 @@ export function MetadataDetailView({ client: providedClient }: MetadataDetailVie
   }
 
   return (
-    <div className="min-h-screen bg-background-primary">
+    <div className="h-full flex flex-col min-h-0 bg-background-primary overflow-y-auto">
       {/* Header / Toolbar with Glass Effect */}
       <div className="sticky top-0 z-50 h-16 bg-white/75 backdrop-blur-md border-b border-border">
         <div className="max-w-7xl mx-auto px-6 h-full">

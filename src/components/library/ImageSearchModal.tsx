@@ -136,8 +136,8 @@ export function ImageSearchModal({
         if (settings.fanartApiKey) config.fanart = { apiKey: settings.fanartApiKey };
         if (settings.tvdbApiKey) config.tvdb = { apiKey: settings.tvdbApiKey };
         
-        // Add Last.fm for music
-        const lastfmApiKey = import.meta.env['VITE_LASTFM_API_KEY'];
+        // Add Last.fm for music (settings key takes priority over env)
+        const lastfmApiKey = settings.lastfmApiKey || import.meta.env['VITE_LASTFM_API_KEY'];
         if (lastfmApiKey) config.lastfm = { apiKey: lastfmApiKey };
         
         const providerRegistry = createProviderRegistry(client, config);
@@ -147,8 +147,8 @@ export function ImageSearchModal({
         // Determine providers based on content type
         let providers: string[];
         if (isMusic) {
-          // Music: Use Last.fm, MusicBrainz, Discogs
-          providers = ['lastfm', 'musicbrainz', 'discogs'];
+          // Music: Use Last.fm, MusicBrainz, iTunes, AlbumArtExchange, Discogs
+          providers = ['lastfm', 'itunes', 'albumartexchange', 'discogs'];
         } else if (isTVShow) {
           // TV shows: Try TVDB first (if available), then TMDB
           providers = ['tvdb', 'tmdb'];
@@ -159,22 +159,49 @@ export function ImageSearchModal({
         
         let results: SearchResult[] = [];
         
-        // Try providers in order
-        for (const provider of providers) {
-          if (providerRegistry.hasProvider(provider as any)) {
-            try {
-              console.log(`[ImageSearch] Searching ${provider}...`);
-              results = await providerRegistry.search(provider as any, searchTitle, mediaType, searchYear);
-              console.log(`[ImageSearch] ${provider} results:`, results.length);
-              
-              if (results.length > 0) {
-                break; // Stop if we found results
+        if (isMusic) {
+          // For music: search ALL providers and combine results
+          for (const provider of providers) {
+            if (providerRegistry.hasProvider(provider as any)) {
+              try {
+                console.log(`[ImageSearch] Searching ${provider}...`);
+                const providerResults = await providerRegistry.search(provider as any, searchTitle, mediaType, searchYear);
+                console.log(`[ImageSearch] ${provider} results:`, providerResults.length);
+                
+                // Add results, avoiding duplicates by title+year
+                for (const result of providerResults.slice(0, 3)) {
+                  const isDuplicate = results.some(
+                    r => r.title.toLowerCase() === result.title.toLowerCase() && r.year === result.year
+                  );
+                  if (!isDuplicate) {
+                    results.push(result);
+                  }
+                }
+              } catch (error) {
+                console.error(`[ImageSearch] ${provider} search failed:`, error);
               }
-            } catch (error) {
-              console.error(`[ImageSearch] ${provider} search failed:`, error);
+            } else {
+              console.log(`[ImageSearch] ${provider} provider not available (no API key configured)`);
             }
-          } else {
-            console.log(`[ImageSearch] ${provider} provider not available (no API key configured)`);
+          }
+        } else {
+          // For movies/TV: try providers in order, stop at first with results
+          for (const provider of providers) {
+            if (providerRegistry.hasProvider(provider as any)) {
+              try {
+                console.log(`[ImageSearch] Searching ${provider}...`);
+                results = await providerRegistry.search(provider as any, searchTitle, mediaType, searchYear);
+                console.log(`[ImageSearch] ${provider} results:`, results.length);
+                
+                if (results.length > 0) {
+                  break;
+                }
+              } catch (error) {
+                console.error(`[ImageSearch] ${provider} search failed:`, error);
+              }
+            } else {
+              console.log(`[ImageSearch] ${provider} provider not available (no API key configured)`);
+            }
           }
         }
         
@@ -209,6 +236,10 @@ export function ImageSearchModal({
         if (settings.tmdbApiKey) config.tmdb = { apiKey: settings.tmdbApiKey };
         if (settings.fanartApiKey) config.fanart = { apiKey: settings.fanartApiKey };
         if (settings.tvdbApiKey) config.tvdb = { apiKey: settings.tvdbApiKey };
+        
+        // Add Last.fm for music (settings key takes priority over env)
+        const lastfmApiKey = settings.lastfmApiKey || import.meta.env['VITE_LASTFM_API_KEY'];
+        if (lastfmApiKey) config.lastfm = { apiKey: lastfmApiKey };
         
         const providerRegistry = createProviderRegistry(client, config);
         
@@ -393,6 +424,77 @@ export function ImageSearchModal({
             // Fanart.tv errors are non-fatal - just log and continue
             // Common errors: invalid API key, CORS issues, or missing artwork
             console.warn('[ImageSearch] Fanart.tv fetch failed (non-fatal):', error instanceof Error ? error.message : error);
+          }
+        }
+        
+        // Fetch music images from Last.fm, iTunes, and AlbumArtExchange
+        if (isMusic && selectedMatch) {
+          const musicSearchQuery = item.type === 'album'
+            ? `${item.parentTitle || ''} ${item.title}`.trim()
+            : item.type === 'track'
+            ? (item.grandparentTitle || item.title)
+            : item.title;
+
+          // Last.fm images
+          if (providerRegistry.hasProvider('lastfm')) {
+            try {
+              console.log('[ImageSearch] Fetching Last.fm images for:', musicSearchQuery);
+              const lastfmResults = await providerRegistry.search('lastfm', musicSearchQuery, mediaType, selectedMatch.year);
+              if (lastfmResults.length > 0 && lastfmResults[0]) {
+                const lastfmMeta = await providerRegistry.getDetails('lastfm', lastfmResults[0].externalId);
+                if (lastfmMeta.posters) {
+                  lastfmMeta.posters.forEach((url: string) => {
+                    allPosters.push({ url, width: 0, height: 0, type: 'poster', provider: 'Last.fm' });
+                  });
+                }
+                if (lastfmMeta.backdrops) {
+                  lastfmMeta.backdrops.forEach((url: string) => {
+                    allBackgrounds.push({ url, width: 0, height: 0, type: 'background', provider: 'Last.fm' });
+                  });
+                }
+                console.log('[ImageSearch] Last.fm images:', { posters: lastfmMeta.posters?.length || 0 });
+              }
+            } catch (error) {
+              console.warn('[ImageSearch] Last.fm image fetch failed:', error);
+            }
+          }
+
+          // iTunes artwork
+          if (providerRegistry.hasProvider('itunes')) {
+            try {
+              console.log('[ImageSearch] Fetching iTunes artwork for:', musicSearchQuery);
+              const itunesResults = await providerRegistry.search('itunes', musicSearchQuery, mediaType, selectedMatch.year);
+              if (itunesResults.length > 0 && itunesResults[0]) {
+                const itunesMeta = await providerRegistry.getDetails('itunes', itunesResults[0].externalId);
+                if (itunesMeta.posters) {
+                  itunesMeta.posters.forEach((url: string) => {
+                    allPosters.push({ url, width: 0, height: 0, type: 'poster', provider: 'iTunes' });
+                  });
+                }
+                console.log('[ImageSearch] iTunes images:', { posters: itunesMeta.posters?.length || 0 });
+              }
+            } catch (error) {
+              console.warn('[ImageSearch] iTunes image fetch failed:', error);
+            }
+          }
+
+          // AlbumArtExchange artwork
+          if (providerRegistry.hasProvider('albumartexchange')) {
+            try {
+              console.log('[ImageSearch] Fetching AlbumArtExchange for:', musicSearchQuery);
+              const aaeResults = await providerRegistry.search('albumartexchange' as any, musicSearchQuery, mediaType, selectedMatch.year);
+              if (aaeResults.length > 0 && aaeResults[0]) {
+                const aaeMeta = await providerRegistry.getDetails('albumartexchange' as any, aaeResults[0].externalId);
+                if (aaeMeta.posters) {
+                  aaeMeta.posters.forEach((url: string) => {
+                    allPosters.push({ url, width: 0, height: 0, type: 'poster', provider: 'AlbumArtExchange' });
+                  });
+                }
+                console.log('[ImageSearch] AlbumArtExchange images:', { posters: aaeMeta.posters?.length || 0 });
+              }
+            } catch (error) {
+              console.warn('[ImageSearch] AlbumArtExchange image fetch failed:', error);
+            }
           }
         }
         
@@ -621,7 +723,7 @@ export function ImageSearchModal({
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-                  <p className="text-slate-600">Searching {isTVShow ? 'TVDB and TMDB' : 'TMDB'}...</p>
+                  <p className="text-slate-600">Searching {isTVShow ? 'TVDB and TMDB' : isMusic ? 'Last.fm, MusicBrainz, and iTunes' : 'TMDB'}...</p>
                 </div>
               </div>
             ) : searchResults && searchResults.length > 0 ? (
@@ -786,7 +888,7 @@ export function ImageSearchModal({
                             <img
                               src={image.url}
                               alt={`Poster ${index + 1}`}
-                              className="w-full h-auto aspect-[2/3] object-cover"
+                              className={`w-full h-auto ${isMusic ? 'aspect-square' : 'aspect-[2/3]'} object-cover`}
                               loading="lazy"
                               onLoad={(e) => handleImageLoad(image.url, e)}
                             />

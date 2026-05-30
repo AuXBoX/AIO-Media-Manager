@@ -66,6 +66,7 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
     getScrollElement: () => parentRef.current,
     estimateSize: () => estimatedItemHeight,
     overscan: 5, // Render 5 extra rows above and below viewport for smoother scrolling
+    measureElement: (el) => el.getBoundingClientRect().height,
   });
 
   // Expose scrollToLetter method via ref
@@ -95,7 +96,6 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
       className="h-full w-full overflow-y-auto overflow-x-hidden bg-background-primary"
       onScroll={onScroll}
       style={{
-        contain: 'strict',
         overscrollBehavior: 'contain',
       }}
     >
@@ -104,8 +104,6 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
           height: `${rowVirtualizer.getTotalSize()}px`,
           width: '100%',
           position: 'relative',
-          padding: '24px',
-          paddingBottom: '32px',
         }}
       >
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -116,12 +114,13 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
           return (
             <div
               key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={rowVirtualizer.measureElement}
               style={{
                 position: 'absolute',
                 top: 0,
                 left: '24px',
                 right: '24px',
-                height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
@@ -129,7 +128,6 @@ export const VirtualGrid = forwardRef<VirtualGridHandle, VirtualGridProps>(({
                 className="flex flex-wrap"
                 style={{
                   gap: `${gap}px`,
-                  height: '100%',
                 }}
               >
                 {rowItems.map((item) => {

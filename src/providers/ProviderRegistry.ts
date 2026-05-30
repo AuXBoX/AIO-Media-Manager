@@ -9,6 +9,7 @@ import { createDiscogsProvider } from './DiscogsProvider';
 import { createFanartProvider } from './FanartProvider';
 import { createLastFmProvider } from './LastFmProvider';
 import { createAlbumArtExchangeProvider } from './AlbumArtExchangeProvider';
+import { createITunesProvider } from './ITunesProvider';
 import { createYouTubeTrailerProvider, YouTubeTrailerProvider } from './YouTubeTrailerProvider';
 
 /**
@@ -38,6 +39,9 @@ export interface ProviderConfig {
     apiKey: string;
   };
   albumartexchange?: {
+    enabled: boolean;
+  };
+  itunes?: {
     enabled: boolean;
   };
   youtube?: {
@@ -74,6 +78,10 @@ const FALLBACK_API_KEYS = {
   // TVDB v4 API key (obfuscated)
   // Get your own key from: https://thetvdb.com/api-information
   tvdb: decode('ODg4YzMyOTEtNjMzMS00MmUzLWE2MGUtNTg0MzhmYmJjNWUz'),
+  
+  // Last.fm - free API key (obfuscated)
+  // Get your own key from: https://www.last.fm/api/account/create
+  lastfm: decode('N2RlZjRlNGM4YzBmOWU1NTBkNTI3ZDk4YjRlOGQ3YjA='),
   
   // OMDb - requires user key (free tier: 1,000 requests/day)
   imdb: null,
@@ -149,9 +157,10 @@ export class ProviderRegistry {
       this.providers.set('musicbrainz', musicbrainzProvider);
     }
 
-    // Initialize Last.fm provider (requires API key - get free at https://www.last.fm/api)
-    if (config.lastfm?.apiKey) {
-      const lastfmProvider = createLastFmProvider(this.plexClient, config.lastfm.apiKey);
+    // Initialize Last.fm provider (with fallback key for music metadata)
+    const lastfmApiKey = config.lastfm?.apiKey || FALLBACK_API_KEYS.lastfm;
+    if (lastfmApiKey) {
+      const lastfmProvider = createLastFmProvider(this.plexClient, lastfmApiKey);
       this.providers.set('lastfm', lastfmProvider);
     }
 
@@ -159,6 +168,12 @@ export class ProviderRegistry {
     if (config.albumartexchange?.enabled !== false) {
       const albumArtExchangeProvider = createAlbumArtExchangeProvider(this.plexClient);
       this.providers.set('albumartexchange', albumArtExchangeProvider);
+    }
+
+    // Initialize iTunes provider (no API key required, free search API)
+    if (config.itunes?.enabled !== false) {
+      const itunesProvider = createITunesProvider(this.plexClient);
+      this.providers.set('itunes', itunesProvider);
     }
 
     // Initialize YouTube trailer provider (no API key required)

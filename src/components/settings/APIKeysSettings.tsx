@@ -16,6 +16,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
   const [tmdbKey, setTmdbKey] = useState(settings.tmdbApiKey || '');
   const [fanartKey, setFanartKey] = useState(settings.fanartApiKey || '');
   const [tvdbKey, setTvdbKey] = useState(settings.tvdbApiKey || '');
+  const [lastfmKey, setLastfmKey] = useState(settings.lastfmApiKey || '');
   const [subdlKey, setSubdlKey] = useState(settings.subdlApiKey || '');
   const [testingSubdl, setTestingSubdl] = useState(false);
   const [subdlTestResult, setSubdlTestResult] = useState<{
@@ -28,6 +29,7 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
       tmdbApiKey: tmdbKey || undefined,
       fanartApiKey: fanartKey || undefined,
       tvdbApiKey: tvdbKey || undefined,
+      lastfmApiKey: lastfmKey || undefined,
       subdlApiKey: subdlKey || undefined,
     });
   };
@@ -226,6 +228,46 @@ export const APIKeysSettings: React.FC<APIKeysSettingsProps> = ({
               className="text-primary-600 dark:text-primary-400 hover:underline"
             >
               thetvdb.com/api-information
+            </a>
+          </span>
+        </div>
+      </div>
+
+      {/* Last.fm API Key */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+              Last.fm API Key
+            </label>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              Last.fm - Music metadata, artist images, and album artwork
+            </p>
+          </div>
+          <span className="px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 rounded">
+            Recommended
+          </span>
+        </div>
+        <input
+          type="password"
+          value={lastfmKey}
+          onChange={(e) => setLastfmKey(e.target.value)}
+          placeholder="Enter your Last.fm API key"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        />
+        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>
+            Get your free API key at{' '}
+            <a
+              href="https://www.last.fm/api/account/create"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary-600 dark:text-primary-400 hover:underline"
+            >
+              last.fm/api/account/create
             </a>
           </span>
         </div>

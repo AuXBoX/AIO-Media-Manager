@@ -22,6 +22,7 @@ export { DiscogsProvider, createDiscogsProvider } from './DiscogsProvider';
 export { FanartProvider, createFanartProvider } from './FanartProvider';
 export { LastFmProvider, createLastFmProvider } from './LastFmProvider';
 export { AlbumArtExchangeProvider, createAlbumArtExchangeProvider } from './AlbumArtExchangeProvider';
+export { ITunesProvider, createITunesProvider } from './ITunesProvider';
 
 export {
   YouTubeTrailerProvider,

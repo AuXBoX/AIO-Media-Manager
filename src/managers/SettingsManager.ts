@@ -32,6 +32,7 @@ export interface AppSettings {
   fanartApiKey?: string;
   tvdbApiKey?: string;
   subdlApiKey?: string;
+  lastfmApiKey?: string;
 
   // Cache settings
   cacheEnabled: boolean;

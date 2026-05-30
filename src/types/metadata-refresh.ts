@@ -33,7 +33,7 @@ export interface SearchResult {
   summary?: string;
   poster?: string;
   backdrop?: string;
-  provider: 'tmdb' | 'tvdb' | 'imdb';
+  provider: 'tmdb' | 'tvdb' | 'imdb' | 'musicbrainz' | 'lastfm' | 'discogs' | 'albumartexchange' | 'fanart' | 'itunes';
   genres?: string[];
 }
 

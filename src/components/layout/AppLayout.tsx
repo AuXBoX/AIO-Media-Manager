@@ -4,10 +4,9 @@ import { ResponsiveLayout, ResponsiveHeader } from './ResponsiveLayout';
 import { 
   SidebarNav, 
   SidebarSection, 
-  SidebarItem, 
+  SidebarItem,
   SidebarFooter,
   SidebarUser,
-  SidebarDivider
 } from './Sidebar';
 import { useAppStore } from '@/store/appStore';
 import { createPlexClient } from '@/api/plexClient';
@@ -186,12 +185,21 @@ export function AppLayout() {
   return (
     <AudioPlayerProvider>
       <ResponsiveLayout sidebar={sidebar}>
-        <div className="h-full flex flex-col min-h-0 pb-20">
-          <Outlet />
-        </div>
+        <AppContent />
       </ResponsiveLayout>
       <AudioPlayerBar />
       <UpdateNotification />
     </AudioPlayerProvider>
+  );
+}
+
+/** Inner component that can useAudioPlayer context */
+function AppContent() {
+  return (
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <Outlet />
+      </div>
+    </div>
   );
 }

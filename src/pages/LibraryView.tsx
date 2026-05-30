@@ -575,7 +575,7 @@ export function LibraryView() {
 
   if (!data || (allItems.length === 0 && !isLoading && !isFetchingNextPage)) {
     return (
-      <div className="flex flex-col flex-1 min-h-0 bg-background-primary">
+      <div className="h-full flex flex-col min-h-0 bg-background-primary">
         {/* Header / Toolbar with Glass Effect */}
         <div className="sticky top-0 z-50 h-16 px-6 bg-white/75 backdrop-blur-md border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between h-full gap-6">
@@ -608,7 +608,7 @@ export function LibraryView() {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 animate-fade-in">
+    <div className="h-full flex flex-col min-h-0 animate-fade-in">
       {/* Header / Toolbar with Glass Effect */}
       <div className="sticky top-0 z-50 h-16 px-6 bg-white/75 backdrop-blur-md border-b border-border flex-shrink-0">
         <div className="flex items-center justify-between h-full gap-6">
@@ -794,7 +794,7 @@ export function LibraryView() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-hidden flex bg-background-primary" style={{ height: `calc(100vh - ${typeof window !== 'undefined' && (window as any).electron ? 160 : 128}px)` }}>
+      <div className="overflow-hidden bg-background-primary" style={{ height: `calc(100vh - ${typeof window !== 'undefined' && (window as any).electron ? 96 : 64}px)` }}>
         {selectedItem ? (
           <ResizablePanes
             leftPane={
@@ -810,7 +810,7 @@ export function LibraryView() {
                     columns={columns_grid}
                     gap={24}
                     posterSize={posterSize}
-                    estimatedItemHeight={Math.round(posterSize * 1.5) + 120}
+                    estimatedItemHeight={posterSize + 72}
                     onScroll={handleScroll}
                     squarePosters={isMusicLibrary}
                   />
@@ -860,25 +860,23 @@ export function LibraryView() {
             minRightWidth={25}
           />
         ) : (
-          <div className="w-full h-full overflow-hidden relative flex flex-col">
+          <div className="w-full h-full relative">
             {viewMode === 'grid' ? (
-              <div className="flex-1 min-h-0 relative flex flex-col">
-                <div className="flex-1 min-h-0">
-                  <VirtualGrid
-                    ref={gridRef}
-                    items={allItems}
-                    serverUrl={serverConnection?.uri || ''}
-                    token={currentToken || ''}
-                    onItemClick={(item) => setSelectedItem(item)}
-                    getCacheStatus={getCacheStatus}
-                    columns={columns_grid}
-                    gap={24}
-                    posterSize={posterSize}
-                    estimatedItemHeight={Math.round(posterSize * 1.5) + 120}
-                    onScroll={handleScroll}
-                    squarePosters={isMusicLibrary}
-                  />
-                </div>
+              <div className="h-full w-full relative">
+                <VirtualGrid
+                  ref={gridRef}
+                  items={allItems}
+                  serverUrl={serverConnection?.uri || ''}
+                  token={currentToken || ''}
+                  onItemClick={(item) => setSelectedItem(item)}
+                  getCacheStatus={getCacheStatus}
+                  columns={columns_grid}
+                  gap={24}
+                  posterSize={posterSize}
+                  estimatedItemHeight={posterSize + 72}
+                  onScroll={handleScroll}
+                  squarePosters={isMusicLibrary}
+                />
                 {/* Alphabet Jump List - only show in grid view */}
                 <AlphabetJumpList
                   items={allTitles || allItems}
@@ -887,15 +885,14 @@ export function LibraryView() {
                 />
                 {/* Loading indicator */}
                 {isFetchingNextPage && !isBackgroundLoading && (
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-4 py-2 rounded-full shadow-lg">
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white rounded-full shadow-lg px-4 py-2">
                     Loading more...
                   </div>
                 )}
               </div>
             ) : (
-              <>
-                <div className="relative h-full">
-                  <TableListView
+              <div className="h-full w-full relative">
+                <TableListView
                     items={allItems}
                     columns={columns}
                     serverUrl={serverConnection?.uri || ''}
@@ -912,7 +909,6 @@ export function LibraryView() {
                     squarePosters={isMusicLibrary}
                     isMusicLibrary={isMusicLibrary}
                   />
-                </div>
                 {/* Alphabet Jump List */}
                 <AlphabetJumpList
                   items={allTitles || allItems}
@@ -925,7 +921,7 @@ export function LibraryView() {
                     Loading more...
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
         )}

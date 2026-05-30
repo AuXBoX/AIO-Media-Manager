@@ -42,7 +42,7 @@ export interface UserInfo {
  * External Metadata Provider Types
  */
 
-export type ExternalProvider = 'tmdb' | 'imdb' | 'tvdb' | 'musicbrainz' | 'discogs' | 'fanart' | 'lastfm' | 'albumartexchange';
+export type ExternalProvider = 'tmdb' | 'imdb' | 'tvdb' | 'musicbrainz' | 'discogs' | 'fanart' | 'lastfm' | 'albumartexchange' | 'itunes';
 
 export interface SearchResult {
   externalId: string;

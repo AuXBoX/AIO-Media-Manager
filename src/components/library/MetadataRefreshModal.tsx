@@ -20,6 +20,7 @@ import type {
 import { SearchMatchScreen, DetailedReviewScreen } from './metadata-refresh';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { getSettingsManager } from '@/managers/SettingsManager';
 
 interface MetadataRefreshModalProps {
   items: LibraryItem[];
@@ -36,6 +37,9 @@ export function MetadataRefreshModal({
   onClose,
   onComplete,
 }: MetadataRefreshModalProps) {
+  // Check if items are music type
+  const isMusicLibrary = items.some(i => i.type === 'artist' || i.type === 'album' || i.type === 'track');
+  
   // Workflow state
   const [workflowStatus, setWorkflowStatus] = useState<RefreshWorkflowStatus>('options');
   const [currentItemIndex, setCurrentItemIndex] = useState<number>(0);
@@ -86,9 +90,12 @@ export function MetadataRefreshModal({
       const client = createPlexClient({ baseURL: serverUrl, token });
       const metadataManager = createMetadataManager(client);
       
-      // Initialize provider registry - it will use fallback keys if no env keys provided
-      const tmdbApiKey = import.meta.env.VITE_TMDB_API_KEY;
-      const lastfmApiKey = import.meta.env.VITE_LASTFM_API_KEY;
+      // Initialize provider registry - uses settings + env + fallback keys
+      const settingsManager = getSettingsManager();
+      const settings = await settingsManager.getSettings();
+      
+      const tmdbApiKey = import.meta.env['VITE_TMDB_API_KEY'];
+      const lastfmApiKey = settings.lastfmApiKey || import.meta.env['VITE_LASTFM_API_KEY'];
       console.log('[MetadataRefresh] Initializing provider registry:', {
         hasEnvKey: !!tmdbApiKey,
         envKeyLength: tmdbApiKey?.length,
@@ -140,120 +147,147 @@ export function MetadataRefreshModal({
           const isTVContent = mediaType === 'show' || item.type === 'season' || item.type === 'episode';
           const isMusicContent = mediaType === 'artist' || mediaType === 'album' || mediaType === 'track';
           
-          let primaryProvider: ExternalProvider;
-          let fallbackProvider: ExternalProvider | null = null;
-          
           if (isMusicContent) {
-            // For music: Use Last.fm first (has images + genres), MusicBrainz as fallback
-            if (providerRegistry.hasProvider('lastfm')) {
-              primaryProvider = 'lastfm';
-              fallbackProvider = 'musicbrainz';
-            } else {
-              primaryProvider = 'musicbrainz';
-              fallbackProvider = 'discogs';
+            // For music: Search ALL available providers and combine results
+            const musicProviders: ExternalProvider[] = ['lastfm', 'musicbrainz', 'itunes', 'albumartexchange'];
+            
+            for (const provider of musicProviders) {
+              if (!providerRegistry.hasProvider(provider)) continue;
+              try {
+                console.log(`[MetadataRefresh] Searching ${provider.toUpperCase()}...`);
+                const searchQuery = item.type === 'album' && item.parentTitle
+                  ? `${item.parentTitle} ${item.title}`.trim()
+                  : item.title;
+                const providerResults = await providerRegistry.search(
+                  provider as any,
+                  searchQuery,
+                  mediaType,
+                  item.year
+                );
+                console.log(`[MetadataRefresh] ${provider.toUpperCase()} results:`, providerResults.length);
+                
+                // Add results with provider tag, avoiding duplicates by title+year
+                for (const result of providerResults.slice(0, 3)) {
+                  const isDuplicate = results.some(
+                    r => r.title.toLowerCase() === result.title.toLowerCase() && r.year === result.year
+                  );
+                  if (!isDuplicate) {
+                    results.push({
+                      externalId: result.externalId,
+                      title: result.title,
+                      originalTitle: result.originalTitle,
+                      year: result.year,
+                      rating: undefined,
+                      summary: result.summary,
+                      poster: result.thumb,
+                      backdrop: undefined,
+                      provider: provider,
+                      genres: [],
+                    });
+                  }
+                }
+              } catch (error) {
+                console.warn(`[MetadataRefresh] Failed to search ${provider.toUpperCase()}:`, error);
+              }
             }
-          } else if (isTVContent) {
-            // For TV: Use TVDB first, TMDB as fallback
-            primaryProvider = 'tvdb';
-            fallbackProvider = 'tmdb';
+            
+            console.log('[MetadataRefresh] Combined music results:', results.length);
           } else {
-            // For movies: Use TMDB
-            primaryProvider = 'tmdb';
-            fallbackProvider = null;
-          }
-          
-          // For seasons and episodes, use the parent/grandparent title for searching
-          let searchTitle = item.title;
-          if (item.type === 'season' && item.parentTitle) {
-            searchTitle = item.parentTitle;
-          } else if (item.type === 'episode' && item.grandparentTitle) {
-            searchTitle = item.grandparentTitle;
-          }
-          
-          console.log('[MetadataRefresh] Search params:', {
-            originalTitle: item.title,
-            searchTitle,
-            itemType: item.type,
-            primaryProvider,
-          });
-          
-          // Try primary provider first
-          if (providerRegistry.hasProvider(primaryProvider)) {
-            try {
-              console.log(`[MetadataRefresh] Searching ${primaryProvider.toUpperCase()}...`);
-              const primaryResults = await providerRegistry.search(
-                primaryProvider as any,
-                searchTitle,
-                mediaType,
-                item.year
-              );
-              
-              console.log(`[MetadataRefresh] ${primaryProvider.toUpperCase()} results:`, primaryResults.length);
-              
-              // Convert PlexSearchResult to EnhancedSearchResult format
-              results = primaryResults.slice(0, 5).map((result) => ({
-                externalId: result.externalId,
-                title: result.title,
-                originalTitle: result.originalTitle,
-                year: result.year,
-                rating: undefined, // Not available in PlexSearchResult
-                summary: result.summary,
-                poster: result.thumb, // PlexSearchResult uses 'thumb'
-                backdrop: undefined, // Not available in PlexSearchResult
-                provider: primaryProvider as any,
-                genres: [], // Not available in PlexSearchResult
-              }));
-              
-              console.log('[MetadataRefresh] Converted results:', results.length);
-            } catch (error) {
-              console.error(`[MetadataRefresh] Failed to search ${primaryProvider.toUpperCase()} for ${item.title}:`, error);
-              setProgress((prev) => ({
-                ...prev,
-                warnings: [
-                  ...prev.warnings,
-                  { item: item.title, warning: `Failed to search ${primaryProvider.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}` },
-                ],
-              }));
+            // For movies and TV: Use primary + fallback approach
+            let primaryProvider: ExternalProvider;
+            let fallbackProvider: ExternalProvider | null = null;
+
+            if (isTVContent) {
+              primaryProvider = 'tvdb';
+              fallbackProvider = 'tmdb';
+            } else {
+              primaryProvider = 'tmdb';
+              fallbackProvider = null;
             }
-          }
           
-          // Try fallback provider if primary didn't return results
-          if (results.length === 0 && fallbackProvider && providerRegistry.hasProvider(fallbackProvider)) {
-            try {
-              console.log(`[MetadataRefresh] Searching ${fallbackProvider.toUpperCase()} (fallback)...`);
-              const fallbackResults = await providerRegistry.search(
-                fallbackProvider as any,
-                item.title,
-                mediaType,
-                item.year
-              );
-              
-              console.log(`[MetadataRefresh] ${fallbackProvider.toUpperCase()} results:`, fallbackResults.length);
-              
-              // Convert PlexSearchResult to EnhancedSearchResult format
-              results = fallbackResults.slice(0, 5).map((result) => ({
-                externalId: result.externalId,
-                title: result.title,
-                originalTitle: result.originalTitle,
-                year: result.year,
-                rating: undefined,
-                summary: result.summary,
-                poster: result.thumb,
-                backdrop: undefined,
-                provider: fallbackProvider as any,
-                genres: [],
-              }));
-              
-              console.log('[MetadataRefresh] Converted fallback results:', results.length);
-            } catch (error) {
-              console.error(`[MetadataRefresh] Failed to search ${fallbackProvider.toUpperCase()} for ${item.title}:`, error);
-              setProgress((prev) => ({
-                ...prev,
-                warnings: [
-                  ...prev.warnings,
-                  { item: item.title, warning: `Failed to search ${fallbackProvider.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}` },
-                ],
-              }));
+            console.log('[MetadataRefresh] Search params:', {
+              originalTitle: item.title,
+              searchTitle: item.title,
+              itemType: item.type,
+              primaryProvider,
+            });
+            
+            // Try primary provider first
+            if (providerRegistry.hasProvider(primaryProvider)) {
+              try {
+                console.log(`[MetadataRefresh] Searching ${primaryProvider.toUpperCase()}...`);
+                const primaryResults = await providerRegistry.search(
+                  primaryProvider as any,
+                  item.title,
+                  mediaType,
+                  item.year
+                );
+                
+                console.log(`[MetadataRefresh] ${primaryProvider.toUpperCase()} results:`, primaryResults.length);
+                
+                results = primaryResults.slice(0, 5).map((result) => ({
+                  externalId: result.externalId,
+                  title: result.title,
+                  originalTitle: result.originalTitle,
+                  year: result.year,
+                  rating: undefined,
+                  summary: result.summary,
+                  poster: result.thumb,
+                  backdrop: undefined,
+                  provider: primaryProvider,
+                  genres: [],
+                }));
+                
+                console.log('[MetadataRefresh] Converted results:', results.length);
+              } catch (error) {
+                console.error(`[MetadataRefresh] Failed to search ${primaryProvider.toUpperCase()} for ${item.title}:`, error);
+                setProgress((prev) => ({
+                  ...prev,
+                  warnings: [
+                    ...prev.warnings,
+                    { item: item.title, warning: `Failed to search ${primaryProvider.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}` },
+                  ],
+                }));
+              }
+            }
+            
+            // Try fallback provider if primary didn't return results
+            if (results.length === 0 && fallbackProvider && providerRegistry.hasProvider(fallbackProvider)) {
+              try {
+                console.log(`[MetadataRefresh] Searching ${fallbackProvider.toUpperCase()} (fallback)...`);
+                const fallbackResults = await providerRegistry.search(
+                  fallbackProvider as any,
+                  item.title,
+                  mediaType,
+                  item.year
+                );
+                
+                console.log(`[MetadataRefresh] ${fallbackProvider.toUpperCase()} results:`, fallbackResults.length);
+                
+                results = fallbackResults.slice(0, 5).map((result) => ({
+                  externalId: result.externalId,
+                  title: result.title,
+                  originalTitle: result.originalTitle,
+                  year: result.year,
+                  rating: undefined,
+                  summary: result.summary,
+                  poster: result.thumb,
+                  backdrop: undefined,
+                  provider: fallbackProvider,
+                  genres: [],
+                }));
+                
+                console.log('[MetadataRefresh] Converted fallback results:', results.length);
+              } catch (error) {
+                console.error(`[MetadataRefresh] Failed to search ${fallbackProvider.toUpperCase()} for ${item.title}:`, error);
+                setProgress((prev) => ({
+                  ...prev,
+                  warnings: [
+                    ...prev.warnings,
+                    { item: item.title, warning: `Failed to search ${fallbackProvider.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}` },
+                  ],
+                }));
+              }
             }
           }
           
@@ -591,6 +625,24 @@ export function MetadataRefreshModal({
                 }
               } catch (error) {
                 console.warn('[MetadataRefresh] Failed to fetch AlbumArtExchange images:', error);
+              }
+            }
+
+            // Fetch from iTunes for high-quality album artwork
+            if (providerRegistry.hasProvider('itunes') && (selectedResult.provider as string) !== 'itunes') {
+              try {
+                console.log('[MetadataRefresh] Fetching iTunes artwork for:', reviewItem.item.title);
+                const itunesQuery = reviewItem.item.type === 'album'
+                  ? `${reviewItem.item.parentTitle || ''} ${reviewItem.item.title}`.trim()
+                  : reviewItem.item.title;
+                const itunesResults = await providerRegistry.search('itunes', itunesQuery, musicMediaType);
+                if (itunesResults.length > 0 && itunesResults[0]) {
+                  const itunesMeta = await providerRegistry.getDetails('itunes', itunesResults[0].externalId);
+                  if (itunesMeta.posters) allPosters.push(...itunesMeta.posters);
+                  console.log('[MetadataRefresh] iTunes artwork fetched:', itunesMeta.posters?.length || 0);
+                }
+              } catch (error) {
+                console.warn('[MetadataRefresh] Failed to fetch iTunes artwork:', error);
               }
             }
           }
@@ -1300,7 +1352,9 @@ export function MetadataRefreshModal({
                   Fetching Details
                 </h3>
                 <p className="text-sm text-text-secondary mb-2">
-                  Getting metadata, images, trailers, and cast information...
+                  {isMusicLibrary
+                    ? 'Getting metadata and images...'
+                    : 'Getting metadata, images, trailers, and cast information...'}
                 </p>
                 <p className="text-xs text-text-tertiary">
                   {progress.currentItem}
