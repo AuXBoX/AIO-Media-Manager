@@ -31,6 +31,57 @@ class BinaryManager {
   }
 
   /**
+   * Get the bundled binaries directory (from extraResources)
+   */
+  getBundledBinariesDir() {
+    if (app.isPackaged) {
+      // In packaged app, extraResources are at process.resourcesPath
+      return path.join(process.resourcesPath, 'binaries');
+    }
+    return path.join(__dirname, '../build-resources/binaries');
+  }
+
+  /**
+   * Copy bundled binaries to userData if not already present
+   */
+  copyBundledBinaries() {
+    const bundledDir = this.getBundledBinariesDir();
+    const targetDir = this.binariesDir;
+
+    console.log('[BinaryManager] Bundled binaries dir:', bundledDir);
+    console.log('[BinaryManager] Target binaries dir:', targetDir);
+
+    if (!fs.existsSync(bundledDir)) {
+      console.log('[BinaryManager] No bundled binaries found at:', bundledDir);
+      return;
+    }
+
+    // Ensure target directory exists
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const ytdlpName = this.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+    const ffmpegName = this.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+
+    // Copy yt-dlp if not in target
+    const bundledYtdlp = path.join(bundledDir, ytdlpName);
+    const targetYtdlp = path.join(targetDir, ytdlpName);
+    if (fs.existsSync(bundledYtdlp) && !fs.existsSync(targetYtdlp)) {
+      console.log('[BinaryManager] Copying bundled yt-dlp...');
+      fs.copyFileSync(bundledYtdlp, targetYtdlp);
+    }
+
+    // Copy ffmpeg if not in target
+    const bundledFfmpeg = path.join(bundledDir, ffmpegName);
+    const targetFfmpeg = path.join(targetDir, ffmpegName);
+    if (fs.existsSync(bundledFfmpeg) && !fs.existsSync(targetFfmpeg)) {
+      console.log('[BinaryManager] Copying bundled ffmpeg...');
+      fs.copyFileSync(bundledFfmpeg, targetFfmpeg);
+    }
+  }
+
+  /**
    * Download a file from URL with retry logic
    */
   downloadFile(url, dest, retries = 3) {
@@ -182,6 +233,9 @@ class BinaryManager {
     if (!fs.existsSync(this.binariesDir)) {
       fs.mkdirSync(this.binariesDir, { recursive: true });
     }
+
+    // Copy bundled binaries to userData (first run only)
+    this.copyBundledBinaries();
 
     // Set binary paths
     const ytdlpName = this.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';

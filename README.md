@@ -1,5 +1,8 @@
 # AIO Media Manager
 
+Feel free to donate 
+[Tip Jar](https://www.paypal.com/donate/?business=6H5L2S8SAQWBW&no_recurring=0&currency_code=AUD)
+
 A powerful desktop and web application for viewing and editing metadata for movies, TV shows, and music in Plex Media Server libraries.
 
 ## Recent Improvements
