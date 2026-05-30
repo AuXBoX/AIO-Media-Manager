@@ -33,7 +33,7 @@ type MusicViewMode = 'artists' | 'albums';
 export function LibraryView() {
   const { libraryKey } = useParams<{ libraryKey: string }>();
   const { serverConnection, currentToken, selectedLibrary } = useAppStore();
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [musicViewMode, setMusicViewMode] = useState<MusicViewMode>('artists');
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [cachedItems, setCachedItems] = useState<Map<string, { isCached: boolean; isDirty: boolean }>>(new Map());
@@ -786,6 +786,7 @@ export function LibraryView() {
                     isExpandable={isTVShowLibrary || isMusicLibrary}
                     getChildren={isTVShowLibrary || isMusicLibrary ? getChildrenFn : undefined}
                     squarePosters={isMusicLibrary}
+                    isMusicLibrary={isMusicLibrary}
                   />
                 )}
                 {/* Alphabet Jump List - show for all views */}
@@ -865,6 +866,7 @@ export function LibraryView() {
                     isExpandable={isTVShowLibrary || isMusicLibrary}
                     getChildren={isTVShowLibrary || isMusicLibrary ? getChildrenFn : undefined}
                     squarePosters={isMusicLibrary}
+                    isMusicLibrary={isMusicLibrary}
                   />
                 </div>
                 {/* Alphabet Jump List */}

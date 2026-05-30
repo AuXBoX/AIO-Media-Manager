@@ -68,7 +68,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   // UI preferences
   theme: 'system',
-  defaultView: 'grid',
+  defaultView: 'list',
   gridColumns: 4,
   thumbnailQuality: 'medium',
   language: 'en',

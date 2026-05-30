@@ -128,18 +128,18 @@ export function Modal({
         >
           {/* Header */}
           {(title || showCloseButton) && (
-            <div className="flex items-start justify-between p-6 border-b border-border">
+            <div className="flex items-start justify-between px-6 py-4 border-b border-border">
               <div className="flex-1">
                 {title && (
                   <h2
                     id="modal-title"
-                    className="text-xl font-semibold text-text-primary tracking-tight"
+                    className="text-lg font-semibold text-text-primary tracking-tight"
                   >
                     {title}
                   </h2>
                 )}
                 {subtitle && (
-                  <p className="text-sm text-text-tertiary mt-1">
+                  <p className="text-sm text-text-tertiary mt-0.5">
                     {subtitle}
                   </p>
                 )}

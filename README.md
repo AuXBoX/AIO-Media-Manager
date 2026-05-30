@@ -4,7 +4,19 @@ A powerful desktop and web application for viewing and editing metadata for movi
 
 ## Recent Improvements
 
+### Playlist Features (New)
+- **Built-in music playback** - Audio player with full controls and persistent player bar
+- **Advanced playlist management** - Drag-and-drop reordering, add/remove tracks, bulk operations
+- **Import playlists** - Import from CSV or text files with automatic track matching
+- **Cover art management** - Upload custom covers or select from album art
+- **Track matching** - Find better matches for tracks in your library
+- **Missing track detection** - Identify and export tracks not in library
+- **Keyboard shortcuts** - Ctrl+A to select all, Delete to remove, Escape to clear
+
 ### UI/UX Enhancements
+- **Default list view** - First install now shows list view for better information density
+- **Trailer resolution badges** - Color-coded badges showing available resolutions
+- **Compact modal headers** - Reduced wasted space in dialog headers
 - **Alphabet navigation** - Instant jump to any letter in large libraries
 - **Tree view for music and TV shows** - Hierarchical navigation with expand/collapse
 - **Resizable split panes** - Adjust library list and detail panel sizes
@@ -49,7 +61,7 @@ A powerful desktop and web application for viewing and editing metadata for movi
 - **Resizable split panes** - Adjust the size of library list and detail panel
 
 ### Metadata Refresh & Editing
-- **Enhanced metadata refresh workflow** with multi-step process and detailed review
+- **Metadata refresh workflow** with multi-step process and detailed review
 - **Provider-specific refresh options** - Choose MusicBrainz/Discogs for music, TVDB for TV shows
 - Search and match content from TMDB, TVDB, Fanart.tv, MusicBrainz, and Discogs
 - **Detailed review screen** - Preview all changes before applying (metadata, images, trailers, cast)
@@ -58,6 +70,7 @@ A powerful desktop and web application for viewing and editing metadata for movi
 - Support for multiple image types: posters, backgrounds, logos, banners, clearart
 - **Image search and upload** - Search external providers or upload custom images
 - **Trailer search and download** - Search YouTube and download trailers with quality selection
+- **Trailer resolution badges** - Color-coded badges showing available resolutions (4K purple, 2K indigo, 1080p green, 720p blue)
 - **Music video support** - Search and download music videos for tracks
 - **Subtitle management** - Search, download, and manage subtitles for movies and TV shows
 - **Square aspect ratio for music** - Artists, albums, and tracks display with square images
@@ -74,14 +87,21 @@ A powerful desktop and web application for viewing and editing metadata for movi
 - Compatible with Plex, Kodi, Emby, and Jellyfin
 
 ### Playlist Management
-- Create and manage audio playlists
-- Add/remove tracks from playlists
-- Reorder playlist items
+- **Music playback** - Built-in audio player with play/pause, next/previous, queue management
+- **Playlist browsing** - View all playlists with cover art from Plex
+- **Track reordering** - Drag and drop to reorder tracks, or use up/down buttons
+- **Add/remove tracks** - Search library and add tracks with multi-select, bulk remove
+- **Cover art management** - Upload custom covers or choose from album art in playlist
+- **Track matching** - Find better matches for tracks in your library
+- **Missing track detection** - Identify and export tracks not available in library
+- **Import playlists** - Import from CSV or text files with automatic track matching
+- **Keyboard shortcuts** - Ctrl+A to select all, Delete to remove, Escape to clear
 - Support for smart playlists
+- **Audio player bar** - Persistent bottom bar with playback controls and progress
 
 ### Settings & Configuration
 - Configurable API keys for TMDB, Fanart.tv, TVDB, and OpenSubtitles
-- Customizable default view (grid/list)
+- Customizable default view (grid/list) - **defaults to list view on first install**
 - **Adjustable poster sizes with live preview** - Slider from 80px to 320px
 - Adjustable image quality settings
 - Theme support (light/dark mode)
@@ -228,11 +248,22 @@ Alternatively, visit: https://support.plex.tv/articles/204059436-finding-an-auth
 
 ### Managing Playlists
 
-1. Navigate to Playlists section
-2. Create new playlist or select existing
-3. Add tracks by browsing library
-4. Reorder tracks by dragging
-5. Save changes
+1. Navigate to Playlists section from the sidebar
+2. Browse playlists with cover art preview
+3. Click a playlist to view tracks
+4. **Play music** - Click Play All or double-click any track
+5. **Reorder tracks** - Drag the handle icon or use up/down arrows
+6. **Add tracks** - Click "Add Tracks" and search your library
+7. **Remove tracks** - Select tracks with checkboxes and click Remove, or use the X button
+8. **Change cover** - Click the playlist cover to upload or select album art
+9. **Match tracks** - Click "Match" to find better matches for tracks
+10. **Check missing** - Click "Missing" to see tracks not in your library
+11. **Import playlist** - Click the + button to import from CSV or text file
+
+**Keyboard Shortcuts:**
+- `Ctrl+A` - Select all tracks
+- `Delete` - Remove selected tracks
+- `Escape` - Clear selection
 
 ### Configuring API Keys
 
@@ -336,7 +367,9 @@ aio-media-manager/
 ├── src/
 │   ├── api/              # API clients and utilities
 │   ├── components/       # React components
+│   │   ├── audio/        # Audio player components
 │   │   ├── library/      # Library browsing components
+│   │   ├── playlists/    # Playlist management components
 │   │   ├── settings/     # Settings components
 │   │   └── ui/           # Reusable UI components
 │   ├── managers/         # Business logic managers

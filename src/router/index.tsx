@@ -4,6 +4,7 @@ import { ServerSelectionPage } from '@/pages/ServerSelectionPage';
 import { LibraryView } from '@/pages/LibraryView';
 import { MetadataDetailView } from '@/pages/MetadataDetailView';
 import { SettingsView } from '@/pages/SettingsView';
+import { PlaylistsPage } from '@/pages/PlaylistsPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RootRedirect } from './RootRedirect';
@@ -44,6 +45,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <SettingsView />,
+      },
+      {
+        path: 'playlists',
+        element: <PlaylistsPage />,
       },
     ],
   },

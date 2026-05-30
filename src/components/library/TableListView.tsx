@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import type { LibraryItem } from '@/managers/LibraryManager';
 import type { ColumnDefinition } from './ColumnSelector';
 import { formatCellValue } from './columnDefinitions';
+import { useAudioPlayer, type AudioTrack } from '@/components/audio/AudioPlayer';
 
 type RowHeightMode = 'comfortable' | 'compact';
 
@@ -24,6 +25,7 @@ interface TableListViewProps {
   isExpandable?: boolean;
   getChildren?: (item: LibraryItem) => Promise<LibraryItem[]>;
   squarePosters?: boolean;
+  isMusicLibrary?: boolean;
 }
 
 export function TableListView({
@@ -44,11 +46,47 @@ export function TableListView({
   isExpandable = false,
   getChildren,
   squarePosters = false,
+  isMusicLibrary = false,
 }: TableListViewProps) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const parentRef = useRef<HTMLDivElement>(null);
   const [expandedItems, setExpandedItems] = useState<Map<string, { children: LibraryItem[]; isLoading: boolean }>>(new Map());
+  const { play, currentTrack, isPlaying, pause, resume } = useAudioPlayer();
+
+  // Helper to create AudioTrack from LibraryItem
+  const createAudioTrack = (item: LibraryItem): AudioTrack | null => {
+    const media = item['Media']?.[0];
+    const part = media?.['Part']?.[0];
+    if (!part?.key) return null;
+    
+    return {
+      ratingKey: item.ratingKey,
+      title: item.title,
+      artist: item.grandparentTitle || item['originalTitle'],
+      album: item.parentTitle,
+      albumArt: item.parentThumb ? `${serverUrl}${item.parentThumb}?X-Plex-Token=${token}` : 
+               item.thumb ? `${serverUrl}${item.thumb}?X-Plex-Token=${token}` : null,
+      duration: item.duration,
+      streamUrl: `${serverUrl}${part.key}?X-Plex-Token=${token}`,
+    };
+  };
+
+  // Handle play button click
+  const handlePlayTrack = (item: LibraryItem) => {
+    const track = createAudioTrack(item);
+    if (track) {
+      if (currentTrack?.ratingKey === track.ratingKey) {
+        if (isPlaying) {
+          pause();
+        } else {
+          resume();
+        }
+      } else {
+        play(track);
+      }
+    }
+  };
 
   // Build flat list of items with expanded children interleaved
   const flatItems = useCallback(() => {
@@ -202,12 +240,12 @@ export function TableListView({
               className={`px-4 text-xs font-semibold text-[#64748B] uppercase tracking-[0.05em] ${
                 column.sortable ? 'cursor-pointer hover:text-text-secondary transition-colors duration-150' : ''
               }`}
-              style={{ width: column.width || 'auto', minWidth: column.width || 120, flex: column.width ? '0 0 auto' : 1 }}
+              style={{ width: column.width || 'auto', minWidth: column.width || 140, flex: column.width ? '0 0 auto' : 1 }}
               onClick={() => column.sortable && handleSort(column.id)}
               title={column.label}
             >
               <div className="flex items-center gap-2">
-                <span className="whitespace-nowrap overflow-hidden text-ellipsis">{column.label}</span>
+                <span className="whitespace-nowrap">{column.label}</span>
                 {column.sortable && sortColumn === column.id && (
                   <svg
                     className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-150 ${sortDirection === 'desc' ? 'rotate-180' : ''}`}
@@ -267,7 +305,7 @@ export function TableListView({
                     console.log('Item clicked:', item.title, item);
                     onItemClick(item);
                   }}
-                  className={`flex items-center border-b border-border cursor-pointer transition-all duration-150 min-w-max ${
+                  className={`group flex items-center border-b border-border cursor-pointer transition-all duration-150 min-w-max ${
                     isSelected 
                       ? 'bg-primary-50' 
                       : isChecked
@@ -344,7 +382,7 @@ export function TableListView({
                       <div
                         key={column.id}
                         className="px-4 text-sm text-text-primary"
-                        style={{ width: column.width || 'auto', minWidth: column.width || 120, flex: column.width ? '0 0 auto' : 1 }}
+                        style={{ width: column.width || 'auto', minWidth: column.width || 140, flex: column.width ? '0 0 auto' : 1 }}
                       >
                         <div className="flex items-center gap-3 min-w-0" style={indentStyle}>
                           {/* Poster thumbnail for title column - 34x50px or 50x50px for music */}
@@ -379,6 +417,28 @@ export function TableListView({
                                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                 </svg>
                               </span>
+                            )}
+                            
+                            {/* Play button for music tracks */}
+                            {column.id === 'title' && isMusicLibrary && item.type === 'track' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePlayTrack(item);
+                                }}
+                                className="flex-shrink-0 w-6 h-6 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
+                                title={currentTrack?.ratingKey === item.ratingKey && isPlaying ? "Pause" : "Play"}
+                              >
+                                {currentTrack?.ratingKey === item.ratingKey && isPlaying ? (
+                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                  </svg>
+                                )}
+                              </button>
                             )}
                           </div>
                         </div>

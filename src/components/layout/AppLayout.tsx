@@ -13,6 +13,7 @@ import { useAppStore } from '@/store/appStore';
 import { createPlexClient } from '@/api/plexClient';
 import { createLibraryManager, type LibrarySection } from '@/managers/LibraryManager';
 import { queryKeys } from '@/api/queryKeys';
+import { AudioPlayerProvider, AudioPlayerBar } from '@/components/audio/AudioPlayer';
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -115,7 +116,7 @@ export function AppLayout() {
                 key={library.key}
                 icon={getLibraryIcon(library.type)}
                 label={library.title}
-                isActive={selectedLibrary?.key === library.key}
+                isActive={selectedLibrary?.key === library.key && location.pathname.startsWith('/app/library/')}
                 onClick={() => handleLibraryClick(library)}
               />
             ))}
@@ -125,6 +126,21 @@ export function AppLayout() {
             No libraries found
           </div>
         )}
+
+        {/* Playlists */}
+        <div className="sidebar-nav-section">
+          <SidebarItem
+            icon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10M4 18h7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l3 3m0 0l3-3m-3 3V9" />
+              </svg>
+            }
+            label="Playlists"
+            isActive={location.pathname === '/app/playlists'}
+            onClick={() => navigate('/app/playlists')}
+          />
+        </div>
 
         {/* Settings */}
         <div className="sidebar-nav-section">
@@ -166,8 +182,13 @@ export function AppLayout() {
   );
 
   return (
-    <ResponsiveLayout sidebar={sidebar}>
-      <Outlet />
-    </ResponsiveLayout>
+    <AudioPlayerProvider>
+      <ResponsiveLayout sidebar={sidebar}>
+        <div className="pb-20">
+          <Outlet />
+        </div>
+      </ResponsiveLayout>
+      <AudioPlayerBar />
+    </AudioPlayerProvider>
   );
 }

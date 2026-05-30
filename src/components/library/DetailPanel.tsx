@@ -699,7 +699,7 @@ export function DetailPanel({ item, serverUrl, token, onClose }: DetailPanelProp
   const heightOffset = isElectron ? 160 : 128;
 
   return (
-    <div className="flex flex-col relative text-white overflow-hidden bg-[#0F1419] rounded-xl" style={{ height: `calc(100vh - ${heightOffset}px)` }}>
+    <div className="flex flex-col relative overflow-hidden bg-[#F8FAFC] rounded-xl shadow-lg" style={{ height: `calc(100vh - ${heightOffset}px)` }}>
       <Tabs value={activeTab} onChange={(value) => setActiveTab(value as TabType)}>
       {/* Header section - image area + tabs */}
       <div className="flex flex-col flex-shrink-0">

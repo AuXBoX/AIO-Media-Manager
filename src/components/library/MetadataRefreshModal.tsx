@@ -1028,7 +1028,7 @@ export function MetadataRefreshModal({
     <Modal
       isOpen={true}
       onClose={handleClose}
-      title="Enhanced Metadata Refresh"
+      title="Metadata Refresh"
       subtitle={`Refresh metadata for ${items.length} selected ${items.length === 1 ? 'item' : 'items'}`}
       maxWidth="4xl"
       showCloseButton={!isProcessing}

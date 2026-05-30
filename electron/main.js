@@ -104,13 +104,18 @@ app.whenReady().then(async () => {
 });
 
 function createWindow() {
-  // Determine icon path based on platform
-  const iconPath = process.platform === 'win32'
-    ? path.join(__dirname, '../build-resources/icon.ico')
-    : path.join(__dirname, '../build-resources/icon.png');
+  // Use icon.png from root directory
+  const iconPath = path.join(__dirname, '../icon.png');
   
   // Create native image for the icon
   const icon = nativeImage.createFromPath(iconPath);
+  console.log('[Main] Icon path:', iconPath);
+  console.log('[Main] Icon loaded:', !icon.isEmpty(), 'Size:', icon.getSize());
+  
+  // For Windows, also set the app user model ID with the icon
+  if (process.platform === 'win32' && !icon.isEmpty()) {
+    app.setAppUserModelId('com.aiomedia.manager');
+  }
   
   mainWindow = new BrowserWindow({
     width: 1280,

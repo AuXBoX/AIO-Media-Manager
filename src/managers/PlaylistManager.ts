@@ -30,6 +30,21 @@ export interface PlaylistUpdate {
 }
 
 /**
+ * Search result interface for library tracks
+ */
+export interface LibraryTrack {
+  ratingKey: string;
+  key: string;
+  title: string;
+  artist: string;
+  album: string;
+  duration: number;
+  thumb?: string;
+  parentThumb?: string;
+  grandparentThumb?: string;
+}
+
+/**
  * Playlist Manager Interface
  */
 export interface IPlaylistManager {
@@ -45,6 +60,13 @@ export interface IPlaylistManager {
   addToPlaylist(playlistId: string, itemUris: string[]): Promise<void>;
   removeFromPlaylist(playlistId: string, playlistItemId: string): Promise<void>;
   moveInPlaylist(playlistId: string, playlistItemId: string, afterItemId: string): Promise<void>;
+
+  // Cover art
+  uploadCoverArt(playlistId: string, imageData: Blob | ArrayBuffer): Promise<void>;
+  removeCoverArt(playlistId: string): Promise<void>;
+
+  // Search
+  searchLibraryTracks(sectionKey: string, query: string): Promise<LibraryTrack[]>;
 }
 
 /**
@@ -175,6 +197,53 @@ export class PlaylistManager implements IPlaylistManager {
         params: { after: afterItemId },
       }
     );
+  }
+
+  /**
+   * Upload custom cover art for a playlist
+   */
+  async uploadCoverArt(playlistId: string, imageData: Blob | ArrayBuffer): Promise<void> {
+    const formData = new FormData();
+    const blob = imageData instanceof Blob ? imageData : new Blob([imageData], { type: 'image/jpeg' });
+    formData.append('file', blob, 'cover.jpg');
+
+    await this.client.post(`/library/metadata/${playlistId}/posters`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+
+  /**
+   * Remove custom cover art (revert to auto-generated composite)
+   */
+  async removeCoverArt(playlistId: string): Promise<void> {
+    await this.client.delete(`/library/metadata/${playlistId}/posters`);
+  }
+
+  /**
+   * Search library for tracks matching a query
+   */
+  async searchLibraryTracks(sectionKey: string, query: string): Promise<LibraryTrack[]> {
+    const response = await this.client.get<any>(`/library/sections/${sectionKey}/all`, {
+      params: {
+        type: 10, // Track type
+        title: query,
+      },
+    });
+
+    const items = response.MediaContainer?.Metadata || [];
+    return items.map((item: any) => ({
+      ratingKey: item.ratingKey,
+      key: item.key,
+      title: item.title,
+      artist: item.grandparentTitle || item.originalTitle || '',
+      album: item.parentTitle || '',
+      duration: item.duration || 0,
+      thumb: item.thumb,
+      parentThumb: item.parentThumb,
+      grandparentThumb: item.grandparentThumb,
+    }));
   }
 
   /**

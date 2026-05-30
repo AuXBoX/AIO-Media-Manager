@@ -132,6 +132,29 @@ export function TrailerSelector({
                       Studio Channel
                     </span>
                   )}
+                  {/* Available Resolutions */}
+                  {trailer.quality.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {trailer.quality.map((q) => (
+                        <span
+                          key={q}
+                          className={`px-1.5 py-0.5 text-[10px] rounded font-mono font-medium ${
+                            q === '2160p'
+                              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
+                              : q === '1440p'
+                              ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400'
+                              : q === '1080p'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                              : q === '720p'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          {q}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Quality Selection - only show for selected trailers */}

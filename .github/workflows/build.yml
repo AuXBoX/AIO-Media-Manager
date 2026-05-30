@@ -2,11 +2,8 @@ name: Build Executables
 
 on:
   push:
-    branches: [ main, master ]
     tags:
-      - 'v*'
-  pull_request:
-    branches: [ main, master ]
+      - 'v*'  # Only build when a version tag is pushed
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
