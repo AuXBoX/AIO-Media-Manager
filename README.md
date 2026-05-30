@@ -38,13 +38,6 @@ A powerful desktop and web application for viewing and editing metadata for movi
 - **Trailer management** - Automatic naming and local file detection
 - **Subtitle support** - Search and download subtitles from OpenSubtitles
 
-### Bug Fixes
-- Fixed alphabet filter to work across all library items
-- Fixed scroll position calculation for accurate navigation
-- Fixed image aspect ratios for music content
-- Fixed detail panel visibility with alphabet list
-- Fixed hover and selection delays on large libraries
-
 ## Features
 
 ### Library Management
@@ -146,11 +139,6 @@ A powerful desktop and web application for viewing and editing metadata for movi
 - **ytdl-core** - YouTube trailer downloads
 - **music-metadata** - Audio file metadata reading
 - **node-id3** - ID3 tag manipulation
-
-### Testing
-- **Vitest** - Unit testing framework
-- **Playwright** - End-to-end testing
-- **Testing Library** - React component testing
 
 ## Installation
 
@@ -418,52 +406,6 @@ For TV show metadata:
 1. Create account at https://thetvdb.com/
 2. Get API key at https://thetvdb.com/api-information
 3. Add to Settings > API Keys in the app
-
-## Troubleshooting
-
-### Connection Issues
-
-**Problem:** Cannot connect to Plex server
-
-**Solutions:**
-- Verify server URL is correct (include http:// or https://)
-- Check that Plex Media Server is running
-- Verify authentication token is valid
-- Check firewall settings
-- Try using server IP address instead of hostname
-
-### Metadata Not Saving
-
-**Problem:** Local metadata files not being created
-
-**Solutions:**
-- Verify "Save to Local Folder" option is enabled
-- Check file permissions in media directories
-- Ensure media files are in proper folder structure
-- Check Electron app has write permissions
-- Review console logs for errors
-
-### Images Not Loading
-
-**Problem:** Posters or backgrounds not displaying
-
-**Solutions:**
-- Check internet connection
-- Verify Plex server is accessible
-- Clear browser cache
-- Check image transcoding settings
-- Verify API keys are valid (if using custom keys)
-
-### Performance Issues
-
-**Problem:** Slow loading or scrolling
-
-**Solutions:**
-- Reduce poster size in settings
-- Enable image quality optimization
-- Clear cache and restart app
-- Check available system memory
-- Reduce number of items per page
 
 ## Contributing
 

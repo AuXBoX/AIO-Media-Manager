@@ -1,6 +1,6 @@
 {
   "name": "aio-media-manager",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A desktop and web application for viewing and editing metadata for movies, TV shows, and music in Plex Media Server libraries",
   "main": "electron/main.js",
   "scripts": {
@@ -79,6 +79,7 @@
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.12",
     "jsdom": "^25.0.0",
+    "png-to-ico": "^3.0.1",
     "postcss": "^8.4.47",
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.11",
