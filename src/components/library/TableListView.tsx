@@ -202,42 +202,6 @@ export function TableListView({
 
   return (
     <div className="absolute inset-0 flex flex-col bg-background-primary">
-      {/* Floating Bulk Actions Toolbar */}
-      {selectedItems && selectedItems.size > 0 && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 animate-slide-in-down">
-          <div className="bg-white rounded-xl shadow-floating border border-border px-6 py-3 flex items-center gap-4">
-            <span className="text-sm font-medium text-text-secondary">
-              {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
-            </span>
-            <div className="h-6 w-px bg-border" />
-            <button
-              onClick={() => {
-                // Bulk action placeholder
-                console.log('Bulk action on:', Array.from(selectedItems));
-              }}
-              className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
-            >
-              Edit Metadata
-            </button>
-            <button
-              onClick={() => {
-                // Bulk action placeholder
-                console.log('Bulk refresh on:', Array.from(selectedItems));
-              }}
-              className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
-            >
-              Refresh
-            </button>
-            <button
-              onClick={() => onSelectionChange?.(new Set())}
-              className="text-sm font-medium text-text-tertiary hover:text-text-secondary transition-colors"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Table Header - Sticky */}
       <div className="flex-shrink-0 bg-white border-b border-border sticky top-0 z-40 overflow-x-auto">
         <div className="flex items-center h-12 min-w-max pr-8">

@@ -56,8 +56,8 @@ interface TMDBMovieDetails {
     }>;
   };
   images?: {
-    posters?: Array<{ file_path: string }>;
-    backdrops?: Array<{ file_path: string }>;
+    posters?: Array<{ file_path: string; iso_639_1?: string }>;
+    backdrops?: Array<{ file_path: string; iso_639_1?: string }>;
   };
 }
 
@@ -88,9 +88,25 @@ interface TMDBTVDetails {
     }>;
   };
   images?: {
-    posters?: Array<{ file_path: string }>;
-    backdrops?: Array<{ file_path: string }>;
+    posters?: Array<{ file_path: string; iso_639_1?: string }>;
+    backdrops?: Array<{ file_path: string; iso_639_1?: string }>;
   };
+}
+
+interface TMDBCollectionSearchResult {
+  id: number;
+  name: string;
+  original_name?: string;
+  overview?: string;
+  poster_path?: string;
+  backdrop_path?: string;
+  adult: boolean;
+}
+
+interface TMDBCollectionImages {
+  id: number;
+  backdrops?: Array<{ file_path: string; width: number; height: number; iso_639_1?: string }>;
+  posters?: Array<{ file_path: string; width: number; height: number; iso_639_1?: string }>;
 }
 
 /**
@@ -108,7 +124,7 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
   constructor(plexClient: PlexClient, config: TMDBConfig) {
     super(plexClient);
 
-    this.imageBaseURL = config.imageBaseURL || 'https://image.tmdb.org/t/p/w500';
+    this.imageBaseURL = config.imageBaseURL || 'https://image.tmdb.org/t/p/original';
     this.backdropBaseURL = 'https://image.tmdb.org/t/p/original';
 
     this.client = axios.create({
@@ -117,6 +133,29 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
         api_key: config.apiKey,
       },
     });
+  }
+
+  /**
+   * Sort TMDB images with English first, then null language, then other languages
+   */
+  private sortEnglishFirst(images: Array<{ file_path: string; iso_639_1?: string }>): Array<{ file_path: string; iso_639_1?: string }> {
+    return [...images].sort((a, b) => {
+      const langA = a.iso_639_1 || '';
+      const langB = b.iso_639_1 || '';
+      if (langA === 'en' && langB !== 'en') return -1;
+      if (langB === 'en' && langA !== 'en') return 1;
+      if (langA === '' && langB !== '') return -1;
+      if (langB === '' && langA !== '') return 1;
+      return 0;
+    });
+  }
+
+  /**
+   * Map sorted TMDB images to URL strings
+   */
+  private mapImageURLs(images: Array<{ file_path: string; iso_639_1?: string }> | undefined, baseURL: string): string[] {
+    if (!images) return [];
+    return this.sortEnglishFirst(images).map((img) => `${baseURL}${img.file_path}`);
   }
 
   /**
@@ -153,6 +192,67 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
   }
 
   /**
+   * Search for movie collections/franchises on TMDB
+   * Uses the /search/collection endpoint
+   */
+  async searchCollection(query: string): Promise<SearchResult[]> {
+    const response = await this.client.get<{ results: TMDBCollectionSearchResult[] }>(
+      '/search/collection',
+      {
+        params: {
+          query,
+          include_adult: false,
+        },
+      }
+    );
+
+    return response.data.results.map((item) => ({
+      externalId: `collection-${item.id}`,
+      title: item.name || '',
+      originalTitle: item.original_name,
+      year: undefined, // Collections don't have a single year
+      thumb: item.poster_path ? `${this.imageBaseURL}${item.poster_path}` : undefined,
+      summary: item.overview,
+      provider: 'tmdb' as const,
+    }));
+  }
+
+  /**
+   * Get images for a TMDB collection
+   * Uses the /collection/{id}/images endpoint
+   */
+  async getCollectionImages(collectionId: string): Promise<{ posters: string[]; backdrops: string[] }> {
+    const response = await this.client.get<TMDBCollectionImages>(
+      `/collection/${collectionId}/images`,
+      { params: { include_image_language: 'en,null' } }
+    );
+
+    return {
+      posters: this.mapImageURLs(response.data.posters, this.imageBaseURL),
+      backdrops: this.mapImageURLs(response.data.backdrops, this.backdropBaseURL),
+    };
+  }
+
+  /**
+   * Get collection details (title, overview, poster, backdrop)
+   */
+  private async getCollectionDetails(id: string): Promise<ExternalMetadata> {
+    const response = await this.client.get<any>(`/collection/${id}`);
+    const imagesResponse = await this.client.get<TMDBCollectionImages>(`/collection/${id}/images`, { params: { include_image_language: 'en,null' } });
+
+    return {
+      externalId: `collection-${id}`,
+      title: response.data.name || '',
+      originalTitle: response.data.original_name,
+      summary: response.data.overview,
+      year: undefined,
+      posters: this.mapImageURLs(imagesResponse.data.posters, this.imageBaseURL),
+      backdrops: this.mapImageURLs(imagesResponse.data.backdrops, this.backdropBaseURL),
+      provider: 'tmdb',
+    };
+  }
+
+  /**
    * Get detailed metadata for a movie or TV show
    */
   async getDetails(externalId: string): Promise<ExternalMetadata> {
@@ -164,7 +264,10 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
 
     const mediaType = parts[0];
     
-    if (mediaType === 'movie') {
+    if (mediaType === 'collection') {
+      const id = parts.slice(1).join('-');
+      return this.getCollectionDetails(id);
+    } else if (mediaType === 'movie') {
       const id = parts.slice(1).join('-');
       return this.getMovieDetails(id);
     } else if (mediaType === 'tv') {
@@ -199,6 +302,7 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
     const response = await this.client.get<TMDBMovieDetails>(`/movie/${id}`, {
       params: {
         append_to_response: 'credits,images',
+        include_image_language: 'en,null',
       },
     });
 
@@ -227,8 +331,8 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
         department: c.department,
         profilePath: c.profile_path ? `${this.imageBaseURL}${c.profile_path}` : undefined,
       })),
-      posters: movie.images?.posters?.map((p) => `${this.imageBaseURL}${p.file_path}`),
-      backdrops: movie.images?.backdrops?.map((b) => `${this.backdropBaseURL}${b.file_path}`),
+      posters: this.mapImageURLs(movie.images?.posters, this.imageBaseURL),
+      backdrops: this.mapImageURLs(movie.images?.backdrops, this.backdropBaseURL),
       provider: 'tmdb',
     };
   }
@@ -240,6 +344,7 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
     const response = await this.client.get<TMDBTVDetails>(`/tv/${id}`, {
       params: {
         append_to_response: 'credits,images',
+        include_image_language: 'en,null',
       },
     });
 
@@ -268,8 +373,8 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
         department: c.department,
         profilePath: c.profile_path ? `${this.imageBaseURL}${c.profile_path}` : undefined,
       })),
-      posters: show.images?.posters?.map((p) => `${this.imageBaseURL}${p.file_path}`),
-      backdrops: show.images?.backdrops?.map((b) => `${this.backdropBaseURL}${b.file_path}`),
+      posters: this.mapImageURLs(show.images?.posters, this.imageBaseURL),
+      backdrops: this.mapImageURLs(show.images?.backdrops, this.backdropBaseURL),
       provider: 'tmdb',
     };
   }
@@ -280,9 +385,9 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
   private async getSeasonDetails(seriesId: string, seasonNumber: number): Promise<ExternalMetadata> {
     try {
       // Fetch season images
-      const response = await this.client.get(`/tv/${seriesId}/season/${seasonNumber}/images`);
+      const response = await this.client.get(`/tv/${seriesId}/season/${seasonNumber}/images`, { params: { include_image_language: 'en,null' } });
       
-      const posters = response.data.posters?.map((p: any) => `${this.imageBaseURL}${p.file_path}`) || [];
+      const posters = this.mapImageURLs(response.data.posters, this.imageBaseURL);
       
       // Also fetch series info for metadata
       const seriesResponse = await this.client.get<TMDBTVDetails>(`/tv/${seriesId}`);
@@ -311,9 +416,9 @@ export class TMDBProvider extends BaseExternalMetadataProvider {
   private async getEpisodeDetails(seriesId: string, seasonNumber: number, episodeNumber: number): Promise<ExternalMetadata> {
     try {
       // Fetch episode images
-      const response = await this.client.get(`/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}/images`);
+      const response = await this.client.get(`/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}/images`, { params: { include_image_language: 'en,null' } });
       
-      const stills = response.data.stills?.map((s: any) => `${this.imageBaseURL}${s.file_path}`) || [];
+      const stills = this.mapImageURLs(response.data.stills, this.imageBaseURL);
       
       // Also fetch episode info for metadata
       const episodeResponse = await this.client.get(`/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}`);

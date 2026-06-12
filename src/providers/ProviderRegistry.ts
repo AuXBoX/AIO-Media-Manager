@@ -1,7 +1,7 @@
 import { PlexClient } from '@/api/plexClient';
 import { ExternalProvider, MediaType, SearchResult, ExternalMetadata } from '@/types';
 import { IExternalMetadataProvider } from './ExternalMetadataProvider';
-import { createTMDBProvider } from './TMDBProvider';
+import { createTMDBProvider, TMDBProvider } from './TMDBProvider';
 import { createIMDBProvider } from './IMDBProvider';
 import { createMusicBrainzProvider } from './MusicBrainzProvider';
 import { createTVDBProvider } from './TVDBProvider';
@@ -11,6 +11,7 @@ import { createLastFmProvider } from './LastFmProvider';
 import { createAlbumArtExchangeProvider } from './AlbumArtExchangeProvider';
 import { createITunesProvider } from './ITunesProvider';
 import { createYouTubeTrailerProvider, YouTubeTrailerProvider } from './YouTubeTrailerProvider';
+import { createPlexOnlineProvider } from './PlexOnlineProvider';
 
 /**
  * Provider Configuration
@@ -42,6 +43,9 @@ export interface ProviderConfig {
     enabled: boolean;
   };
   itunes?: {
+    enabled: boolean;
+  };
+  plex?: {
     enabled: boolean;
   };
   youtube?: {
@@ -176,6 +180,13 @@ export class ProviderRegistry {
       this.providers.set('itunes', itunesProvider);
     }
 
+    // Initialize Plex online provider (uses Plex's own Discover database)
+    const plexToken = this.plexClient.getConfig().token;
+    if (config.plex?.enabled !== false && plexToken) {
+      const plexProvider = createPlexOnlineProvider(this.plexClient, plexToken);
+      this.providers.set('plex', plexProvider);
+    }
+
     // Initialize YouTube trailer provider (no API key required)
     if (config.youtube?.enabled !== false) {
       this.youtubeProvider = createYouTubeTrailerProvider(this.plexClient);
@@ -268,6 +279,17 @@ export class ProviderRegistry {
   }
 
   /**
+   * Search for movie collections using TMDB's /search/collection endpoint
+   */
+  async searchCollection(query: string): Promise<SearchResult[]> {
+    const tmdbProvider = this.providers.get('tmdb');
+    if (!tmdbProvider) {
+      throw new Error('TMDB provider not available for collection search');
+    }
+    return (tmdbProvider as TMDBProvider).searchCollection(query);
+  }
+
+  /**
    * Get details from a specific provider
    */
   async getDetails(provider: ExternalProvider, externalId: string): Promise<ExternalMetadata> {
@@ -314,6 +336,8 @@ export class ProviderRegistry {
         return type === 'artist' || type === 'album' || type === 'track';
       case 'fanart':
         return type === 'movie' || type === 'show' || type === 'artist' || type === 'album';
+      case 'plex':
+        return type === 'movie' || type === 'show';
       default:
         return false;
     }

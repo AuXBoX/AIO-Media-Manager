@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Collection, CollectionManager } from '@/managers/CollectionManager';
-import { MetadataItem } from '@/managers/MetadataManager';
+import { Collection, CollectionManager, CollectionItem } from '@/managers/CollectionManager';
 import { PlexClient } from '@/api/plexClient';
 import { Button } from '@/components/ui/Button';
+import { CollectionImageSearch } from './CollectionImageSearch';
 
 interface CollectionEditorProps {
   collection: Collection;
@@ -27,11 +27,15 @@ export function CollectionEditor({
 }: CollectionEditorProps) {
   const [title, setTitle] = useState(collection.title);
   const [summary, setSummary] = useState(collection.summary || '');
-  const [items, setItems] = useState<MetadataItem[]>([]);
+  const [items, setItems] = useState<CollectionItem[]>([]);
   const [_loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [showImageSearch, setShowImageSearch] = useState(false);
+  const [posterUrl, setPosterUrl] = useState<string | null>(
+    collection.thumb ? `${serverUrl}${collection.thumb}?X-Plex-Token=${token}` : null
+  );
 
   useEffect(() => {
     loadItems();
@@ -41,10 +45,8 @@ export function CollectionEditor({
     try {
       setLoading(true);
       const manager = new CollectionManager(client);
-      const _collectionData = await manager.getCollection(collection.ratingKey);
-      // Note: In a real implementation, you'd fetch the actual items
-      // For now, we'll just show the collection metadata
-      setItems([]);
+      const collectionItems = await manager.getCollectionItems(collection.ratingKey);
+      setItems(collectionItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load items');
     } finally {
@@ -89,7 +91,7 @@ export function CollectionEditor({
     }
   };
 
-  const handleRemoveItem = async (item: MetadataItem) => {
+  const handleRemoveItem = async (item: CollectionItem) => {
     try {
       const manager = new CollectionManager(client);
       await manager.removeFromCollection(collection.ratingKey, item.ratingKey);
@@ -176,32 +178,63 @@ export function CollectionEditor({
           )}
 
           <div className="space-y-4">
-            {/* Title */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Title
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Collection title"
-              />
-            </div>
+            {/* Poster and Title section */}
+            <div className="flex gap-4">
+              {/* Poster */}
+              <div className="flex-shrink-0">
+                <div className="w-32 h-48 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden relative group">
+                  {posterUrl ? (
+                    <img
+                      src={posterUrl}
+                      alt={collection.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowImageSearch(true)}
+                  className="mt-2 w-full text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
+                >
+                  Search Artwork
+                </button>
+              </div>
 
-            {/* Summary */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Summary
-              </label>
-              <textarea
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Collection description"
-              />
+              {/* Title and Summary */}
+              <div className="flex-1 space-y-4">
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Collection title"
+                  />
+                </div>
+
+                {/* Summary */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Summary
+                  </label>
+                  <textarea
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Collection description"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Items count */}
@@ -249,7 +282,7 @@ export function CollectionEditor({
                         <img
                           src={`${serverUrl}${item.thumb}?X-Plex-Token=${token}`}
                           alt={item.title}
-                          className="w-12 h-12 object-cover rounded"
+                          className="w-10 h-14 object-cover rounded"
                         />
                       )}
                       <div className="flex-1 min-w-0">
@@ -317,6 +350,22 @@ export function CollectionEditor({
           </div>
         </div>
       </div>
+
+      {/* Image Search Modal */}
+      {showImageSearch && (
+        <CollectionImageSearch
+          collection={collection}
+          serverUrl={serverUrl}
+          token={token}
+          onClose={() => setShowImageSearch(false)}
+          onImageUpdated={() => {
+            setShowImageSearch(false);
+            // Refresh poster URL
+            setPosterUrl(`${serverUrl}${collection.thumb}?X-Plex-Token=${token}&t=${Date.now()}`);
+            onSave?.();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { createPlexClient } from '@/api/plexClient';
 import { createMetadataManager } from '@/managers/MetadataManager';
 import { createLocalMetadataManager } from '@/managers/LocalMetadataManager';
 import { createProviderRegistry } from '@/providers/ProviderRegistry';
+import { PlexOnlineProvider } from '@/providers/PlexOnlineProvider';
 import type { ExternalMetadata, MediaType, SearchResult as PlexSearchResult, ExternalProvider } from '@/types';
 import type {
   RefreshWorkflowStatus,
@@ -39,7 +40,6 @@ export function MetadataRefreshModal({
 }: MetadataRefreshModalProps) {
   // Check if items are music type
   const isMusicLibrary = items.some(i => i.type === 'artist' || i.type === 'album' || i.type === 'track');
-  
   // Workflow state
   const [workflowStatus, setWorkflowStatus] = useState<RefreshWorkflowStatus>('options');
   const [currentItemIndex, setCurrentItemIndex] = useState<number>(0);
@@ -56,6 +56,7 @@ export function MetadataRefreshModal({
     downloadTrailers: false,
     preferredTrailerQuality: '1080p',
     maxTrailersPerItem: 1,
+    matchMode: 'confirm',
   });
 
   // Progress tracking
@@ -146,10 +147,40 @@ export function MetadataRefreshModal({
           // Determine providers based on media type
           const isTVContent = mediaType === 'show' || item.type === 'season' || item.type === 'episode';
           const isMusicContent = mediaType === 'artist' || mediaType === 'album' || mediaType === 'track';
+          const isCollectionItem = item.type === 'collection';
           
-          if (isMusicContent) {
+          if (isCollectionItem) {
+            // For collections: Use TMDB collection search
+            console.log('[MetadataRefresh] Searching for collection:', item.title);
+            try {
+              const collectionResults = await providerRegistry.searchCollection(item.title);
+              console.log('[MetadataRefresh] Collection search results:', collectionResults.length);
+              
+              results = collectionResults.slice(0, 5).map((result) => ({
+                externalId: result.externalId,
+                title: result.title,
+                originalTitle: result.originalTitle,
+                year: result.year,
+                rating: undefined,
+                summary: result.summary,
+                poster: result.thumb,
+                backdrop: undefined,
+                provider: 'tmdb',
+                genres: [],
+              }));
+            } catch (error) {
+              console.error(`[MetadataRefresh] Failed to search collection for ${item.title}:`, error);
+              setProgress((prev) => ({
+                ...prev,
+                warnings: [
+                  ...prev.warnings,
+                  { item: item.title, warning: `Failed to search collection: ${error instanceof Error ? error.message : 'Unknown error'}` },
+                ],
+              }));
+            }
+          } else if (isMusicContent) {
             // For music: Search ALL available providers and combine results
-            const musicProviders: ExternalProvider[] = ['lastfm', 'musicbrainz', 'itunes', 'albumartexchange'];
+            const musicProviders: ExternalProvider[] = ['lastfm', 'musicbrainz', 'itunes', 'albumartexchange', 'plex'];
             
             for (const provider of musicProviders) {
               if (!providerRegistry.hasProvider(provider)) continue;
@@ -193,39 +224,37 @@ export function MetadataRefreshModal({
             
             console.log('[MetadataRefresh] Combined music results:', results.length);
           } else {
-            // For movies and TV: Use primary + fallback approach
-            let primaryProvider: ExternalProvider;
-            let fallbackProvider: ExternalProvider | null = null;
-
-            if (isTVContent) {
-              primaryProvider = 'tvdb';
-              fallbackProvider = 'tmdb';
-            } else {
-              primaryProvider = 'tmdb';
-              fallbackProvider = null;
-            }
+            // For movies and TV: Use provider array with fallback chain
+            const searchProviders: ExternalProvider[] = isTVContent
+              ? ['tvdb', 'tmdb', 'plex']
+              : ['tmdb', 'plex'];
           
             console.log('[MetadataRefresh] Search params:', {
               originalTitle: item.title,
               searchTitle: item.title,
               itemType: item.type,
-              primaryProvider,
+              searchProviders,
             });
             
-            // Try primary provider first
-            if (providerRegistry.hasProvider(primaryProvider)) {
+            // Try each provider in order until we get results
+            for (const provider of searchProviders) {
+              if (results.length > 0) break;
+              if (!providerRegistry.hasProvider(provider)) {
+                console.log(`[MetadataRefresh] Provider ${provider.toUpperCase()} not available, skipping`);
+                continue;
+              }
               try {
-                console.log(`[MetadataRefresh] Searching ${primaryProvider.toUpperCase()}...`);
-                const primaryResults = await providerRegistry.search(
-                  primaryProvider as any,
+                console.log(`[MetadataRefresh] Searching ${provider.toUpperCase()}...`);
+                const providerResults = await providerRegistry.search(
+                  provider as any,
                   item.title,
                   mediaType,
                   item.year
                 );
                 
-                console.log(`[MetadataRefresh] ${primaryProvider.toUpperCase()} results:`, primaryResults.length);
+                console.log(`[MetadataRefresh] ${provider.toUpperCase()} results:`, providerResults.length);
                 
-                results = primaryResults.slice(0, 5).map((result) => ({
+                results = providerResults.slice(0, 5).map((result) => ({
                   externalId: result.externalId,
                   title: result.title,
                   originalTitle: result.originalTitle,
@@ -234,57 +263,18 @@ export function MetadataRefreshModal({
                   summary: result.summary,
                   poster: result.thumb,
                   backdrop: undefined,
-                  provider: primaryProvider,
+                  provider: provider,
                   genres: [],
                 }));
                 
                 console.log('[MetadataRefresh] Converted results:', results.length);
               } catch (error) {
-                console.error(`[MetadataRefresh] Failed to search ${primaryProvider.toUpperCase()} for ${item.title}:`, error);
+                console.error(`[MetadataRefresh] Failed to search ${provider.toUpperCase()} for ${item.title}:`, error);
                 setProgress((prev) => ({
                   ...prev,
                   warnings: [
                     ...prev.warnings,
-                    { item: item.title, warning: `Failed to search ${primaryProvider.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}` },
-                  ],
-                }));
-              }
-            }
-            
-            // Try fallback provider if primary didn't return results
-            if (results.length === 0 && fallbackProvider && providerRegistry.hasProvider(fallbackProvider)) {
-              try {
-                console.log(`[MetadataRefresh] Searching ${fallbackProvider.toUpperCase()} (fallback)...`);
-                const fallbackResults = await providerRegistry.search(
-                  fallbackProvider as any,
-                  item.title,
-                  mediaType,
-                  item.year
-                );
-                
-                console.log(`[MetadataRefresh] ${fallbackProvider.toUpperCase()} results:`, fallbackResults.length);
-                
-                results = fallbackResults.slice(0, 5).map((result) => ({
-                  externalId: result.externalId,
-                  title: result.title,
-                  originalTitle: result.originalTitle,
-                  year: result.year,
-                  rating: undefined,
-                  summary: result.summary,
-                  poster: result.thumb,
-                  backdrop: undefined,
-                  provider: fallbackProvider,
-                  genres: [],
-                }));
-                
-                console.log('[MetadataRefresh] Converted fallback results:', results.length);
-              } catch (error) {
-                console.error(`[MetadataRefresh] Failed to search ${fallbackProvider.toUpperCase()} for ${item.title}:`, error);
-                setProgress((prev) => ({
-                  ...prev,
-                  warnings: [
-                    ...prev.warnings,
-                    { item: item.title, warning: `Failed to search ${fallbackProvider.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}` },
+                    { item: item.title, warning: `Failed to search ${provider.toUpperCase()}: ${error instanceof Error ? error.message : 'Unknown error'}` },
                   ],
                 }));
               }
@@ -366,8 +356,16 @@ export function MetadataRefreshModal({
 
       setReviewItems(searchResults);
       setCurrentItemIndex(0);
-      setWorkflowStatus('match-review');
-      setProgress((prev) => ({ ...prev, status: 'match-review' }));
+
+      if (options.matchMode === 'auto') {
+        // Auto mode: skip match-review, use first (best) result for all items
+        console.log('[MetadataRefresh] Auto-match mode: using best match for all items');
+        fetchDetailsMutation.mutate(searchResults);
+      } else {
+        // Confirm mode: let user review each match
+        setWorkflowStatus('match-review');
+        setProgress((prev) => ({ ...prev, status: 'match-review' }));
+      }
     },
   });
 
@@ -387,7 +385,7 @@ export function MetadataRefreshModal({
       setCurrentItemIndex((prev) => prev + 1);
     } else {
       // All matches confirmed, fetch details
-      fetchDetailsMutation.mutate();
+      fetchDetailsMutation.mutate(undefined);
     }
   };
 
@@ -403,7 +401,7 @@ export function MetadataRefreshModal({
     if (currentItemIndex < items.length - 1) {
       setCurrentItemIndex((prev) => prev + 1);
     } else {
-      fetchDetailsMutation.mutate();
+      fetchDetailsMutation.mutate(undefined);
     }
   };
 
@@ -422,18 +420,23 @@ export function MetadataRefreshModal({
     const mediaType = getMediaType(item);
 
     try {
-      console.log('[MetadataRefresh] Custom search:', { query, mediaType });
-      const tmdbResults = await providerRegistry.search('tmdb', query, mediaType);
-      console.log('[MetadataRefresh] Custom search results:', tmdbResults.length);
+      console.log('[MetadataRefresh] Custom search:', { query, mediaType, isCollection: item.type === 'collection' });
+      let searchResults;
+      if (item.type === 'collection') {
+        searchResults = await providerRegistry.searchCollection(query);
+      } else {
+        searchResults = await providerRegistry.search('tmdb', query, mediaType);
+      }
+      console.log('[MetadataRefresh] Custom search results:', searchResults.length);
 
-      const results: EnhancedSearchResult[] = tmdbResults.slice(0, 5).map((result) => ({
+      const results: EnhancedSearchResult[] = searchResults.slice(0, 5).map((result) => ({
         externalId: result.externalId,
         title: result.title,
         originalTitle: result.originalTitle,
         year: result.year,
         rating: undefined,
         summary: result.summary,
-        poster: result.thumb, // PlexSearchResult uses 'thumb'
+        poster: result.thumb,
         backdrop: undefined,
         provider: 'tmdb' as const,
         genres: [],
@@ -454,7 +457,7 @@ export function MetadataRefreshModal({
 
   // Fetch Details Mutation - Get full metadata, images, trailers, cast
   const fetchDetailsMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (itemsOverride?: EnhancedReviewItem[]) => {
       const client = createPlexClient({ baseURL: serverUrl, token });
       const tmdbApiKey = import.meta.env['VITE_TMDB_API_KEY'];
       const fanartApiKey = import.meta.env['VITE_FANART_API_KEY'];
@@ -467,6 +470,8 @@ export function MetadataRefreshModal({
       const providerRegistry = createProviderRegistry(client, config);
       const youtubeProvider = providerRegistry.getYouTubeProvider();
 
+      const currentReviewItems = itemsOverride || reviewItems;
+
       setWorkflowStatus('fetching-details');
       setProgress((prev) => ({
         ...prev,
@@ -476,10 +481,10 @@ export function MetadataRefreshModal({
 
       const updatedItems: EnhancedReviewItem[] = [];
 
-      for (let i = 0; i < reviewItems.length; i++) {
-        const reviewItem = reviewItems[i];
+      for (let i = 0; i < currentReviewItems.length; i++) {
+        const reviewItem = currentReviewItems[i];
         if (!reviewItem || !reviewItem.selected) {
-          updatedItems.push(reviewItem);
+          if (reviewItem) updatedItems.push(reviewItem);
           continue;
         }
 
@@ -547,8 +552,9 @@ export function MetadataRefreshModal({
           if (externalMetadata.posters) allPosters.push(...externalMetadata.posters);
           if (externalMetadata.backdrops) allBackgrounds.push(...externalMetadata.backdrops);
 
-          // Try to fetch from Fanart.tv if available
-          if (providerRegistry.hasProvider('fanart')) {
+          // Try to fetch from Fanart.tv if available (skip for collections)
+          const isCollectionItem = reviewItem.item.type === 'collection';
+          if (!isCollectionItem && providerRegistry.hasProvider('fanart')) {
             try {
               // Extract ID for Fanart.tv
               let fanartId = selectedResult.externalId;
@@ -581,6 +587,40 @@ export function MetadataRefreshModal({
             } catch (error) {
               console.warn('[MetadataRefresh] Failed to fetch Fanart.tv images:', error);
               // Continue without Fanart.tv images
+            }
+          }
+
+          // Try to fetch from Plex Discover if available (skip for collections)
+          if (!isCollectionItem && providerRegistry.hasProvider('plex')) {
+            try {
+              const plexProvider = providerRegistry.getProvider('plex') as PlexOnlineProvider | undefined;
+              if (plexProvider) {
+                let plexId: string | null = null;
+
+                if (selectedResult.provider === 'plex') {
+                  // Already a Plex result, use its ID directly
+                  plexId = selectedResult.externalId.replace('plex-', '');
+                } else {
+                  // Search Plex for the item to get its ID
+                  const plexResults = await providerRegistry.search('plex', reviewItem.item.title, getMediaType(reviewItem.item), reviewItem.item.year);
+                  if (plexResults.length > 0 && plexResults[0]) {
+                    plexId = plexResults[0].externalId.replace('plex-', '');
+                  }
+                }
+
+                if (plexId) {
+                  console.log('[MetadataRefresh] Fetching Plex images for ID:', plexId);
+                  const plexImages = await plexProvider.getImages(plexId);
+                  allPosters.push(...plexImages.posters);
+                  allBackgrounds.push(...plexImages.backdrops);
+                  console.log('[MetadataRefresh] Plex images fetched:', {
+                    posters: plexImages.posters.length,
+                    backgrounds: plexImages.backdrops.length,
+                  });
+                }
+              }
+            } catch (error) {
+              console.warn('[MetadataRefresh] Failed to fetch Plex images:', error);
             }
           }
 
@@ -805,10 +845,11 @@ export function MetadataRefreshModal({
           }));
 
           const { metadata, images, trailers, cast } = reviewItem;
+          const isCollectionItem = reviewItem.item.type === 'collection';
 
-          // Build update parameters
+          // Build update parameters (Plex type: 1=movie, 2=show, 18=collection)
           const updateParams: any = {
-            type: reviewItem.item.type === 'show' ? 2 : 1,
+            type: isCollectionItem ? 18 : reviewItem.item.type === 'show' ? 2 : 1,
           };
 
           if (options.refreshMetadata) {
@@ -1169,6 +1210,43 @@ export function MetadataRefreshModal({
                     </p>
                   </div>
                 </div>
+
+                {/* Match Mode */}
+                {items.length > 1 && (
+                  <div>
+                    <h3 className="text-base font-semibold text-text-primary mb-4">
+                      Match Mode
+                    </h3>
+                    <div className="bg-primary-50 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-text-primary">
+                          How to Match
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            size="small"
+                            variant={options.matchMode === 'auto' ? 'primary' : 'secondary'}
+                            onClick={() => setOptions({ ...options, matchMode: 'auto' })}
+                          >
+                            Auto-Pick Best
+                          </Button>
+                          <Button
+                            size="small"
+                            variant={options.matchMode === 'confirm' ? 'primary' : 'secondary'}
+                            onClick={() => setOptions({ ...options, matchMode: 'confirm' })}
+                          >
+                            Confirm Each
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-text-tertiary">
+                        {options.matchMode === 'auto'
+                          ? 'Automatically uses the top search result for each item. Fastest option.'
+                          : 'Review and confirm the best match for each item before applying changes.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Checkbox Options */}
                 <div className="space-y-4">

@@ -6,12 +6,11 @@ import { GeneralSettings } from '@/components/settings/GeneralSettings';
 import { CacheSettings } from '@/components/settings/CacheSettings';
 import { LocalMetadataSettings } from '@/components/local-metadata/LocalMetadataSettings';
 import { PerformanceSettings } from '@/components/settings/PerformanceSettings';
-import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { APIKeysSettings } from '@/components/settings/APIKeysSettings';
 import { BinarySettings } from '@/components/settings/BinarySettings';
 import { useAppStore } from '@/store/appStore';
 
-type SettingsTab = 'general' | 'apikeys' | 'binaries' | 'cache' | 'metadata' | 'performance' | 'privacy';
+type SettingsTab = 'general' | 'apikeys' | 'binaries' | 'cache' | 'metadata' | 'performance';
 
 /**
  * Logout Button - small inline component for settings sidebar
@@ -127,7 +126,6 @@ export const SettingsView: React.FC = () => {
     { id: 'cache', label: 'Cache & Offline' },
     { id: 'metadata', label: 'Local Metadata' },
     { id: 'performance', label: 'Performance' },
-    { id: 'privacy', label: 'Privacy' },
   ];
 
   if (loading) {
@@ -267,14 +265,6 @@ export const SettingsView: React.FC = () => {
 
               {activeTab === 'performance' && (
                 <PerformanceSettings
-                  settings={settings}
-                  onSave={handleSave}
-                  saving={saving}
-                />
-              )}
-
-              {activeTab === 'privacy' && (
-                <PrivacySettings
                   settings={settings}
                   onSave={handleSave}
                   saving={saving}

@@ -124,17 +124,33 @@ export function AppLayout() {
             ))}
           </div>
         ) : libraries && libraries.length > 0 ? (
-          <SidebarSection title="Libraries">
-            {libraries.map((library) => (
+          <>
+            <SidebarSection title="Libraries">
+              {libraries.map((library) => (
+                <SidebarItem
+                  key={library.key}
+                  icon={getLibraryIcon(library.type)}
+                  label={library.title}
+                  isActive={selectedLibrary?.key === library.key && location.pathname.startsWith('/app/library/')}
+                  onClick={() => handleLibraryClick(library)}
+                />
+              ))}
+            </SidebarSection>
+
+            {/* Collections - only show for movie libraries */}
+            {selectedLibrary?.type === 'movie' && (
               <SidebarItem
-                key={library.key}
-                icon={getLibraryIcon(library.type)}
-                label={library.title}
-                isActive={selectedLibrary?.key === library.key && location.pathname.startsWith('/app/library/')}
-                onClick={() => handleLibraryClick(library)}
+                icon={
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                }
+                label="Collections"
+                isActive={location.pathname.startsWith('/app/collections/')}
+                onClick={() => navigate(`/app/collections/${selectedLibrary.key}`)}
               />
-            ))}
-          </SidebarSection>
+            )}
+          </>
         ) : (
           <div className="px-4 py-3 text-sm text-center" style={{ color: '#94A3B8' }}>
             No libraries found

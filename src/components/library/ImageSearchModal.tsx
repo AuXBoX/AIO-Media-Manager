@@ -4,6 +4,8 @@ import type { LibraryItem } from '@/managers/LibraryManager';
 import { createPlexClient } from '@/api/plexClient';
 import { createMetadataManager } from '@/managers/MetadataManager';
 import { createProviderRegistry } from '@/providers/ProviderRegistry';
+import { TMDBProvider } from '@/providers/TMDBProvider';
+import { PlexOnlineProvider } from '@/providers/PlexOnlineProvider';
 import { getSettingsManager } from '@/managers/SettingsManager';
 import type { SearchResult } from '@/types';
 import { Modal } from '@/components/ui/Modal';
@@ -15,6 +17,7 @@ interface ImageSearchModalProps {
   token: string;
   onClose: () => void;
   onImageSelected: () => void;
+  isCollectionSearch?: boolean;
 }
 
 interface ImageResult {
@@ -33,6 +36,7 @@ export function ImageSearchModal({
   token,
   onClose,
   onImageSelected,
+  isCollectionSearch = false,
 }: ImageSearchModalProps) {
   const [step, setStep] = useState<Step>('search');
   const [selectedMatch, setSelectedMatch] = useState<SearchResult | null>(null);
@@ -144,17 +148,32 @@ export function ImageSearchModal({
         
         console.log('[ImageSearch] Available providers:', providerRegistry.getAvailableProviders());
         
+        // Collection search: use TMDB /search/collection only
+        // Plex Discover returns individual movies/shows, not collections, so it's not suitable here
+        if (isCollectionSearch) {
+          const tmdbProvider = providerRegistry.getProvider('tmdb') as TMDBProvider | undefined;
+          if (!tmdbProvider) {
+            console.error('[ImageSearch] TMDB provider not available for collection search');
+            return [];
+          }
+
+          console.log('[ImageSearch] Searching TMDB collections for:', searchTitle);
+          const collectionResults = await tmdbProvider.searchCollection(searchTitle);
+          console.log('[ImageSearch] TMDB collection results:', collectionResults.length);
+          return collectionResults;
+        }
+        
         // Determine providers based on content type
         let providers: string[];
         if (isMusic) {
-          // Music: Use Last.fm, MusicBrainz, iTunes, AlbumArtExchange, Discogs
-          providers = ['lastfm', 'itunes', 'albumartexchange', 'discogs'];
+          // Music: Use Last.fm, MusicBrainz, iTunes, AlbumArtExchange, Discogs, Plex
+          providers = ['lastfm', 'itunes', 'albumartexchange', 'discogs', 'plex'];
         } else if (isTVShow) {
-          // TV shows: Try TVDB first (if available), then TMDB
-          providers = ['tvdb', 'tmdb'];
+          // TV shows: Try TVDB first (if available), then TMDB, then Plex
+          providers = ['tvdb', 'tmdb', 'plex'];
         } else {
-          // Movies: Use TMDB
-          providers = ['tmdb'];
+          // Movies: Use TMDB, then Plex as fallback
+          providers = ['tmdb', 'plex'];
         }
         
         let results: SearchResult[] = [];
@@ -242,6 +261,78 @@ export function ImageSearchModal({
         if (lastfmApiKey) config.lastfm = { apiKey: lastfmApiKey };
         
         const providerRegistry = createProviderRegistry(client, config);
+        
+        // Collection images: use TMDB /collection/{id}/images endpoint
+        if (isCollectionSearch && selectedMatch.externalId.startsWith('collection-')) {
+          const tmdbProvider = providerRegistry.getProvider('tmdb') as TMDBProvider | undefined;
+          if (!tmdbProvider) {
+            console.error('[ImageSearch] TMDB provider not available for collection images');
+            return [];
+          }
+          
+          const collectionId = selectedMatch.externalId.replace('collection-', '');
+          console.log('[ImageSearch] Fetching collection images for ID:', collectionId);
+          const collectionImages = await tmdbProvider.getCollectionImages(collectionId);
+          
+          const allPosters: ImageResult[] = collectionImages.posters.map((url) => ({
+            url,
+            width: 0,
+            height: 0,
+            type: 'poster' as const,
+            provider: 'TMDB',
+          }));
+          
+          const allBackgrounds: ImageResult[] = collectionImages.backdrops.map((url) => ({
+            url,
+            width: 0,
+            height: 0,
+            type: 'background' as const,
+            provider: 'TMDB',
+          }));
+          
+          console.log('[ImageSearch] Collection images:', {
+            posters: allPosters.length,
+            backgrounds: allBackgrounds.length,
+          });
+          
+          return [...allPosters, ...allBackgrounds];
+        }
+
+        // Plex Discover images: use Plex metadata provider for posters and backdrops
+        if (selectedMatch.externalId.startsWith('plex-')) {
+          const plexProvider = providerRegistry.getProvider('plex') as PlexOnlineProvider | undefined;
+          if (!plexProvider) {
+            console.error('[ImageSearch] Plex provider not available for image fetch');
+            return [];
+          }
+
+          const plexId = selectedMatch.externalId.replace('plex-', '');
+          console.log('[ImageSearch] Fetching Plex images for ID:', plexId);
+          const plexImages = await plexProvider.getImages(plexId);
+
+          const allPosters: ImageResult[] = plexImages.posters.map((url) => ({
+            url,
+            width: 0,
+            height: 0,
+            type: 'poster' as const,
+            provider: 'Plex',
+          }));
+
+          const allBackgrounds: ImageResult[] = plexImages.backdrops.map((url) => ({
+            url,
+            width: 0,
+            height: 0,
+            type: 'background' as const,
+            provider: 'Plex',
+          }));
+
+          console.log('[ImageSearch] Plex images:', {
+            posters: allPosters.length,
+            backgrounds: allBackgrounds.length,
+          });
+
+          return [...allPosters, ...allBackgrounds];
+        }
         
         // Extract ID from externalId (format: "movie-123", "tv-456", "series-789")
         let tmdbId: string | null = null;

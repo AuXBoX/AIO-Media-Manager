@@ -26,6 +26,19 @@ export interface Collection {
 export interface CollectionUpdate {
   title?: string;
   summary?: string;
+  thumb?: string;
+  art?: string;
+}
+
+/**
+ * Collection item interface
+ */
+export interface CollectionItem {
+  ratingKey: string;
+  title: string;
+  year?: number;
+  thumb?: string;
+  type: string;
 }
 
 /**
@@ -35,9 +48,11 @@ export interface ICollectionManager {
   // Collections
   getCollections(sectionId: string): Promise<Collection[]>;
   getCollection(collectionId: string): Promise<Collection>;
+  getCollectionItems(collectionId: string): Promise<CollectionItem[]>;
   createCollection(sectionId: string, title: string): Promise<Collection>;
   deleteCollection(collectionId: string): Promise<void>;
   updateCollection(collectionId: string, updates: CollectionUpdate): Promise<void>;
+  updateCollectionPoster(collectionId: string, imageUrl: string): Promise<void>;
 
   // Items
   addToCollection(collectionId: string, ratingKeys: string[]): Promise<void>;
@@ -73,6 +88,22 @@ export class CollectionManager implements ICollectionManager {
     }
 
     return this.mapCollection(response.MediaContainer.Metadata[0]);
+  }
+
+  /**
+   * Get items in a collection
+   */
+  async getCollectionItems(collectionId: string): Promise<CollectionItem[]> {
+    const response = await this.client.get<any>(`/library/collections/${collectionId}/children`);
+
+    const items = response.MediaContainer?.Metadata || [];
+    return items.map((item: any) => ({
+      ratingKey: item.ratingKey,
+      title: item.title,
+      year: item.year,
+      thumb: item.thumb,
+      type: item.type,
+    }));
   }
 
   /**
@@ -121,6 +152,28 @@ export class CollectionManager implements ICollectionManager {
     }
 
     await this.client.put(`/library/metadata/${collectionId}`, null, { params });
+  }
+
+  /**
+   * Update collection poster from URL
+   */
+  async updateCollectionPoster(collectionId: string, imageUrl: string): Promise<void> {
+    // First, download the image data
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+    }
+
+    const imageBlob = await imageResponse.blob();
+    const formData = new FormData();
+    formData.append('thumb', imageBlob, 'poster.jpg');
+
+    // Upload to Plex
+    await this.client.post(`/library/metadata/${collectionId}/posters`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   }
 
   /**

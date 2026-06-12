@@ -33,7 +33,7 @@ export interface SearchResult {
   summary?: string;
   poster?: string;
   backdrop?: string;
-  provider: 'tmdb' | 'tvdb' | 'imdb' | 'musicbrainz' | 'lastfm' | 'discogs' | 'albumartexchange' | 'fanart' | 'itunes';
+  provider: 'tmdb' | 'tvdb' | 'imdb' | 'musicbrainz' | 'lastfm' | 'discogs' | 'albumartexchange' | 'fanart' | 'itunes' | 'plex';
   genres?: string[];
 }
 
@@ -159,6 +159,13 @@ export interface EnhancedReviewItem {
 }
 
 /**
+ * Match mode for search results
+ * - 'auto': Auto-pick the best (first) match for all items
+ * - 'confirm': Let user review and confirm each match
+ */
+export type MatchMode = 'auto' | 'confirm';
+
+/**
  * Refresh options
  */
 export interface RefreshOptions {
@@ -172,6 +179,7 @@ export interface RefreshOptions {
   downloadTrailers: boolean;
   preferredTrailerQuality: '2160p' | '1080p' | '720p' | '480p' | '360p';
   maxTrailersPerItem: number;
+  matchMode: MatchMode;
 }
 
 /**
